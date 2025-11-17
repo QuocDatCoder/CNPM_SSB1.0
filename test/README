@@ -1,0 +1,8 @@
+Hard_code chi de test ngon ngu code 
+de chay client 
+cd CNPM_SSB1.0\client
+npm start
+
+de chay server 
+cd CNPM_SSB1.0\hard_code
+node server.js
