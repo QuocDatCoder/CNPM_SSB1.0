@@ -126,16 +126,14 @@ CREATE TABLE `Schedules` (
 
 -- --------------------------------------------------------
 
---
 -- Bảng 9: `ScheduleStudents` (Học Sinh Trên Lịch Trình)
--- *** CẬP NHẬT: Thêm 'daxuong' và `seat_id` từ Figma ***
+-- *** CẬP NHẬT: Đã bỏ cột seat_id ***
 --
 CREATE TABLE `ScheduleStudents` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `schedule_id` INT NOT NULL,
   `student_id` INT NOT NULL,
   `stop_id` INT NOT NULL,
-  `seat_id` INT DEFAULT NULL, -- Chỗ ngồi của học sinh trên chuyến này
   
   -- choxacnhan = chưa lên xe
   -- dihoc = đang trên xe (màu xanh lá)
@@ -148,7 +146,6 @@ CREATE TABLE `ScheduleStudents` (
   FOREIGN KEY (`schedule_id`) REFERENCES `Schedules`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`student_id`) REFERENCES `Students`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`stop_id`) REFERENCES `Stops`(`id`),
-  FOREIGN KEY (`seat_id`) REFERENCES `Seats`(`id`) ON DELETE SET NULL, -- Liên kết ghế
   UNIQUE KEY `student_on_schedule` (`schedule_id`, `student_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
