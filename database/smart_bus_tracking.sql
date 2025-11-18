@@ -42,20 +42,6 @@ CREATE TABLE `Buses` (
 
 -- --------------------------------------------------------
 
---
--- Bảng 3: `Seats` (Ghế ngồi trên xe)
--- *** MỚI: Thêm bảng này từ Figma ***
---
-CREATE TABLE `Seats` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `bus_id` INT NOT NULL,
-  `seat_number` VARCHAR(10) NOT NULL,
-  
-  FOREIGN KEY (`bus_id`) REFERENCES `Buses`(`id`) ON DELETE CASCADE,
-  UNIQUE KEY `bus_seat_unique` (`bus_id`, `seat_number`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
 
 --
 -- Bảng 4: `Stops` (Điểm Dừng)
