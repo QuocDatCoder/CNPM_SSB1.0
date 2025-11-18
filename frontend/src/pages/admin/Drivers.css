@@ -1,0 +1,129 @@
+/* Simple styles to approximate the screenshot layout */
+.drivers-page {
+  flex: 1;
+  padding: 20px 30px;
+  background: linear-gradient( #0aa662, #95f6cd);
+}
+
+.drivers-header {
+display: flex;
+position: relative;
+z-index: 2;
+margin-top: -30px; /* lift header up past .drivers-page padding */
+margin-left: -30px; /* stretch to page edges (compensate .drivers-page padding) */
+width: calc(100% + 60px);;
+box-sizing: border-box;
+
+/* increased header height */
+padding: 28px 30px;
+min-height: 200x;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.header-image {
+  width: 100%;
+    height: 160px;
+  /* object-fit: cover; */
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+.drivers-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.add-btn {
+  background: #c7f2f9;
+  color: rgb(24, 23, 23);
+  border: none;
+  padding: 8px 14px;    
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.search-input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.drivers-table {
+  margin-top: 12px;
+}
+
+.table-head, .table-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 160px 160px 140px;
+  gap: 12px;
+  align-items: center;
+}
+
+.table-head {
+  background: #000;
+  color: #fff;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.table-row {
+  background: linear-gradient(180deg, #d8d9d8, #f6f7f7);
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.06);
+}
+
+.table-row .col {
+  color: #000;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.info-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #333;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.delete-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: none;
+  background: #e63946;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.delete-btn img {
+  width: 16px;
+  height: auto;
+}
+
+.no-results {
+  margin-top: 18px;
+  color: #666;
+}
