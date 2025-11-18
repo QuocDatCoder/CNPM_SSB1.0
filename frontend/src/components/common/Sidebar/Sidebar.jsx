@@ -11,13 +11,19 @@ const menuItems = [
   { icon: "/icons/message.png", label: "Tin nhắn", divider: true },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ active, onSelect }) {
   return (
     <div className="sidebar">
       {menuItems.map((item, index) => (
         <React.Fragment key={index}>
           {item.divider && <hr className="divider" />}
-          <div className="menu-item">
+          <div
+            className={`menu-item ${active === item.label ? "active" : ""}`}
+            onClick={() => onSelect && onSelect(item.label)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && onSelect && onSelect(item.label)}
+          >
             <img src={item.icon} alt={item.label} className="menu-icon" />
             <span>{item.label}</span>
           </div>
