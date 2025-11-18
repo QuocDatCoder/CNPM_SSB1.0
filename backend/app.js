@@ -25,6 +25,8 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 // 4. Routes
+const routeRoutes = require('./src/api/routes/route.routes'); // Import
+app.use('/api/routes', routeRoutes); // Kích hoạt: Mọi cái bắt đầu bằng /api/routes sẽ vào đây
 app.get('/', (req, res) => {
   res.json({ message: 'Server SSB1.0 đang chạy ổn định!' });
 });
