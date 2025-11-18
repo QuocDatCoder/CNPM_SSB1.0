@@ -1,11 +1,12 @@
 --
 -- Seeder (Gieo dữ liệu) cho CSDL smart_bus_tracking_optimized
--- Dùng để tạo dữ liệu mẫu cho việc phát triển và kiểm thử.
+-- *** ĐÃ CẬP NHẬT (v2) ĐỂ KHỚP VỚI THIẾT KẾ FIGMA ***
+--
 -- Mật khẩu mặc định cho các tài khoản mẫu là: 'user123'
 -- Mật khẩu cho admin là: 'admin123'
 --
 -- Hash cho 'admin123': $2a$10$wE.L4g/CVi3505mRfsAL5.LwG0W7KE4D/G0RzFz.z.j8G.0t4/t.O
--- Hash cho 'user123':  $2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A
+-- Hash cho 'user123' (ví dụ):  $2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A
 --
 
 USE `smart_bus_tracking_optimized`;
@@ -32,7 +33,6 @@ ON DUPLICATE KEY UPDATE `bien_so_xe` = `bien_so_xe`;
 
 -- --------------------------------------------------------
 -- Bảng 3: Stops (4 điểm dừng)
--- Tọa độ ví dụ quanh TP.HCM
 -- --------------------------------------------------------
 INSERT INTO `Stops` (`id`, `ten_diem`, `dia_chi`, `latitude`, `longitude`) VALUES
 (1, 'KTX Khu A ĐHQG', 'Đ. Tạ Quang Bửu, Đông Hoà, Dĩ An', 10.8827, 106.8045),
@@ -61,36 +61,36 @@ ON DUPLICATE KEY UPDATE `stop_id` = `stop_id`;
 
 -- --------------------------------------------------------
 -- Bảng 6: Students (3 học sinh)
+-- *** CẬP NHẬT: Thêm ngay_sinh, gioi_tinh, gvcn từ Figma ***
 -- --------------------------------------------------------
-INSERT INTO `Students` (`id`, `ho_ten`, `lop`, `parent_id`, `default_stop_id`) VALUES
-(1, 'Nguyễn Văn An', '6A1', 4, 1), -- Con của Phụ huynh 1, đón ở KTX
-(2, 'Trần Thị Bình', '7B2', 5, 2), -- Con của Phụ huynh 2, đón ở Ngã tư Thủ Đức
-(3, 'Lê Văn Cường', '6A1', 4, 3)  -- Con của Phụ huynh 1, đón ở Marie Curie (ví dụ tuyến đón về)
+INSERT INTO `Students` (`id`, `ho_ten`, `lop`, `parent_id`, `default_stop_id`, `ngay_sinh`, `gioi_tinh`, `gvcn`) VALUES
+(1, 'Nguyễn Văn An', '6A1', 4, 1, '2015-01-10', 'Nam', 'Cô Lan'),
+(2, 'Trần Thị Bình', '7B2', 5, 2, '2014-05-20', 'Nữ', 'Thầy Hùng'),
+(3, 'Lê Văn Cường', '6A1', 4, 3, '2015-03-15', 'Nam', 'Cô Lan')
 ON DUPLICATE KEY UPDATE `ho_ten` = `ho_ten`;
 
 -- --------------------------------------------------------
 -- Bảng 7: Schedules (Phân công 2 chuyến cho HÔM NAY)
--- CURDATE() sẽ lấy ngày hiện tại.
 -- --------------------------------------------------------
 INSERT INTO `Schedules` (`id`, `route_id`, `driver_id`, `bus_id`, `ngay_chay`, `trang_thai`) VALUES
 (1, 1, 2, 1, CURDATE(), 'chuabatdau'), -- Chuyến 1 (Tuyến 1), Tài xế 1, Xe 1, Hôm nay, Chưa bắt đầu
 (2, 2, 3, 2, CURDATE(), 'dangchay')  -- Chuyến 2 (Tuyến 2), Tài xế 2, Xe 2, Hôm nay, Đang chạy
 ON DUPLICATE KEY UPDATE `route_id` = `route_id`;
 
--- --------------------------------------------------------
+-- ---------------------------------------------------------
 -- Bảng 8: ScheduleStudents (Điểm danh học sinh cho 2 chuyến)
+-- *** ĐÃ CẬP NHẬT: Đã bỏ cột seat_id ***
 -- --------------------------------------------------------
 INSERT INTO `ScheduleStudents` (`schedule_id`, `student_id`, `stop_id`, `trang_thai_don`) VALUES
--- Học sinh cho Chuyến 1
-(1, 1, 1, 'choxacnhan'), -- Em An, đi chuyến 1, đón ở điểm 1
-(1, 3, 3, 'choxacnhan'), -- Em Cường, đi chuyến 1, đón ở điểm 3
--- Học sinh cho Chuyến 2
-(2, 2, 2, 'dihoc') -- Em Bình, đi chuyến 2, đón ở điểm 2, đã được đón
+-- Học sinh cho Chuyến 1 (Đi xe 1)
+(1, 1, 1, 'choxacnhan'), -- Em An, đi chuyến 1, đón ở điểm 1 (KTX)
+(1, 3, 3, 'choxacnhan'), -- Em Cường, đi chuyến 1, đón ở điểm 3 (Marie Curie)
+-- Học sinh cho Chuyến 2 (Đi xe 2)
+(2, 2, 2, 'dihoc')       -- Em Bình, đi chuyến 2, đón ở điểm 2 (Thủ Đức), đã được đón
 ON DUPLICATE KEY UPDATE `trang_thai_don` = `trang_thai_don`;
 
 -- --------------------------------------------------------
 -- Bảng 9: LocationHistory (Mô phỏng 3 điểm vị trí cho Chuyến 2 đang chạy)
--- NOW() - INTERVAL ... : Lấy thời gian hiện tại trừ đi 1-5 phút
 -- --------------------------------------------------------
 INSERT INTO `LocationHistory` (`schedule_id`, `latitude`, `longitude`, `timestamp`) VALUES
 (2, 10.8495, 106.7720, NOW() - INTERVAL 5 MINUTE), -- Vị trí 5 phút trước
