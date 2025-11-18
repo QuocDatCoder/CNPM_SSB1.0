@@ -77,16 +77,16 @@ INSERT INTO `Schedules` (`id`, `route_id`, `driver_id`, `bus_id`, `ngay_chay`, `
 (2, 2, 3, 2, CURDATE(), 'dangchay')  -- Chuyến 2 (Tuyến 2), Tài xế 2, Xe 2, Hôm nay, Đang chạy
 ON DUPLICATE KEY UPDATE `route_id` = `route_id`;
 
--- --------------------------------------------------------
+-- ---------------------------------------------------------
 -- Bảng 8: ScheduleStudents (Điểm danh học sinh cho 2 chuyến)
--- *** CẬP NHẬT: Thêm seat_id từ Figma ***
+-- *** ĐÃ CẬP NHẬT: Đã bỏ cột seat_id ***
 -- --------------------------------------------------------
-INSERT INTO `ScheduleStudents` (`schedule_id`, `student_id`, `stop_id`, `trang_thai_don`, `seat_id`) VALUES
+INSERT INTO `ScheduleStudents` (`schedule_id`, `student_id`, `stop_id`, `trang_thai_don`) VALUES
 -- Học sinh cho Chuyến 1 (Đi xe 1)
-(1, 1, 1, 'choxacnhan', 1), -- Em An, đi chuyến 1, đón ở điểm 1, ngồi ghế A1 (ID=1)
-(1, 3, 3, 'choxacnhan', 2), -- Em Cường, đi chuyến 1, đón ở điểm 3, ngồi ghế A2 (ID=2)
+(1, 1, 1, 'choxacnhan'), -- Em An, đi chuyến 1, đón ở điểm 1 (KTX)
+(1, 3, 3, 'choxacnhan'), -- Em Cường, đi chuyến 1, đón ở điểm 3 (Marie Curie)
 -- Học sinh cho Chuyến 2 (Đi xe 2)
-(2, 2, 2, 'dihoc', 9) -- Em Bình, đi chuyến 2, đón ở điểm 2, đã được đón, ngồi ghế S1 (ID=9)
+(2, 2, 2, 'dihoc')       -- Em Bình, đi chuyến 2, đón ở điểm 2 (Thủ Đức), đã được đón
 ON DUPLICATE KEY UPDATE `trang_thai_don` = `trang_thai_don`;
 
 -- --------------------------------------------------------
