@@ -22,10 +22,16 @@ export default function Sidebar({ active, onSelect }) {
             onClick={() => onSelect && onSelect(item.label)}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => e.key === "Enter" && onSelect && onSelect(item.label)}
+            onKeyDown={(e) =>
+              e.key === "Enter" && onSelect && onSelect(item.label)
+            }
           >
-            <img src={item.icon} alt={item.label} className="menu-icon" />
-            <span>{item.label}</span>
+            <div className="item-icon">
+              <img src={item.icon} alt={item.label} className="menu-icon" />
+            </div>
+            <div className="label-icon">
+              <span>{item.label}</span>
+            </div>
           </div>
         </React.Fragment>
       ))}

@@ -1,7 +1,12 @@
 import React, { useState } from "react";
 import Sidebar from "./components/common/Sidebar/Sidebar";
 import Dashboard from "./pages/admin/Dashboard";
+import Bus from "./pages/admin/Bus";
 import Drivers from "./pages/admin/Drivers";
+import Schedule from "./pages/admin/Schedule";
+import Student from "./pages/admin/Student";
+import Message from "./pages/admin/Message";
+import RouteManagement from "./pages/admin/RouteManagement";
 import "./index.css";
 
 export default function App() {
@@ -9,8 +14,18 @@ export default function App() {
 
   function renderPage() {
     switch (page) {
+      case "Xe buýt":
+        return <Bus />;
       case "Tài xế":
         return <Drivers />;
+      case "Tuyến đường":
+        return <RouteManagement />;
+      case "Lịch trình":
+        return <Schedule />;
+      case "Học sinh":
+        return <Student />;
+      case "Tin nhắn":
+        return <Message />;
       case "Trang chủ":
       default:
         return <Dashboard />;

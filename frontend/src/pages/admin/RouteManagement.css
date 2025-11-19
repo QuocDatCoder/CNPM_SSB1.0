@@ -1,4 +1,4 @@
-.bus-page {
+.route-page {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -7,20 +7,20 @@
 }
 
 /* Content */
-.bus-content {
+.route-content {
   padding: 30px 40px;
   position: relative;
 }
 
-.bus-grid {
+.route-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 25px;
   margin-bottom: 30px;
 }
 
-/* Bus Card */
-.bus-card {
+/* Route Card */
+.route-card {
   background-color: white;
   border-radius: 12px;
   overflow: hidden;
@@ -29,28 +29,28 @@
   border: 3px solid #4ade80;
 }
 
-.bus-card:hover {
+.route-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
-.bus-image-container {
+.route-map-container {
   width: 100%;
   height: 180px;
-  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  background-color: #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* padding: 20px; */
+  overflow: hidden;
 }
 
-.bus-image {
+.route-map {
   width: 100%;
-  height: 110%;
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
 }
 
-.bus-info {
+.route-info {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
@@ -59,34 +59,35 @@
   color: white;
 }
 
-.bus-details {
+.route-details {
   margin-bottom: 12px;
 }
 
-.bus-details p {
+.route-details p {
   margin: 5px 0;
   font-size: 13px;
 }
 
-.bus-id {
+.route-id {
   font-weight: 600;
 }
 
-.bus-route,
-.bus-status {
+.route-distance,
+.route-duration,
+.route-stations,
+.route-endpoints {
   opacity: 0.9;
 }
 
-.bus-actions {
+.route-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
   align-items: center;
-  /* width: 77px; */
 }
 
-.action-btn-bus {
-  padding: 6px 12px;
+.route-action-btn {
+  /* padding: 6px 12px; */
   border-radius: 5px;
   border: none;
   cursor: pointer;
@@ -96,40 +97,45 @@
   align-items: center;
   gap: 5px;
 }
-
-.view-btn-bus {
-  /* background-color: #4ade80; */
+.route-view-btn-container {
+  width: 100%;
+  height: 70%;
+  position: relative;
+}
+.route-view-btn {
   background: linear-gradient(180deg, #04b85b 0%, #025229 100%);
   width: 100%;
+  height: 40%;
   color: white;
   flex: 1;
   font-weight: 500;
+  position: absolute;
+  bottom: 3px;
 }
 
-.view-btn-bus:hover {
+.route-view-btn:hover {
   background-color: #22c55e;
 }
 
-.icon {
+.route-icon {
   font-size: 16px;
 }
-.edit-delete-btn {
+
+.route-edit-delete-btn {
   display: flex;
   flex-direction: row;
   width: 100%;
-  /* gap: 5px; */
-  box-sizing: border-box;
   justify-content: space-between;
   gap: 5px;
 }
 
-.edit-btn-container,
-.delete-btn-container {
+.route-edit-btn-container,
+.route-delete-btn-container {
   width: 50%;
   box-sizing: border-box;
 }
-.delete-btn-bus {
-  /* background-color: #ef4444; */
+
+.route-delete-btn {
   background: radial-gradient(circle, #ff0000 36%, #ab0000 100%);
   color: white;
   width: 100%;
@@ -141,8 +147,7 @@
   font-size: 16px;
 }
 
-.edit-btn-bus {
-  /* background-color: #fbbf24; */
+.route-edit-btn {
   background: radial-gradient(circle, #c7d104 0%, #666b02 100%);
   color: white;
   width: 100%;
@@ -153,23 +158,24 @@
   justify-content: center;
   font-size: 16px;
 }
-.delete-btn-bus img,
-.edit-btn-bus img {
+
+.route-delete-btn img,
+.route-edit-btn img {
   width: 40%;
   height: 36px;
   object-fit: contain;
 }
 
-.edit-btn-bus:hover {
+.route-edit-btn:hover {
   background-color: #f59e0b;
 }
 
-.delete-btn-bus:hover {
+.route-delete-btn:hover {
   background-color: #dc2626;
 }
 
 /* Add Button */
-.add-btn {
+.route-add-btn {
   position: fixed;
   bottom: 40px;
   right: 40px;
@@ -188,32 +194,21 @@
   justify-content: center;
 }
 
-.add-btn:hover {
+.route-add-btn:hover {
   background-color: #22c55e;
   transform: scale(1.1);
   box-shadow: 0 6px 16px rgba(74, 222, 128, 0.5);
 }
 
-.plus-icon {
+.route-plus-icon {
   line-height: 1;
   font-weight: 300;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .bus-grid {
+  .route-grid {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 20px;
-  }
-
-  .bus-header {
-    flex-direction: column;
-    gap: 15px;
-    align-items: flex-start;
-  }
-
-  .header-actions {
-    width: 100%;
-    justify-content: space-between;
   }
 }

@@ -67,8 +67,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 15px;
+  gap: 20px;
   min-height: 150px;
+  position: relative;
+}
+.prev-btn {
+  left: 5px;
+}
+.next-btn {
+  right: 5px;
 }
 
 .banner::before {
@@ -92,20 +99,20 @@
   z-index: 2;
 }
 
-.routes-container {
+.dashboard-routes-container {
   display: flex;
-  gap: 20px;
+  gap: 40px;
   justify-content: center;
   flex: 1;
   max-width: 900px;
 }
 
-.route-card {
+.dashboard-route-card {
   background-color: rgba(0, 50, 37, 0.6);
   color: white;
   border-radius: 12px;
   padding-top: 20px;
-  width: 200px;
+  width: 220px;
   text-align: center;
   flex-shrink: 0;
   box-shadow: inset 0 0 20px 10px rgba(255, 255, 255, 0.5),
@@ -114,11 +121,11 @@
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.route-card:hover {
+.dashboard-route-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
-.route {
+.dashboard-route {
   display: flex;
   flex-direction: row;
 
@@ -126,16 +133,16 @@
   align-content: center;
   justify-content: center;
 }
-.route-icon {
+.dashboard-route-icon {
   width: 40%;
   box-sizing: border-box;
 }
-.route-name {
+.dashboard-route-name {
   width: 60%;
   box-sizing: border-box;
 }
 
-.route-icon {
+.dashboard-route-icon {
   width: 40px;
   height: 40px;
   background-color: rgba(255, 255, 255, 0.2);
@@ -145,35 +152,56 @@
   justify-content: center;
   margin: 0 auto 12px;
 }
-.infor-route {
+.dashboard-infor-route {
   background-color: white;
   padding: 5px;
   color: black;
   border-radius: 0px 0px 12px 12px;
 }
 
-.route-card h3 {
+.dashboard-route-card h3 {
   font-size: 18px;
   /* margin: 10px 0; */
   margin-left: -70px;
   font-weight: 600;
 }
 
-.route-street {
+.dashboard-route-street {
   font-size: 15px;
   margin: 8px 0;
   align-items: left;
+  margin-bottom: 0px;
   opacity: 0.9;
 }
+.dashboard-route-time-content {
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  margin-left: 20px;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+}
 
-.route-time {
+.dashboard-route-time {
   font-size: 12px;
   opacity: 0.8;
   margin: 5px 0px 5px;
+  color: gray;
 }
-
+.dashboard-route-clock-icon {
+  width: 17px;
+  height: 17px;
+  /* margin-right: 5px; */
+}
+.dashboard-route-clock-icon img {
+  width: 100%;
+  height: 100%;
+  /* margin-right: 5px; */
+}
 /* Carousel buttons */
 .carousel-btn {
+  position: absolute;
   background-color: rgba(255, 255, 255, 0.15);
   color: white;
   border: 2px solid rgba(255, 255, 255, 0.3);

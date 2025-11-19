@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Header from "../../components/common/Header/header";
 import "./Drivers.css";
 import driversData from "../../data/drivers";
 
@@ -7,9 +8,20 @@ export default function Drivers() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    // Simulate fetching data from a local file
     setDrivers(driversData);
   }, []);
+
+  const handleDelete = (id) => {
+    console.log("Delete driver:", id);
+  };
+
+  const handleInfo = (id) => {
+    console.log("View driver info:", id);
+  };
+
+  const handleAdd = () => {
+    console.log("Add new driver");
+  };
 
   const filtered = drivers.filter((d) => {
     const q = query.toLowerCase();
@@ -22,44 +34,59 @@ export default function Drivers() {
 
   return (
     <div className="drivers-page">
-      <div className="drivers-header">
-        <img className="header-image" src="../icons/header.png" alt="header" />
-      </div>
-      <div className="drivers-controls">
-        <button className="add-btn">Thêm tài xế mới</button>
-        <input
-          className="search-input"
-          placeholder="Tìm kiếm"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      
-      <div className="drivers-table">
-        <div className="table-head">
-          <div className="col code">Mã</div>
-          <div className="col name">Họ và tên</div>
-          <div className="col dob">Ngày sinh</div>
-          <div className="col phone">Số điện thoại</div>
-          <div className="col actions">Thao tác</div>
+      <Header title="Tài xế" />
+
+      <div className="drivers-content">
+        <div className="drivers-controls">
+          <button className="add-driver-btn" onClick={handleAdd}>
+            Thêm tài xế mới
+          </button>
+          <input
+            className="search-input"
+            placeholder="Tìm kiếm"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </div>
 
-        {filtered.map((d, i) => (
-          <div className="table-row" key={i}>
-            <div className="col code">{d.code}</div>
-            <div className="col name">{d.fullname}</div>
-            <div className="col dob">{d.dob}</div>
-            <div className="col phone">{d.phone}</div>
-            <div className="col actions">
-              <button className="info-btn">i</button>
-              <button className="delete-btn"><img src="/icons/thungRac.svg" alt="Delete" /></button>
-            </div>
+        <div className="drivers-table">
+          <div className="table-header-driver">
+            <div className="col col-code">Mã</div>
+            <div className="col col-name">Họ và tên</div>
+            <div className="col col-dob">Ngày sinh</div>
+            <div className="col col-phone">Số điện thoại</div>
+            <div className="col col-actions">Thao tác</div>
           </div>
-        ))}
 
-        {filtered.length === 0 && (
-          <div className="no-results">Không có tài xế phù hợp.</div>
-        )}
+          {filtered.map((driver, index) => (
+            <div className="table-row-driver" key={index}>
+              <div className="col col-code">{driver.code}</div>
+              <div className="col col-name">{driver.fullname}</div>
+              <div className="col col-dob">{driver.dob}</div>
+              <div className="col col-phone">{driver.phone}</div>
+              <div className="col col-actions">
+                <button
+                  className="info-btn"
+                  onClick={() => handleInfo(driver.code)}
+                  title="Thông tin"
+                >
+                  <img src="/icons/infor.png" alt="Info" />
+                </button>
+                <button
+                  className="delete-btn"
+                  onClick={() => handleDelete(driver.code)}
+                  title="Xóa"
+                >
+                  <img src="/icons/delete.png" alt="Delete" />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {filtered.length === 0 && (
+            <div className="no-results">Không có tài xế phù hợp.</div>
+          )}
+        </div>
       </div>
     </div>
   );
