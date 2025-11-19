@@ -1,19 +1,10 @@
-// Tải các biến .env (luôn ở dòng đầu)
-require('dotenv').config();
+const http = require('http');
+const app = require('./app'); // <--- DÒNG NÀY QUAN TRỌNG NHẤT
 
-// Tạm thời chỉ cần 'express' để chạy server
-const express = require('express');
-const app = express();
-
-// Lấy PORT từ file .env, nếu không có thì mặc định là 8080
 const PORT = process.env.PORT || 8080;
 
-// Tạo một API test
-app.get('/', (req, res) => {
-  res.send('Hello, SSB1.0 Backend Server!');
-});
+const server = http.createServer(app);
 
-// Lắng nghe ở port
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server dang chay tai http://localhost:${PORT}`);
 });
