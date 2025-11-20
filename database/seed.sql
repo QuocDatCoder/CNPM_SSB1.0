@@ -15,12 +15,12 @@ START TRANSACTION;
 -- --------------------------------------------------------
 -- Bảng 1: Users (1 Admin, 2 Tài xế, 2 Phụ huynh)
 -- --------------------------------------------------------
-INSERT INTO `Users` (`id`, `email`, `password_hash`, `ho_ten`, `so_dien_thoai`, `vai_tro`, `dia_chi`, `bang_lai`, `trang_thai_taixe`) VALUES
-(1, 'admin@ssb.com', '$2a$10$wE.L4g/CVi3505mRfsAL5.LwG0W7KE4D/G0RzFz.z.j8G.0t4/t.O', 'Quản Trị Viên', '0900000001', 'admin', 'Văn phòng trường', NULL, NULL),
-(2, 'taixe1@ssb.com', '$2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A', 'Nguyễn Văn Tài', '0900000002', 'taixe', NULL, 'B2', 'hoatdong'),
-(3, 'taixe2@ssb.com', '$2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A', 'Trần B', '0900000003', 'taixe', NULL, 'C1', 'hoatdong'),
-(4, 'phuhuynh1@ssb.com', '$2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A', 'Phụ Huynh A', '0900000004', 'phuhuynh', '123 Nguyễn Trãi, Q1', NULL, NULL),
-(5, 'phuhuynh2@ssb.com', '$2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A', 'Phụ Huynh B', '0900000005', 'phuhuynh', '456 Lê Lợi, Q.Thủ Đức', NULL, NULL)
+INSERT INTO `Users` (`id`, `username`, `email`, `password_hash`, `ho_ten`, `so_dien_thoai`, `vai_tro`, `dia_chi`, `bang_lai`, `trang_thai_taixe`) VALUES
+(1, 'admin', 'admin@ssb.com', '$2a$10$wE.L4g/CVi3505mRfsAL5.LwG0W7KE4D/G0RzFz.z.j8G.0t4/t.O', 'Quản Trị Viên', '0900000001', 'admin', 'Văn phòng trường', NULL, NULL),
+(2, 'taixe1', 'taixe1@ssb.com', '$2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A', 'Nguyễn Văn Tài', '0900000002', 'taixe', NULL, 'B2', 'hoatdong'),
+(3, 'taixe2', 'taixe2@ssb.com', '$2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A', 'Trần B', '0900000003', 'taixe', NULL, 'C1', 'hoatdong'),
+(4, 'phuhuynh1', 'phuhuynh1@ssb.com', '$2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A', 'Phụ Huynh A', '0900000004', 'phuhuynh', '123 Nguyễn Trãi, Q1', NULL, NULL),
+(5, 'phuhuynh2', 'phuhuynh2@ssb.com', '$2a$10$f/A.Q.sY./N10A.W.J/0m.0F0A.A.a/A.a/A.a/A.a/A.a/A', 'Phụ Huynh B', '0900000005', 'phuhuynh', '456 Lê Lợi, Q.Thủ Đức', NULL, NULL)
 ON DUPLICATE KEY UPDATE `email` = `email`;
 
 -- --------------------------------------------------------

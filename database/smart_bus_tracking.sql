@@ -17,14 +17,15 @@ USE `smart_bus_tracking_optimized`;
 --
 CREATE TABLE `Users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `username` VARCHAR(50) NOT NULL UNIQUE, -- Đã thêm cột này
   `email` VARCHAR(150) NOT NULL UNIQUE,
   `password_hash` VARCHAR(255) NOT NULL,
   `ho_ten` VARCHAR(150) NOT NULL,
   `so_dien_thoai` VARCHAR(20) UNIQUE,
   `vai_tro` ENUM('admin', 'taixe', 'phuhuynh') NOT NULL,
   `dia_chi` VARCHAR(255) DEFAULT NULL,
-  `bang_lai` VARCHAR(50) DEFAULT NULL,
-  `trang_thai_taixe` ENUM('hoatdong', 'nghi', 'tamdung') DEFAULT NULL,
+  `bang_lai` VARCHAR(50) DEFAULT NULL, -- Chỉ dùng cho tài xế
+  `trang_thai_taixe` ENUM('hoatdong', 'nghi', 'tamdung') DEFAULT NULL, -- Chỉ dùng cho tài xế
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
