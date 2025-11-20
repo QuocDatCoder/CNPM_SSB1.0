@@ -11,8 +11,12 @@ const Route = sequelize.define('Route', {
     type: DataTypes.STRING(200),
     allowNull: false
   },
-  mo_ta: {
-    type: DataTypes.TEXT
+  mo_ta: { type: DataTypes.TEXT },
+  
+  loai_tuyen: {
+    type: DataTypes.ENUM('luot_di', 'luot_ve'),
+    defaultValue: 'luot_di',
+    allowNull: false
   }
 }, {
   tableName: 'Routes',
