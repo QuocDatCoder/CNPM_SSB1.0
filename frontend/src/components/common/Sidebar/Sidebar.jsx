@@ -14,6 +14,9 @@ const menuItems = [
 export default function Sidebar({ active, onSelect }) {
   return (
     <div className="sidebar">
+      <div className="logo-session">
+        <img src="/image/logo.png" className="logo-image" />
+      </div>
       {menuItems.map((item, index) => (
         <React.Fragment key={index}>
           {item.divider && <hr className="divider" />}
