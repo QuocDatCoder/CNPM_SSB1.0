@@ -7,6 +7,7 @@ import Schedule from "./pages/admin/Schedule";
 import Student from "./pages/admin/Student";
 import Message from "./pages/admin/Message";
 import RouteManagement from "./pages/admin/RouteManagement";
+import DriverDashboard from "./pages/driver/Dashboard";
 import "./index.css";
 
 export default function App() {
@@ -33,9 +34,18 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
-      <Sidebar active={page} onSelect={(label) => setPage(label)} />
-      {renderPage()}
-    </div>
+    (() => {
+      const role = import.meta.env.VITE_DEFAULT_PAGE || "admin";
+      if (role === "driver") {
+        return <DriverDashboard />;
+      }
+
+      return (
+        <div className="app-container">
+          <Sidebar active={page} onSelect={(label) => setPage(label)} />
+          {renderPage()}
+        </div>
+      );
+    })()
   );
 }

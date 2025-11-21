@@ -1,7 +1,7 @@
 import React from "react";
 import "./Sidebar.css";
 
-const menuItems = [
+const defaultMenuItems = [
   { icon: "/icons/home.png", label: "Trang chủ" },
   { icon: "/icons/bus.png", label: "Xe buýt" },
   { icon: "/icons/driver.png", label: "Tài xế" },
@@ -11,7 +11,9 @@ const menuItems = [
   { icon: "/icons/message.png", label: "Tin nhắn", divider: true },
 ];
 
-export default function Sidebar({ active, onSelect }) {
+export default function Sidebar({ active, onSelect, menuItems: propMenuItems }) {
+  const menuItems = propMenuItems || defaultMenuItems;
+
   return (
     <div className="sidebar">
       <div className="logo-session">
