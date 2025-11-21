@@ -5,6 +5,10 @@ const drivers = [
     dob: "01/01/1990",
     phone: "0987654321",
     address: "Quận 1",
+    email: "nvA@example.com",
+      avatar: "/image/driver-img/NVA.png",
+    licenseNumber: "LX-123456",
+    vehiclePlate: "51B-123.45",
   },
   {
     code: "0002",
@@ -12,6 +16,10 @@ const drivers = [
     dob: "12/05/1992",
     phone: "0912345678",
     address: "Quận 3",
+    email: "ttB@example.com",
+      avatar: "/image/driver-img/0002.png",
+    licenseNumber: "LX-654321",
+    vehiclePlate: "51C-987.65",
   },
   {
     code: "0003",
@@ -19,6 +27,10 @@ const drivers = [
     dob: "20/07/1988",
     phone: "0977555999",
     address: "Quận 5",
+    email: "lvC@example.com",
+      avatar: "/image/driver-img/0003.png",
+    licenseNumber: "LX-112233",
+    vehiclePlate: "52A-111.22",
   },
   {
     code: "0004",
@@ -26,6 +38,10 @@ const drivers = [
     dob: "03/03/1995",
     phone: "0901122334",
     address: "Quận 10",
+    email: "ptD@example.com",
+      avatar: "/image/driver-img/0004.png",
+    licenseNumber: "LX-445566",
+    vehiclePlate: "53B-222.33",
   },
   {
     code: "0005",
@@ -33,6 +49,10 @@ const drivers = [
     dob: "15/09/1985",
     phone: "0999988776",
     address: "ĐH Sài Gòn",
+    email: "adv@example.com",
+      avatar: "/image/driver-img/0005.png",
+    licenseNumber: "LX-778899",
+    vehiclePlate: "54C-333.44",
   },
 ];
 

@@ -4,6 +4,7 @@ import Assignments from "./Assignments";
 import Students from "./Students";
 import Notifications from "./Notifications";
 import "./Dashboard.css";
+import drivers from "../../data/drivers";
 
 const driverMenu = [
 	{ icon: "/icons/home.png", label: "Trang chủ" },
@@ -25,6 +26,25 @@ function Home() {
 		setShowLogin(false);
 	};
 
+	// pick first driver as current (replace with auth-based selection when available)
+	const driver = drivers && drivers.length ? drivers[0] : {
+		code: "0000",
+		fullname: "Tên tài xế",
+		avatar: "/image/logo2.png",
+		phone: "",
+		dob: "",
+		address: "",
+		email: "",
+		licenseNumber: "",
+		vehiclePlate: "",
+	};
+
+	const todaysRoutes = [
+		{ id: 1, name: "Tuyến 1", time: "06:00", status: "Đang chạy", lastStop: "Đã đến điểm A" },
+		{ id: 2, name: "Tuyến 2", time: "07:30", status: "Chưa chạy", lastStop: "Chưa bắt đầu" },
+		{ id: 3, name: "Tuyến 3", time: "12:00", status: "Đã hoàn thành", lastStop: "Đã đến điểm C" },
+	];
+
 	return (
 		<div className="driver-home">
 			<div className="driver-banner">
@@ -42,8 +62,45 @@ function Home() {
 				</div>
 			</div>
 
-			<div className="driver-welcome">
-				<p>Chào mừng, đây là trang tóm tắt cho tài xế.</p>
+			<div className="driver-home-grid">
+				<div className="driver-info">
+					<div className="avatar-wrap">
+						<img
+							src={driver.avatar}
+							alt="avatar"
+							className="driver-avatar"
+							onError={(e) => (e.currentTarget.src = "/image/logo.png")}
+						/>
+					</div>
+					<div className="driver-meta">
+						<h3 className="driver-name">{driver.fullname}</h3>
+						<p className="driver-id">Mã: {driver.code}</p>
+						<p className="driver-phone">SĐT: {driver.phone}</p>
+						<p className="driver-email">Email: {driver.email}</p>
+						<p className="driver-license">Bằng lái: {driver.licenseNumber}</p>
+						<p className="driver-vehicle">Biển số: {driver.vehiclePlate}</p>
+					</div>
+				</div>
+
+				<div className="driver-routes">
+					<h3>Tuyến hôm nay</h3>
+					<ul className="routes-list">
+						{todaysRoutes.map((r) => (
+							<li key={r.id} className="route-item">
+								<div className="route-left">
+									<div className="route-name">{r.name}</div>
+									<div className="route-time">{r.time}</div>
+								</div>
+								<div className="route-right">
+									<span className={`route-status ${r.status.replace(/\s+/g, "-").toLowerCase()}`}>
+										{r.status}
+									</span>
+									<div className="route-last">{r.lastStop}</div>
+								</div>
+							</li>
+						))}
+					</ul>
+				</div>
 			</div>
 
 			{showLogin && (
