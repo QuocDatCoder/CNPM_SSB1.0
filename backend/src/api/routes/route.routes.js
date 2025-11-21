@@ -2,11 +2,10 @@ const express = require('express');
 const router = express.Router();
 const routeController = require('../controllers/route.controller');
 
-// Định nghĩa các đường dẫn
-router.post('/', routeController.createRoute);       // Tạo mới
-router.get('/', routeController.getAllRoutes);       // Lấy danh sách
-router.get('/:id', routeController.getRouteById);    // Lấy chi tiết
-router.put('/:id', routeController.updateRoute);     // Sửa
-router.delete('/:id', routeController.deleteRoute);  // Xóa
+router.post('/', routeController.createRoute);       // POST /api/routes
+router.get('/', routeController.getRoutes);          // GET /api/routes
+router.get('/:id', routeController.getRouteById);    // GET /api/routes/1
+router.put('/:id', routeController.updateRoute);     // PUT /api/routes/1
+router.delete('/:id', routeController.deleteRoute);  // DELETE /api/routes/1
 
 module.exports = router;
