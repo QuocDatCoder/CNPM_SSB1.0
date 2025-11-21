@@ -8,6 +8,7 @@ import Student from "./pages/admin/Student";
 import Message from "./pages/admin/Message";
 import RouteManagement from "./pages/admin/RouteManagement";
 import DriverDashboard from "./pages/driver/Dashboard";
+import ParentDashboard from "./pages/parent/Parent";
 import "./index.css";
 
 export default function App() {
@@ -38,6 +39,9 @@ export default function App() {
       const role = import.meta.env.VITE_DEFAULT_PAGE || "admin";
       if (role === "driver") {
         return <DriverDashboard />;
+      }
+      if (role === "parent") {
+        return <ParentDashboard />;
       }
 
       return (
