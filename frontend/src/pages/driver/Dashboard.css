@@ -273,6 +273,21 @@
   margin-top: 6px;
 }
 
+.start-btn {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #059669;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.start-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .assignments-table {
   width: 100%;
   border-collapse: collapse;
