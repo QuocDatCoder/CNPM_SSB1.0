@@ -42,12 +42,12 @@ function Home() {
           vehiclePlate: "",
         };
 
-  const todaysRoutes = [
+  const [todaysRoutes, setTodaysRoutes] = useState([
     {
       id: 1,
       name: "Tuyến 1",
       time: "06:00",
-      status: "Đang chạy",
+      status: "Chưa chạy",
       lastStop: "Đã đến điểm A",
     },
     {
@@ -64,7 +64,22 @@ function Home() {
       status: "Đã hoàn thành",
       lastStop: "Đã đến điểm C",
     },
-  ];
+  ]);
+
+  const hasRunning = todaysRoutes.some(
+    (r) => r.status && r.status.toLowerCase().includes("đang")
+  );
+
+  function startRoute(id) {
+    // mark this route as running and leave others unchanged (you may want to update others to 'Chưa chạy')
+    setTodaysRoutes((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? { ...r, status: "Đang chạy", lastStop: "Đã khởi hành" }
+          : r
+      )
+    );
+  }
 
   return (
     <div className="driver-home">
@@ -106,24 +121,30 @@ function Home() {
         <div className="driver-routes">
           <h3>Tuyến hôm nay</h3>
           <ul className="routes-list">
-            {todaysRoutes.map((r) => (
-              <li key={r.id} className="route-item">
-                <div className="route-left">
-                  <div className="route-name">{r.name}</div>
-                  <div className="route-time">{r.time}</div>
-                </div>
-                <div className="route-right">
-                  <span
-                    className={`route-status ${r.status
-                      .replace(/\s+/g, "-")
-                      .toLowerCase()}`}
-                  >
-                    {r.status}
-                  </span>
-                  <div className="route-last">{r.lastStop}</div>
-                </div>
-              </li>
-            ))}
+            {todaysRoutes.map((r) => {
+              const statusKey = r.status ? r.status.replace(/\s+/g, "-").toLowerCase() : "";
+              const isNotStarted = r.status && r.status.toLowerCase().includes("chưa");
+
+              return (
+                <li key={r.id} className="route-item">
+                  <div className="route-left">
+                    <div className="route-name">{r.name}</div>
+                    <div className="route-time">{r.time}</div>
+                  </div>
+                  <div className="route-right">
+                    <span className={`route-status ${statusKey}`}>{r.status}</span>
+                    <div className="route-last">{r.lastStop}</div>
+
+                    {/* Show Bắt đầu only when route is not started and no route is currently running */}
+                    {!hasRunning && isNotStarted && (
+                      <button className="start-btn" onClick={() => startRoute(r.id)}>
+                        Bắt đầu
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>
