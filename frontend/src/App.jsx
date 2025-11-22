@@ -37,17 +37,14 @@ export default function App() {
     }
   }
 
-
-  return (
-    (() => {
-      const role = import.meta.env.VITE_DEFAULT_PAGE || "admin";
-      if (role === "driver") {
-        return <DriverDashboard />;
-      }
-      if (role === "parent") {
-        return <ParentDashboard />;
-      }
-
+  return (() => {
+    const role = import.meta.env.VITE_DEFAULT_PAGE || "admin";
+    if (role === "driver") {
+      return <DriverDashboard />;
+    }
+    if (role === "parent") {
+      return <ParentDashboard />;
+    }
 
     return (
       <div className="app-container">
@@ -55,5 +52,5 @@ export default function App() {
         {renderPage()}
       </div>
     );
-  }))
+  })();
 }
