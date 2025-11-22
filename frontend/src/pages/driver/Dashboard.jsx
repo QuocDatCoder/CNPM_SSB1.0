@@ -205,6 +205,7 @@ export default function DriverDashboard() {
   const [alertMessage, setAlertMessage] = useState("");
   const [sendToParents, setSendToParents] = useState(false);
   const [sendToAdmin, setSendToAdmin] = useState(true);
+  const [alertType, setAlertType] = useState("");
 
   function renderContent() {
     switch (page) {
@@ -230,6 +231,7 @@ export default function DriverDashboard() {
 
   function sendAlert() {
     const payload = {
+      type: alertType,
       message: alertMessage,
       toParents: sendToParents,
       toAdmin: sendToAdmin || sendToParents,
@@ -241,6 +243,7 @@ export default function DriverDashboard() {
     setAlertMessage("");
     setSendToParents(false);
     setSendToAdmin(true);
+    setAlertType("");
   }
 
   return (
@@ -258,7 +261,13 @@ export default function DriverDashboard() {
       {showAlertModal && (
         <div
           className="alert-modal-overlay"
-          onClick={() => setShowAlertModal(false)}
+          onClick={() => {
+            setShowAlertModal(false);
+            setAlertMessage("");
+            setSendToParents(false);
+            setSendToAdmin(true);
+            setAlertType("");
+          }}
         >
           <div
             className="alert-modal"
@@ -274,6 +283,53 @@ export default function DriverDashboard() {
               value={alertMessage}
               onChange={(e) => setAlertMessage(e.target.value)}
             />
+
+            <div className="alert-type">
+              <p>Loại cảnh báo:</p>
+              <label>
+                <input
+                  type="radio"
+                  name="alertType"
+                  value="su-co-xe"
+                  checked={alertType === "su-co-xe"}
+                  onChange={(e) => setAlertType(e.target.value)}
+                />{' '}
+                Sự cố xe
+              </label>
+
+              <label>
+                <input
+                  type="radio"
+                  name="alertType"
+                  value="su-co-giao-thong"
+                  checked={alertType === "su-co-giao-thong"}
+                  onChange={(e) => setAlertType(e.target.value)}
+                />{' '}
+                Sự cố giao thông
+              </label>
+
+              <label>
+                <input
+                  type="radio"
+                  name="alertType"
+                  value="su-co-y-te"
+                  checked={alertType === "su-co-y-te"}
+                  onChange={(e) => setAlertType(e.target.value)}
+                />{' '}
+                Sự cố y tế (học sinh)
+              </label>
+
+              <label>
+                <input
+                  type="radio"
+                  name="alertType"
+                  value="khac"
+                  checked={alertType === "khac"}
+                  onChange={(e) => setAlertType(e.target.value)}
+                />{' '}
+                Khác
+              </label>
+            </div>
 
             <div className="alert-options">
               <label>
