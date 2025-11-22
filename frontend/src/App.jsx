@@ -9,6 +9,7 @@ import Message from "./pages/admin/Message";
 import RouteManagement from "./pages/admin/RouteManagement";
 import Statistical from "./pages/admin/Statistical";
 import DriverDashboard from "./pages/driver/Dashboard";
+import ParentDashboard from "./pages/parent/Parent";
 import "./index.css";
 
 export default function App() {
@@ -36,11 +37,17 @@ export default function App() {
     }
   }
 
-  return (() => {
-    const role = import.meta.env.VITE_DEFAULT_PAGE || "admin";
-    if (role === "driver") {
-      return <DriverDashboard />;
-    }
+
+  return (
+    (() => {
+      const role = import.meta.env.VITE_DEFAULT_PAGE || "admin";
+      if (role === "driver") {
+        return <DriverDashboard />;
+      }
+      if (role === "parent") {
+        return <ParentDashboard />;
+      }
+
 
     return (
       <div className="app-container">
@@ -48,5 +55,5 @@ export default function App() {
         {renderPage()}
       </div>
     );
-  })();
+  }))
 }

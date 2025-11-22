@@ -45,6 +45,18 @@ export default function Sidebar({
           </div>
         </React.Fragment>
       ))}
+      <div className="sidebar-footer">
+        <button
+          className="alert-button"
+          onClick={() => {
+            if (typeof window !== "undefined") console.log("Gửi cảnh báo clicked");
+            // If parent provided a handler, call it via onSelect with a special label
+            onSelect && onSelect("Gửi cảnh báo");
+          }}
+        >
+          Gửi cảnh báo
+        </button>
+      </div>
     </div>
   );
 }
