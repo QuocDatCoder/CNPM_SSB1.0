@@ -50,7 +50,7 @@
   object-fit: cover;
 }
 
-.route-info {
+.routemgmt-info {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
@@ -59,34 +59,34 @@
   color: white;
 }
 
-.route-details {
+.routemgmt-details {
   margin-bottom: 12px;
 }
 
-.route-details p {
+.routemgmt-details p {
   margin: 5px 0;
   font-size: 13px;
 }
 
-.route-id {
+.routemgmt-id {
   font-weight: 600;
 }
 
-.route-distance,
-.route-duration,
-.route-stations,
-.route-endpoints {
+.routemgmt-distance,
+.routemgmt-duration,
+.routemgmt-stations,
+.routemgmt-endpoints {
   opacity: 0.9;
 }
 
-.route-actions {
+.routemgmt-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
   align-items: center;
 }
 
-.route-action-btn {
+.routemgmt-action-btn {
   /* padding: 6px 12px; */
   border-radius: 5px;
   border: none;
@@ -97,12 +97,12 @@
   align-items: center;
   gap: 5px;
 }
-.route-view-btn-container {
+.routemgmt-view-btn-container {
   width: 100%;
   height: 70%;
   position: relative;
 }
-.route-view-btn {
+.routemgmt-view-btn {
   background: linear-gradient(180deg, #04b85b 0%, #025229 100%);
   width: 100%;
   height: 40%;
@@ -113,15 +113,15 @@
   bottom: 3px;
 }
 
-.route-view-btn:hover {
+.routemgmt-view-btn:hover {
   background-color: #22c55e;
 }
 
-.route-icon {
+.routemgmt-icon {
   font-size: 16px;
 }
 
-.route-edit-delete-btn {
+.routemgmt-edit-delete-btn {
   display: flex;
   flex-direction: row;
   width: 100%;
@@ -129,13 +129,13 @@
   gap: 5px;
 }
 
-.route-edit-btn-container,
-.route-delete-btn-container {
+.routemgmt-edit-btn-container,
+.routemgmt-delete-btn-container {
   width: 50%;
   box-sizing: border-box;
 }
 
-.route-delete-btn {
+.routemgmt-delete-btn {
   background: radial-gradient(circle, #ff0000 36%, #ab0000 100%);
   color: white;
   width: 100%;
@@ -147,7 +147,7 @@
   font-size: 16px;
 }
 
-.route-edit-btn {
+.routemgmt-edit-btn {
   background: radial-gradient(circle, #c7d104 0%, #666b02 100%);
   color: white;
   width: 100%;
@@ -159,18 +159,18 @@
   font-size: 16px;
 }
 
-.route-delete-btn img,
-.route-edit-btn img {
+.routemgmt-delete-btn img,
+.routemgmt-edit-btn img {
   width: 40%;
   height: 36px;
   object-fit: contain;
 }
 
-.route-edit-btn:hover {
+.routemgmt-edit-btn:hover {
   background-color: #f59e0b;
 }
 
-.route-delete-btn:hover {
+.routemgmt-delete-btn:hover {
   background-color: #dc2626;
 }
 
