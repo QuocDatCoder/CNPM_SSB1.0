@@ -8,10 +8,15 @@ const defaultMenuItems = [
   { icon: "/icons/route.png", label: "Tuyến đường" },
   { icon: "/icons/schedule.png", label: "Lịch trình" },
   { icon: "/icons/student.png", label: "Học sinh" },
-  { icon: "/icons/message.png", label: "Tin nhắn", divider: true },
+  { icon: "/icons/message.png", label: "Tin nhắn" },
+  { icon: "/icons/statistical.png", label: "Thống kê", divider: true },
 ];
 
-export default function Sidebar({ active, onSelect, menuItems: propMenuItems }) {
+export default function Sidebar({
+  active,
+  onSelect,
+  menuItems: propMenuItems,
+}) {
   const menuItems = propMenuItems || defaultMenuItems;
 
   return (
