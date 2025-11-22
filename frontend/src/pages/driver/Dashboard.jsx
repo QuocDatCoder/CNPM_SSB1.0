@@ -147,7 +147,11 @@ function Home() {
 }
 
 export default function DriverDashboard() {
-	const [page, setPage] = useState("Trang chủ");
+	const [page, setPage] = useState("");
+	const [showAlertModal, setShowAlertModal] = useState(false);
+	const [alertMessage, setAlertMessage] = useState("");
+	const [sendToParents, setSendToParents] = useState(false);
+	const [sendToAdmin, setSendToAdmin] = useState(true);
 
 	function renderContent() {
 		switch (page) {
@@ -162,13 +166,79 @@ export default function DriverDashboard() {
 				return <Home />;
 		}
 	}
+	function handleSidebarSelect(label) {
+		if (label === "Gửi cảnh báo") {
+			setShowAlertModal(true);
+			return;
+		}
+
+		setPage(label);
+	}
+
+	function sendAlert() {
+		const payload = {
+			message: alertMessage,
+			toParents: sendToParents,
+			toAdmin: sendToAdmin || sendToParents,
+		};
+		console.log("Sending alert:", payload);
+		// TODO: call backend API to send alert
+		// close modal after send
+		setShowAlertModal(false);
+		setAlertMessage("");
+		setSendToParents(false);
+		setSendToAdmin(true);
+	}
 
 	return (
 		<div className="driver-app-container">
-			<Sidebar active={page} onSelect={(label) => setPage(label)} menuItems={driverMenu} />
+			<Sidebar active={page} onSelect={handleSidebarSelect} menuItems={driverMenu} />
 			<div className="driver-page">
 				<div className="driver-content">{renderContent()}</div>
 			</div>
+
+			{showAlertModal && (
+				<div className="alert-modal-overlay" onClick={() => setShowAlertModal(false)}>
+					<div className="alert-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+						<h3>Gửi cảnh báo</h3>
+
+						<textarea
+							className="alert-textarea"
+							placeholder="Nhập nội dung cảnh báo..."
+							value={alertMessage}
+							onChange={(e) => setAlertMessage(e.target.value)}
+						/>
+
+						<div className="alert-options">
+							<label>
+								<input
+									type="checkbox"
+									checked={sendToParents}
+									onChange={(e) => {
+										const v = e.target.checked;
+										setSendToParents(v);
+										if (v) setSendToAdmin(true);
+									}}
+								/> Gửi cho phụ huynh (kèm Admin)
+							</label>
+
+							<label>
+								<input
+									type="checkbox"
+									checked={sendToAdmin}
+									disabled={sendToParents}
+									onChange={(e) => setSendToAdmin(e.target.checked)}
+								/> Gửi cho Admin
+							</label>
+						</div>
+
+						<div className="alert-actions">
+							<button className="btn btn-secondary" onClick={() => setShowAlertModal(false)}>Hủy</button>
+							<button className="btn btn-primary" onClick={sendAlert} disabled={!alertMessage.trim()}>Gửi</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
