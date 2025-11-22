@@ -5,8 +5,13 @@ import "./statistical.css";
 export default function Statistical() {
   const [tripData] = useState({
     chuyenDi: 65,
-    chuyenVe: 35,
+    chuyenVe: 65,
   });
+
+  const total = tripData.chuyenDi + tripData.chuyenVe;
+  const circumference = 2 * Math.PI * 70;
+  const dashDi = (tripData.chuyenDi / total) * circumference;
+  const dashVe = (tripData.chuyenVe / total) * circumference;
 
   const [weeklyData] = useState([
     { day: "Thứ 2", value: 4 },
@@ -98,9 +103,10 @@ export default function Statistical() {
                   fill="none"
                   stroke="#4ECDC4"
                   strokeWidth="60"
-                  strokeDasharray={`${(tripData.chuyenDi / 100) * 502.4} 502.4`}
+                  strokeDasharray={`${dashDi} ${circumference}`}
                   transform="rotate(-90 100 100)"
                 />
+
                 <circle
                   cx="100"
                   cy="100"
@@ -108,8 +114,8 @@ export default function Statistical() {
                   fill="none"
                   stroke="#FF9F43"
                   strokeWidth="60"
-                  strokeDasharray={`${(tripData.chuyenVe / 100) * 502.4} 502.4`}
-                  strokeDashoffset={`-${(tripData.chuyenDi / 100) * 502.4}`}
+                  strokeDasharray={`${dashVe} ${circumference}`}
+                  strokeDashoffset={`-${dashDi}`}
                   transform="rotate(-90 100 100)"
                 />
               </svg>
