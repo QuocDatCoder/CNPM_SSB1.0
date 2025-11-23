@@ -1,10 +1,12 @@
 const { Schedule, Bus, Route, User, AssignmentHistory } = require('../data/models');
 const { Op } = require('sequelize');
 
-// 1. Tạo Lịch trình (Có check trùng & Ghi log)
+// 1. Tạo Lịch trình (Có check trùng & Ghi log đầy đủ)
 const createSchedule = async (data) => {
+    // data = { route_id, driver_id, bus_id, ngay_chay, gio_bat_dau }
+
     // --- A. LOGIC CHECK TRÙNG ---
-    // Check 1: Tài xế
+    // Check 1: Tài xế này ngày đó có bận không?
     const driverBusy = await Schedule.findOne({
         where: {
             driver_id: data.driver_id,
@@ -15,7 +17,7 @@ const createSchedule = async (data) => {
         throw new Error(`Tài xế này đã có lịch chạy vào ngày ${data.ngay_chay} rồi!`);
     }
 
-    // Check 2: Xe
+    // Check 2: Xe này ngày đó có ai lấy chưa?
     const busBusy = await Schedule.findOne({
         where: {
             bus_id: data.bus_id,
@@ -36,6 +38,8 @@ const createSchedule = async (data) => {
         
         await AssignmentHistory.create({
             tuyen: route ? route.ten_tuyen : `Tuyến ID ${data.route_id}`,
+            // Lưu thêm loại tuyến để sau này lọc Lượt đi/Lượt về
+            loai_tuyen: route ? route.loai_tuyen : null, 
             thao_tac: `Thêm phân công cho tài xế ${driver ? driver.ho_ten : ''}`,
             // thoi_gian tự động lấy now
         });
@@ -54,6 +58,7 @@ const getAllSchedules = async () => {
             { model: Bus, attributes: ['bien_so_xe'] },
             { model: User, as: 'driver', attributes: ['ho_ten', 'so_dien_thoai'] }
         ],
+        // Sắp xếp: Ngày mới nhất -> Giờ sớm nhất
         order: [['ngay_chay', 'DESC'], ['gio_bat_dau', 'ASC']]
     });
 };
@@ -63,6 +68,7 @@ const deleteSchedule = async (id) => {
     const schedule = await Schedule.findByPk(id);
     if (!schedule) return null;
 
+    // Lấy thông tin tuyến trước khi xóa để ghi log
     const route = await Route.findByPk(schedule.route_id);
 
     await schedule.destroy();
@@ -71,6 +77,8 @@ const deleteSchedule = async (id) => {
     try {
         await AssignmentHistory.create({
             tuyen: route ? route.ten_tuyen : 'Tuyến không xác định',
+            // Lưu thêm loại tuyến
+            loai_tuyen: route ? route.loai_tuyen : null,
             thao_tac: 'Hủy phân công (Xóa lịch)',
         });
     } catch (err) { console.error(err); }
@@ -78,13 +86,20 @@ const deleteSchedule = async (id) => {
     return true;
 };
 
-// 4. Lấy lịch sử thao tác (Hỗ trợ lọc theo ngày)
-const getHistory = async (dateStr) => {
+// 4. Lấy lịch sử thao tác (Hỗ trợ lọc theo Ngày and Loại tuyến)
+const getHistory = async (dateStr, typeStr) => {
     let whereClause = {};
+
+    // Lọc theo ngày
     if (dateStr) {
         const start = new Date(dateStr); start.setHours(0,0,0,0);
         const end = new Date(dateStr); end.setHours(23,59,59,999);
-        whereClause = { thoi_gian: { [Op.between]: [start, end] } };
+        whereClause.thoi_gian = { [Op.between]: [start, end] };
+    }
+
+    // Lọc theo loại tuyến (luot_di / luot_ve)
+    if (typeStr) {
+        whereClause.loai_tuyen = typeStr;
     }
 
     return await AssignmentHistory.findAll({

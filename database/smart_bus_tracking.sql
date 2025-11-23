@@ -126,6 +126,7 @@ CREATE TABLE `Schedules` (
   `bus_id` INT NOT NULL,
   `ngay_chay` DATE NOT NULL,
   `trang_thai` ENUM('chuabatdau', 'dangchay', 'hoanthanh', 'huy') DEFAULT 'chuabatdau',
+  `gio_bat_dau` TIME NOT NULL DEFAULT '06:00:00';
   `thoi_gian_bat_dau_thuc_te` DATETIME DEFAULT NULL,
   `thoi_gian_ket_thuc_thuc_te` DATETIME DEFAULT NULL,
   
@@ -196,6 +197,7 @@ CREATE TABLE `AssignmentHistory` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `tuyen` VARCHAR(255) NOT NULL ,
   `thao_tac` VARCHAR(255) NOT NULL,
+  `loai_tuyen` ENUM('luot_di', 'luot_ve') DEFAULT NULL,
   `thoi_gian` DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
