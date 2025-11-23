@@ -19,6 +19,7 @@ const Schedule = sequelize.define('Schedule', {
     type: DataTypes.ENUM('chuabatdau', 'dangchay', 'hoanthanh', 'huy'),
     defaultValue: 'chuabatdau'
   },
+  gio_bat_dau: { type: DataTypes.TIME, defaultValue: '06:00:00' },
   thoi_gian_bat_dau_thuc_te: { type: DataTypes.DATE },
   thoi_gian_ket_thuc_thuc_te: { type: DataTypes.DATE }
 }, {

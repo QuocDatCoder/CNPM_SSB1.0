@@ -15,9 +15,13 @@ const AssignmentHistory = sequelize.define('AssignmentHistory', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  loai_tuyen: {
+    type: DataTypes.ENUM('luot_di', 'luot_ve'),
+    allowNull: true 
+  },
   thoi_gian: {
     type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW // Tự động lấy giờ hiện tại
+    defaultValue: DataTypes.NOW 
   }
 }, {
   tableName: 'AssignmentHistory',
