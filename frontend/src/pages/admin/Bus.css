@@ -27,6 +27,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s, box-shadow 0.3s;
   border: 3px solid #4ade80;
+  cursor: pointer;
 }
 
 .bus-card:hover {
@@ -57,6 +58,7 @@
   padding: 15px;
   background-color: #1a1a1a;
   color: white;
+  height: 100%;
 }
 
 .bus-details {
@@ -216,4 +218,250 @@
     width: 100%;
     justify-content: space-between;
   }
+}
+
+/* Modal Styles */
+.bus-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.bus-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  scrollbar-width: none;
+}
+
+.bus-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+}
+
+.bus-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+.close-modal-btn {
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: white;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.close-modal-btn:hover {
+  transform: scale(1.2);
+}
+
+.bus-modal-body {
+  padding: 24px;
+}
+
+.bus-modal-image {
+  width: 100%;
+  height: 250px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.bus-modal-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bus-modal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.info-label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+  min-width: 180px;
+}
+
+.info-value {
+  flex: 1;
+  color: #1f2937;
+  font-size: 14px;
+  text-align: left;
+  margin-left: 12px;
+}
+
+.edit-icon-btn,
+.calendar-icon-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.edit-icon-btn:hover,
+.calendar-icon-btn:hover {
+  background-color: #e5e7eb;
+}
+
+/* Edit Form Styles */
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.edit-field label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.edit-field input,
+.edit-field select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: white;
+  transition: border-color 0.2s;
+}
+
+.edit-field input:focus,
+.edit-field select:focus {
+  outline: none;
+  border-color: #4ade80;
+}
+
+.bus-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 2px solid #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.btn-update,
+.btn-save {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 4px rgba(74, 222, 128, 0.3);
+}
+
+.btn-update:hover,
+.btn-save:hover {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow: 0 4px 8px rgba(74, 222, 128, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-cancel {
+  padding: 10px 24px;
+  background-color: #e5e7eb;
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-cancel:hover {
+  background-color: #d1d5db;
+  transform: translateY(-2px);
+}
+
+/* Add Bus Form Styles */
+.required {
+  color: #ef4444;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+.info-note {
+  background-color: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.info-note p {
+  margin: 0 0 8px 0;
+  color: #92400e;
+  font-size: 14px;
+}
+
+.info-note ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #92400e;
+  font-size: 14px;
+}
+
+.info-note li {
+  margin: 4px 0;
+}
+
+.info-note strong {
+  color: #78350f;
 }

@@ -9,6 +9,7 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./Dashboard.css";
+import { routes } from "../../data/routes";
 
 // Fix leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -42,56 +43,12 @@ const endIcon = L.icon({
   iconAnchor: [16, 32],
 });
 
-const routes = [
-  {
-    id: 1,
-    name: "Tuyến 1",
-    street: "Đường: An Dương Vương",
-    time: "4:00–6:00",
-    start: [10.779783, 106.699018], // Nhà thờ Đức Bà
-    end: [10.779886, 106.695469], // Dinh Độc Lập
-  },
-  {
-    id: 2,
-    name: "Tuyến 2",
-    street: "Đường: Lê Lợi",
-    time: "5:00–7:00",
-    start: [10.772461, 106.698055], // Bến Thành
-    end: [10.762622, 106.682225], // Công viên 23/9
-  },
-  {
-    id: 3,
-    name: "Tuyến 3",
-    street: "Đường: Nguyễn Huệ",
-    time: "6:00–8:00",
-    start: [10.768721, 106.704514], // Nhà hát Thành phố
-    end: [10.773996, 106.700683], // Thư viện Khoa học Tổng hợp
-  },
-  {
-    id: 4,
-    name: "Tuyến 4",
-    street: "Đường: Trường Chinh",
-    time: "7:00–9:00",
-    start: [10.804173, 106.717889], // Sân bay Tân Sơn Nhất
-    end: [10.782781, 106.702271], // Bến xe Miền Đông
-  },
-  {
-    id: 5,
-    name: "Tuyến 5",
-    street: "Đường: Võ Văn Kiệt",
-    time: "8:00–10:00",
-    start: [10.757542, 106.686234], // Bến Nghé
-    end: [10.756389, 106.702639], // Chợ Bình Tây
-  },
-  {
-    id: 6,
-    name: "Tuyến 6",
-    street: "Đường: Cách Mạng Tháng 8",
-    time: "9:00–11:00",
-    start: [10.762622, 106.682225], // Công viên 23/9
-    end: [10.785411, 106.695242], // ĐH Bách Khoa
-  },
-];
+// Icon trạm dừng
+const stopIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/3448/3448636.png",
+  iconSize: [28, 28],
+  iconAnchor: [14, 28],
+});
 
 export default function Dashboard() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -206,7 +163,9 @@ export default function Dashboard() {
 
               <div className="dashboard-infor-route">
                 <div className="dashboard-route-street-content">
-                  <p className="dashboard-route-street">{route.street}</p>
+                  <p className="dashboard-route-street">
+                    Đường: {route.street}
+                  </p>
                 </div>
                 <div className="dashboard-route-time-content">
                   <div className="dashboard-route-clock-icon">
@@ -247,13 +206,25 @@ export default function Dashboard() {
 
             {/* Marker điểm bắt đầu */}
             <Marker position={selectedRoute.start} icon={startIcon}>
-              <Popup>Điểm bắt đầu: {selectedRoute.street}</Popup>
+              <Popup>Điểm bắt đầu: {selectedRoute.startName}</Popup>
             </Marker>
 
             {/* Marker điểm kết thúc */}
             <Marker position={selectedRoute.end} icon={endIcon}>
-              <Popup>Điểm kết thúc</Popup>
+              <Popup>Điểm kết thúc: {selectedRoute.endName}</Popup>
             </Marker>
+
+            {/* Marker các trạm dừng */}
+            {selectedRoute.stops &&
+              selectedRoute.stops.map((stop, index) => (
+                <Marker key={stop.id} position={stop.position} icon={stopIcon}>
+                  <Popup>
+                    <strong>{stop.name}</strong>
+                    <br />
+                    Giờ đến: {stop.time}
+                  </Popup>
+                </Marker>
+              ))}
 
             {/* Marker xe chạy */}
             {busPos && (

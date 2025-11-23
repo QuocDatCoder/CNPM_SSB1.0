@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Header from "../../components/common/Header/header";
 import "./Message.css";
+import studentsData from "../../data/students";
 
 const messageCategories = [
   { icon: "/icons/message/inbox.png", label: "Hộp Thư Đến", key: "inbox" },
@@ -139,10 +140,34 @@ export default function Message() {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [recipientType, setRecipientType] = useState("driver");
   const [recipientFilter, setRecipientFilter] = useState("all");
+  const [selectedParents, setSelectedParents] = useState([]);
+  const [showParentDropdown, setShowParentDropdown] = useState(false);
   const [messageTitle, setMessageTitle] = useState("");
   const [messageContent, setMessageContent] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
+
+  // Lấy danh sách phụ huynh theo tuyến
+  const getParentsByRoute = (routeName) => {
+    const routeMap = {
+      route1: "An Dương Vương",
+      route2: "Lê Lợi",
+      route3: "Trường Chinh",
+    };
+
+    const actualRouteName = routeMap[routeName];
+    if (!actualRouteName) return [];
+
+    return studentsData
+      .filter((student) => student.route === actualRouteName)
+      .map((student) => ({
+        id: student.code,
+        name: student.parentName,
+        phone: student.contact,
+        email: student.parentEmail,
+        studentName: student.fullname,
+      }));
+  };
 
   // Filter messages based on active category
   const filteredMessages = messages.filter((msg) => {
@@ -189,6 +214,8 @@ export default function Message() {
     setShowComposeModal(true);
     setRecipientType("driver");
     setRecipientFilter("all");
+    setSelectedParents([]);
+    setShowParentDropdown(false);
     setMessageTitle("");
     setMessageContent("");
   };
@@ -363,42 +390,165 @@ export default function Message() {
               </button>
             </div>
 
-            <div className="compose-body">
+            <div
+              className="compose-body"
+              onClick={() => {
+                if (showParentDropdown) {
+                  setShowParentDropdown(false);
+                }
+              }}
+            >
               <div className="compose-field">
                 <label>Gửi đến:</label>
-                <div className="recipient-selection">
-                  <div className="radio-group">
-                    <label className="radio-label">
-                      <input
-                        type="radio"
-                        name="recipient-type"
-                        value="driver"
-                        checked={recipientType === "driver"}
-                        onChange={(e) => setRecipientType(e.target.value)}
-                      />
-                      Tài xế
-                    </label>
-                    <label className="radio-label">
-                      <input
-                        type="radio"
-                        name="recipient-type"
-                        value="parent"
-                        checked={recipientType === "parent"}
-                        onChange={(e) => setRecipientType(e.target.value)}
-                      />
-                      Phụ huynh
-                    </label>
+                <div
+                  className="recipient-selection"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="recipient-top-row">
+                    <div className="radio-group">
+                      <label className="radio-label">
+                        <input
+                          type="radio"
+                          name="recipient-type"
+                          value="driver"
+                          checked={recipientType === "driver"}
+                          onChange={(e) => {
+                            setRecipientType(e.target.value);
+                            setSelectedParents([]);
+                          }}
+                        />
+                        Tài xế
+                      </label>
+                      <label className="radio-label">
+                        <input
+                          type="radio"
+                          name="recipient-type"
+                          value="parent"
+                          checked={recipientType === "parent"}
+                          onChange={(e) => {
+                            setRecipientType(e.target.value);
+                            setSelectedParents([]);
+                          }}
+                        />
+                        Phụ huynh
+                      </label>
+                    </div>
+                    <select
+                      className="recipient-filter"
+                      value={recipientFilter}
+                      onChange={(e) => {
+                        setRecipientFilter(e.target.value);
+                        setSelectedParents([]);
+                        if (e.target.value !== "all") {
+                          setShowParentDropdown(true);
+                        } else {
+                          setShowParentDropdown(false);
+                        }
+                      }}
+                    >
+                      <option value="all">Toàn bộ</option>
+                      <option value="route1">Tuyến 1 - An Dương Vương</option>
+                      <option value="route2">Tuyến 2 - Lê Lợi</option>
+                      <option value="route3">Tuyến 3 - Trường Chinh</option>
+                    </select>
                   </div>
-                  <select
-                    className="recipient-filter"
-                    value={recipientFilter}
-                    onChange={(e) => setRecipientFilter(e.target.value)}
-                  >
-                    <option value="all">Toàn bộ</option>
-                    <option value="route1">Tuyến 1</option>
-                    <option value="route2">Tuyến 2</option>
-                    <option value="route3">Tuyến 3</option>
-                  </select>
+
+                  {/* Hiển thị danh sách phụ huynh hoặc nút hiển thị số lượng */}
+                  {recipientType === "parent" && recipientFilter !== "all" && (
+                    <>
+                      {showParentDropdown ? (
+                        <div
+                          className="parent-dropdown-wrapper"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="parent-header">
+                            <label className="select-all-checkbox-label">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selectedParents.length ===
+                                    getParentsByRoute(recipientFilter).length &&
+                                  getParentsByRoute(recipientFilter).length > 0
+                                }
+                                onChange={(e) => {
+                                  const allParentIds = getParentsByRoute(
+                                    recipientFilter
+                                  ).map((p) => p.id);
+                                  if (e.target.checked) {
+                                    setSelectedParents(allParentIds);
+                                  } else {
+                                    setSelectedParents([]);
+                                  }
+                                }}
+                              />
+                              Chọn tất cả
+                            </label>
+                            <span className="selected-count-inline">
+                              {selectedParents.length}/
+                              {getParentsByRoute(recipientFilter).length}
+                            </span>
+                          </div>
+                          <div className="parent-list">
+                            {getParentsByRoute(recipientFilter).map(
+                              (parent) => (
+                                <label
+                                  key={parent.id}
+                                  className="parent-checkbox-label"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedParents.includes(
+                                      parent.id
+                                    )}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedParents([
+                                          ...selectedParents,
+                                          parent.id,
+                                        ]);
+                                      } else {
+                                        setSelectedParents(
+                                          selectedParents.filter(
+                                            (id) => id !== parent.id
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <div className="parent-info">
+                                    <strong>{parent.name}</strong>
+                                    <span className="parent-student">
+                                      PH của: {parent.studentName}
+                                    </span>
+                                    <span className="parent-contact">
+                                      {parent.phone} - {parent.email}
+                                    </span>
+                                  </div>
+                                </label>
+                              )
+                            )}
+                          </div>
+                          {getParentsByRoute(recipientFilter).length === 0 && (
+                            <p className="no-parents">
+                              Không có phụ huynh nào trong tuyến này.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="parent-selected-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowParentDropdown(true);
+                          }}
+                        >
+                          Đã chọn: {selectedParents.length}/
+                          {getParentsByRoute(recipientFilter).length} phụ huynh
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
