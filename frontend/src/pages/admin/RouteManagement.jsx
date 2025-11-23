@@ -82,43 +82,45 @@ export default function RouteManagement() {
               <div className="route-map-container">
                 <img src={route.mapImage} alt="Map" className="route-map" />
               </div>
-              <div className="route-info">
-                <div className="route-details">
-                  <p className="route-id">Mã : {route.id}</p>
-                  <p className="route-distance">Độ dài: {route.distance}</p>
-                  <p className="route-duration">
+              <div className="routemgmt-info">
+                <div className="routemgmt-details">
+                  <p className="routemgmt-id">Mã : {route.id}</p>
+                  <p className="routemgmt-distance">Độ dài: {route.distance}</p>
+                  <p className="routemgmt-duration">
                     Thời gian dự định: {route.duration}
                   </p>
-                  <p className="route-stations">Số trạm: {route.stations}</p>
-                  <p className="route-endpoints">
+                  <p className="routemgmt-stations">
+                    Số trạm: {route.stations}
+                  </p>
+                  <p className="routemgmt-endpoints">
                     Điểm đầu/ cuối: {route.start},{route.end}
                   </p>
                 </div>
-                <div className="route-actions">
-                  <div className="route-view-btn-container">
+                <div className="routemgmt-actions">
+                  <div className="routemgmt-view-btn-container">
                     <button
-                      className="route-action-btn route-view-btn"
+                      className="routemgmt-action-btn routemgmt-view-btn"
                       onClick={() => handleViewRoute(route.id)}
                       title="Xem tuyến"
                     >
-                      <span className="route-icon">📍</span>
+                      <span className="routemgmt-icon">📍</span>
                       Xem tuyến
                     </button>
                   </div>
 
-                  <div className="route-edit-delete-btn">
-                    <div className="route-edit-btn-container">
+                  <div className="routemgmt-edit-delete-btn">
+                    <div className="routemgmt-edit-btn-container">
                       <button
-                        className="route-action-btn route-edit-btn"
+                        className="routemgmt-action-btn routemgmt-edit-btn"
                         onClick={() => handleEdit(route.id)}
                         title="Chỉnh sửa"
                       >
                         <img src="/icons/edit.png" alt="Edit" />
                       </button>
                     </div>
-                    <div className="route-delete-btn-container">
+                    <div className="routemgmt-delete-btn-container">
                       <button
-                        className="route-action-btn route-delete-btn"
+                        className="routemgmt-action-btn routemgmt-delete-btn"
                         onClick={() => handleDelete(route.id)}
                         title="Xóa"
                       >

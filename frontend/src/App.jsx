@@ -7,6 +7,9 @@ import Schedule from "./pages/admin/Schedule";
 import Student from "./pages/admin/Student";
 import Message from "./pages/admin/Message";
 import RouteManagement from "./pages/admin/RouteManagement";
+import Statistical from "./pages/admin/Statistical";
+import DriverDashboard from "./pages/driver/Dashboard";
+import ParentDashboard from "./pages/parent/Parent";
 import "./index.css";
 
 export default function App() {
@@ -26,16 +29,28 @@ export default function App() {
         return <Student />;
       case "Tin nhắn":
         return <Message />;
+      case "Thống kê":
+        return <Statistical />;
       case "Trang chủ":
       default:
         return <Dashboard />;
     }
   }
 
-  return (
-    <div className="app-container">
-      <Sidebar active={page} onSelect={(label) => setPage(label)} />
-      {renderPage()}
-    </div>
-  );
+  return (() => {
+    const role = import.meta.env.VITE_DEFAULT_PAGE || "admin";
+    if (role === "driver") {
+      return <DriverDashboard />;
+    }
+    if (role === "parent") {
+      return <ParentDashboard />;
+    }
+
+    return (
+      <div className="app-container">
+        <Sidebar active={page} onSelect={(label) => setPage(label)} />
+        {renderPage()}
+      </div>
+    );
+  })();
 }

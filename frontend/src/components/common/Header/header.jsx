@@ -10,11 +10,11 @@ export default function Header({ title, showSearch = true }) {
           <h1 className="page-title">{title}</h1>
           {showSearch && (
             <div className="header-actions">
-              <input
+              {/* <input
                 type="text"
                 placeholder="Tìm kiếm"
                 className="search-input"
-              />
+              /> */}
               <button className="login-btn">Đăng nhập</button>
             </div>
           )}

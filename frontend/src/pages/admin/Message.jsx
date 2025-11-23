@@ -135,6 +135,14 @@ export default function Message() {
   const [messages, setMessages] = useState(messagesData);
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showComposeModal, setShowComposeModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [recipientType, setRecipientType] = useState("driver");
+  const [recipientFilter, setRecipientFilter] = useState("all");
+  const [messageTitle, setMessageTitle] = useState("");
+  const [messageContent, setMessageContent] = useState("");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
 
   // Filter messages based on active category
   const filteredMessages = messages.filter((msg) => {
@@ -178,7 +186,65 @@ export default function Message() {
   };
 
   const handleNewMessage = () => {
-    console.log("New message");
+    setShowComposeModal(true);
+    setRecipientType("driver");
+    setRecipientFilter("all");
+    setMessageTitle("");
+    setMessageContent("");
+  };
+
+  const handleSendMessage = () => {
+    if (!messageTitle || !messageContent) {
+      alert("Vui lòng điền đầy đủ tiêu đề và nội dung!");
+      return;
+    }
+
+    const newMessage = {
+      id: messages.length + 1,
+      sender: "Bạn",
+      subject: messageTitle,
+      preview: messageContent.substring(0, 50) + "...",
+      date: new Date().toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "short",
+      }),
+      starred: false,
+      category: "sent",
+      recipient: recipientType,
+      recipientFilter: recipientFilter,
+    };
+
+    setMessages([...messages, newMessage]);
+    setShowComposeModal(false);
+    alert("Đã gửi tin nhắn thành công!");
+  };
+
+  const handleScheduleSend = () => {
+    setShowComposeModal(false);
+    setShowScheduleModal(true);
+  };
+
+  const handleConfirmSchedule = () => {
+    if (!messageTitle || !messageContent || !scheduleDate || !scheduleTime) {
+      alert("Vui lòng điền đầy đủ thông tin và thời gian gửi!");
+      return;
+    }
+
+    const newMessage = {
+      id: messages.length + 1,
+      sender: "Bạn",
+      subject: messageTitle,
+      preview: messageContent.substring(0, 50) + "...",
+      date: `${scheduleDate} ${scheduleTime}`,
+      starred: false,
+      category: "scheduled",
+      recipient: recipientType,
+      recipientFilter: recipientFilter,
+    };
+
+    setMessages([...messages, newMessage]);
+    setShowScheduleModal(false);
+    alert("Đã lên lịch gửi tin nhắn!");
   };
 
   return (
@@ -276,6 +342,193 @@ export default function Message() {
           </div>
         </div>
       </div>
+
+      {/* Modal Soạn Tin Mới */}
+      {showComposeModal && (
+        <div
+          className="message-modal-overlay"
+          onClick={() => setShowComposeModal(false)}
+        >
+          <div
+            className="message-compose-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="compose-header">
+              <h2>Soạn tin mới</h2>
+              <button
+                className="close-modal-btn"
+                onClick={() => setShowComposeModal(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="compose-body">
+              <div className="compose-field">
+                <label>Gửi đến:</label>
+                <div className="recipient-selection">
+                  <div className="radio-group">
+                    <label className="radio-label">
+                      <input
+                        type="radio"
+                        name="recipient-type"
+                        value="driver"
+                        checked={recipientType === "driver"}
+                        onChange={(e) => setRecipientType(e.target.value)}
+                      />
+                      Tài xế
+                    </label>
+                    <label className="radio-label">
+                      <input
+                        type="radio"
+                        name="recipient-type"
+                        value="parent"
+                        checked={recipientType === "parent"}
+                        onChange={(e) => setRecipientType(e.target.value)}
+                      />
+                      Phụ huynh
+                    </label>
+                  </div>
+                  <select
+                    className="recipient-filter"
+                    value={recipientFilter}
+                    onChange={(e) => setRecipientFilter(e.target.value)}
+                  >
+                    <option value="all">Toàn bộ</option>
+                    <option value="route1">Tuyến 1</option>
+                    <option value="route2">Tuyến 2</option>
+                    <option value="route3">Tuyến 3</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="compose-field">
+                <label>Tiêu đề:</label>
+                <input
+                  type="text"
+                  className="compose-input"
+                  value={messageTitle}
+                  onChange={(e) => setMessageTitle(e.target.value)}
+                  placeholder="Nhập tiêu đề..."
+                />
+              </div>
+
+              <div className="compose-field">
+                <label>Nội dung:</label>
+                <textarea
+                  className="compose-textarea"
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  placeholder="Nhập nội dung tin nhắn..."
+                  rows="8"
+                />
+              </div>
+
+              <div className="compose-toolbar">
+                <button className="toolbar-btn" title="Định dạng chữ">
+                  <span>Aa</span>
+                </button>
+                <button className="toolbar-btn" title="Đính kèm">
+                  <span>📎</span>
+                </button>
+                <button className="toolbar-btn" title="Chèn link">
+                  <span>🔗</span>
+                </button>
+                <button className="toolbar-btn" title="Biểu tượng cảm xúc">
+                  <span>😊</span>
+                </button>
+                <button className="toolbar-btn" title="Hình ảnh">
+                  <span>🖼️</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="compose-actions">
+              <button className="btn-send" onClick={handleSendMessage}>
+                Gửi
+              </button>
+              <button className="btn-schedule" onClick={handleScheduleSend}>
+                <span>📅</span> Lên lịch gửi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Lên Lịch Gửi */}
+      {showScheduleModal && (
+        <div
+          className="message-modal-overlay"
+          onClick={() => setShowScheduleModal(false)}
+        >
+          <div
+            className="message-schedule-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="schedule-header">
+              <h2>Lên lịch gửi tin nhắn</h2>
+              <button
+                className="close-modal-btn"
+                onClick={() => setShowScheduleModal(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="schedule-body">
+              <div className="schedule-field">
+                <label>Ngày gửi:</label>
+                <input
+                  type="date"
+                  className="schedule-input"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                />
+              </div>
+
+              <div className="schedule-field">
+                <label>Giờ gửi:</label>
+                <input
+                  type="time"
+                  className="schedule-input"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                />
+              </div>
+
+              <div className="schedule-summary">
+                <h3>Thông tin tin nhắn:</h3>
+                <p>
+                  <strong>Gửi đến:</strong>{" "}
+                  {recipientType === "driver" ? "Tài xế" : "Phụ huynh"} -{" "}
+                  {recipientFilter === "all" ? "Toàn bộ" : recipientFilter}
+                </p>
+                <p>
+                  <strong>Tiêu đề:</strong> {messageTitle || "(Chưa có)"}
+                </p>
+                <p>
+                  <strong>Nội dung:</strong>{" "}
+                  {messageContent
+                    ? messageContent.substring(0, 100) + "..."
+                    : "(Chưa có)"}
+                </p>
+              </div>
+            </div>
+
+            <div className="schedule-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setShowScheduleModal(false)}
+              >
+                Hủy
+              </button>
+              <button className="btn-confirm" onClick={handleConfirmSchedule}>
+                Xác nhận lên lịch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

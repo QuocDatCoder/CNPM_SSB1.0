@@ -1,0 +1,270 @@
+.statistical-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.statistical-content {
+  padding: 30px;
+  flex: 1;
+}
+
+/* Stat Cards */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  border-radius: 15px;
+  padding: 25px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  min-height: 160px;
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50% 50% 0 0 / 30% 30% 0 0;
+}
+
+.stat-card-driver {
+  background: linear-gradient(135deg, #5a7ba8 0%, #3d5a80 100%);
+}
+
+.stat-card-route {
+  background: linear-gradient(135deg, #e9a865 0%, #d68838 100%);
+}
+
+.stat-card-bus {
+  background: linear-gradient(135deg, #ea5f89 0%, #d63864 100%);
+}
+
+.stat-card-customer {
+  background: linear-gradient(135deg, #c997d8 0%, #a86bbf 100%);
+}
+
+.stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  position: relative;
+  z-index: 1;
+}
+
+.stat-title {
+  font-size: 16px;
+  font-weight: 500;
+  opacity: 0.95;
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.stat-footer {
+  display: flex;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.stat-badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.stat-badge-active {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+.stat-badge-inactive {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+/* Charts Row */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.chart-container {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.chart-full {
+  grid-column: 1 / -1;
+}
+
+.chart-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+/* Pie Chart */
+.pie-chart {
+  width: 300px;
+  height: 300px;
+  margin: 0 auto 20px;
+}
+
+.pie-legend {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #666;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+/* Bar Chart */
+.bar-chart {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  height: 250px;
+  padding: 20px 0;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.bar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+}
+
+.bar-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  width: 60%;
+}
+
+.bar {
+  width: 100%;
+  background: linear-gradient(to top, #10b981, #34d399);
+  border-radius: 8px 8px 0 0;
+  position: relative;
+  min-height: 30px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 5px;
+  transition: all 0.3s ease;
+}
+
+.bar:hover {
+  opacity: 0.8;
+  transform: scaleY(1.05);
+}
+
+.bar-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+
+.bar-label {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+}
+
+/* Line Chart */
+.line-chart {
+  height: 200px;
+  position: relative;
+  background: linear-gradient(
+    to bottom,
+    rgba(74, 144, 226, 0.1) 0%,
+    rgba(74, 144, 226, 0.05) 50%,
+    transparent 100%
+  );
+  border-radius: 8px;
+}
+
+.line-chart svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stat-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-chart {
+    padding: 10px 0;
+  }
+
+  .bar-label {
+    font-size: 10px;
+  }
+}
