@@ -108,6 +108,7 @@ CREATE TABLE `Students` (
   `gvcn` VARCHAR(150) DEFAULT NULL,
   `parent_id` INT NOT NULL,
   `default_stop_id` INT DEFAULT NULL,
+  `default_route_id` INT DEFAULT NULL,
   
   FOREIGN KEY (`parent_id`) REFERENCES `Users`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`default_stop_id`) REFERENCES `Stops`(`id`) ON DELETE SET NULL
