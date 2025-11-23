@@ -34,6 +34,10 @@ const Student = sequelize.define('Student', {
   default_stop_id: {
     type: DataTypes.INTEGER,
     allowNull: true
+  },
+  default_route_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true
   }
 }, {
   tableName: 'Students',
