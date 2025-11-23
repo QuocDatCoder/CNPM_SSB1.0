@@ -11,8 +11,6 @@ const ScheduleStudent = sequelize.define('ScheduleStudent', {
   student_id: { type: DataTypes.INTEGER, allowNull: false },
   stop_id: { type: DataTypes.INTEGER, allowNull: false },
   
-  // --- ĐÃ BỎ seat_position ---
-  // Chỉ còn quản lý trạng thái
   trang_thai_don: {
     type: DataTypes.ENUM('choxacnhan', 'dihoc', 'vangmat', 'daxuong'),
     defaultValue: 'choxacnhan'
