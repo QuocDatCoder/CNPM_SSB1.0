@@ -37,7 +37,13 @@ CREATE TABLE `Users` (
 CREATE TABLE `Buses` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `bien_so_xe` VARCHAR(20) NOT NULL UNIQUE,
+  
+  `hang_xe` VARCHAR(50) DEFAULT NULL,
+  `nam_san_xuat` INT DEFAULT NULL,
   `so_ghe` INT DEFAULT 30,
+  `so_km_da_chay` DECIMAL(10, 2) DEFAULT 0,
+  `lich_bao_duong` DATE DEFAULT NULL,
+  
   `trang_thai` ENUM('hoatdong', 'baotri', 'ngung') DEFAULT 'hoatdong'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -59,11 +65,15 @@ CREATE TABLE `Stops` (
 
 --
 -- Bảng 5: `Routes` (Tuyến Đường)
---
+
 CREATE TABLE `Routes` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `ten_tuyen` VARCHAR(200) NOT NULL,
-  `mo_ta` TEXT DEFAULT NULL
+  `mo_ta` TEXT DEFAULT NULL,
+  `khoang_cach` DECIMAL(5,2) DEFAULT 0 COMMENT 'Đơn vị km',
+  `thoi_gian_du_kien` INT DEFAULT 0 COMMENT 'Đơn vị phút',
+  `loai_tuyen` ENUM('luot_di', 'luot_ve') NOT NULL DEFAULT 'luot_di'
+  
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -135,11 +145,6 @@ CREATE TABLE `ScheduleStudents` (
   `schedule_id` INT NOT NULL,
   `student_id` INT NOT NULL,
   `stop_id` INT NOT NULL,
-  
-  -- choxacnhan = chưa lên xe
-  -- dihoc = đang trên xe (màu xanh lá)
-  -- daxuong = đã xuống xe (màu đỏ)
-  -- vangmat = báo vắng
   `trang_thai_don` ENUM('choxacnhan', 'dihoc', 'vangmat', 'daxuong') DEFAULT 'choxacnhan',
   
   `thoi_gian_don_thuc_te` DATETIME DEFAULT NULL,
@@ -185,6 +190,12 @@ CREATE TABLE `Notifications` (
   FOREIGN KEY (`user_id_nhan`) REFERENCES `Users`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`schedule_id`) REFERENCES `Schedules`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+-- Lịch sử phân công
+CREATE TABLE `AssignmentHistory` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tuyen` VARCHAR(255) NOT NULL ,
+  `thao_tac` VARCHAR(255) NOT NULL,
+  `thoi_gian` DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 COMMIT;
