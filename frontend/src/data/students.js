@@ -14,6 +14,7 @@ const students = [
     address: "345,Võ Thị Sáu, .....",
     username: "student0001",
     password: "password123",
+    status: "Chưa đón",
   },
   {
     code: "0002",
@@ -30,6 +31,7 @@ const students = [
     address: "Quận 3, TP.HCM",
     username: "student0002",
     password: "password456",
+    status: "Đang di chuyển",
   },
   {
     code: "0003",
@@ -46,6 +48,7 @@ const students = [
     address: "Quận 5, TP.HCM",
     username: "student0003",
     password: "password789",
+    status: "Chưa đón",
   },
   {
     code: "0004",
@@ -62,6 +65,7 @@ const students = [
     address: "Quận 10, TP.HCM",
     username: "student0004",
     password: "password321",
+    status: "Đã xuống xe",
   },
   {
     code: "0005",
@@ -78,6 +82,7 @@ const students = [
     address: "Quận 1, TP.HCM",
     username: "student0005",
     password: "password654",
+    status: "Chưa đón",
   },
 ];
 

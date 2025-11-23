@@ -1,46 +1,32 @@
 import React, { useState } from "react";
 import "./Students.css";
-
-const sampleStudents = [
-  {
-    code: "0001",
-    name: "An Dương Vương",
-    class: "1",
-    stop: "Nguyễn Văn A",
-    contact: "0901122334",
-    status: "Chưa lên xe",
-  },
-  {
-    code: "0002",
-    name: "Lê Thị B",
-    class: "2",
-    stop: "Trần Văn B",
-    contact: "0912345678",
-    status: "Đã lên xe",
-  },
-  {
-    code: "0003",
-    name: "Võ Văn C",
-    class: "1",
-    stop: "Cổng trường C",
-    contact: "0977555999",
-    status: "Chưa lên xe",
-  },
-];
+import studentsData from "../../data/students";
 
 export default function Students() {
   const [mode, setMode] = useState("go"); // 'go' = Đưa đi, 'back' = Đưa về
-  const [students, setStudents] = useState(sampleStudents);
-
-  function toggleStatus(index) {
-    setStudents((prev) => {
-      const copy = [...prev];
-      const s = copy[index];
-      if (s.status === "Đã lên xe") s.status = mode === "go" ? "Đã đi" : "Đã về";
-      else s.status = "Đã lên xe";
-      return copy;
-    });
-  }
+  const [students, setStudents] = useState(
+    studentsData.map((s) => ({
+      // keep original fields and add aliases expected by this component
+      ...s,
+      name: s.fullname || s.name || "",
+      stop: s.station || s.route || s.stop || "",
+      status: s.status || "Chưa đón",
+    }))
+  );
+  // Toggle a student's status between 'Chưa đón' and 'Đang di chuyển'
+  const toggleStatus = (code) => {
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (s.code !== code) return s;
+        const current = s.status;
+        let next = current;
+        if (current === "Chưa đón") next = "Đang di chuyển";
+        else if (current === "Đang di chuyển") next = "Đã xuống xe";
+        // if already a final state (Đã xuống xe or Đã đón), keep it
+        return { ...s, status: next };
+      })
+    );
+  };
 
   return (
     <div className="students-page">
@@ -48,10 +34,10 @@ export default function Students() {
         <h3>Danh sách học sinh</h3>
         <div className="students-controls">
           <button className={`mode-btn ${mode === "go" ? "active" : ""}`} onClick={() => setMode("go")}>
-            Đưa đi
+            Đón
           </button>
           <button className={`mode-btn ${mode === "back" ? "active" : ""}`} onClick={() => setMode("back")}>
-            Đưa về
+            Trả
           </button>
         </div>
       </div>
@@ -64,7 +50,6 @@ export default function Students() {
           <div>Trạm đón</div>
           <div>Thông tin liên hệ</div>
           <div>Trạng thái</div>
-          <div>Thao tác</div>
         </div>
 
         <div className="table-body">
@@ -75,12 +60,16 @@ export default function Students() {
               <div>{s.class}</div>
               <div>{s.stop}</div>
               <div>{s.contact}</div>
-              <div className={`status ${s.status === "Đã lên xe" || s.status === "Đã đi" || s.status === "Đã về" ? "ok" : "pending"}`}>
-                {s.status}
-              </div>
               <div>
-                <button className="action-btn" onClick={() => toggleStatus(idx)}>
-                  {s.status === "Đã lên xe" || s.status === "Đã đi" || s.status === "Đã về" ? "Huỷ" : "Đánh dấu"}
+                <button
+                  type="button"
+                  className={`status-btn ${
+                    s.status === "Chưa đón" ? "pending" : s.status === "Đang di chuyển" ? "ok" : "done"
+                  }`}
+                  onClick={() => toggleStatus(s.code)}
+                  disabled={s.status === "Đã xuống xe" || s.status === "Đã đón"}
+                >
+                  {s.status}
                 </button>
               </div>
             </div>
