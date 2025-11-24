@@ -87,7 +87,7 @@ function ParentDashboard() {
               <div className="parent-dashboard-greeting">
                 <div className="parent-dashboard-user-card">
                   <div className="parent-dashboard-avatar">
-                    <img src="/image/avata.png" alt="User" />
+                    <img src="/image/avatar2.png" alt="User" />
                   </div>
                   <div className="parent-dashboard-user-text">
                     <h2>{userData.greeting}</h2>
