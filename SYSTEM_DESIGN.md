@@ -57,12 +57,12 @@ graph TD
     end
 
     %% Luồng tương tác
-    ReactApp -->|1. Load Map & Assets| GoogleMaps
-    ReactApp -->|2. REST API (Auth, Data)| NodeServer
-    ReactApp -.->|3. Realtime GPS (WebSocket)| NodeServer
+    ReactApp -- "1. Load Map & Assets" --> GoogleMaps
+    ReactApp -- "2. REST API (Auth, Data)" --> NodeServer
+    ReactApp -. "3. Realtime GPS (WebSocket)" .-> NodeServer
     
-    NodeServer -->|4. Query/Save Data| DB
-    NodeServer -.->|5. Broadcast Location| ReactApp
+    NodeServer -- "4. Query/Save Data" --> DB
+    NodeServer -. "5. Broadcast Location" .-> ReactApp
 
 ```
 3.2. Luồng xử lý dữ liệu với Google Maps
