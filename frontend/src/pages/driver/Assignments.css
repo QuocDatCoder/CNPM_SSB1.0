@@ -111,3 +111,33 @@
 .calendar-icon { font-size: 18px; }
 .chev { margin-left: 8px; color: #374151; }
 .week-indicator { padding: 0 8px; }
+
+.week-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #e6e9ef;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+  z-index: 50;
+  min-width: 260px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week-option {
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.week-option:hover { background: #f3f4f6; }
+.week-option.active { background: linear-gradient(180deg,#059669,#10b981); color: #fff; }
+.week-option-label { font-weight: 700; }
+.week-option-range { font-size: 12px; color: #6b7280; }
