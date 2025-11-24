@@ -41,8 +41,6 @@ Driver: mysql2 (Thư viện kết nối hiệu năng cao cho Node.js).
 Hệ thống hoạt động theo mô hình Client-Server kết hợp với dịch vụ bản đồ bên thứ 3 (Google Maps).
 
 3.1. Sơ đồ kiến trúc tổng quan
-Đoạn mã
-
 graph TD
     subgraph "Client Layer (Frontend)"
         ReactApp[💻/📱 <b>ReactJS Web Application</b><br/>(Admin / Driver / User Views)]
