@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Header from "../../components/common/Header/header";
 import "./Students.css";
 import studentsData from "../../data/students";
 
@@ -30,50 +31,66 @@ export default function Students() {
 
   return (
     <div className="students-page">
-      <div className="students-header">
-        <h3>Danh sách học sinh</h3>
-        <div className="students-controls">
-          <button className={`mode-btn ${mode === "go" ? "active" : ""}`} onClick={() => setMode("go")}>
-            Đón
-          </button>
-          <button className={`mode-btn ${mode === "back" ? "active" : ""}`} onClick={() => setMode("back")}>
-            Trả
-          </button>
-        </div>
-      </div>
+      <Header title="Danh sách Học sinh" showSearch={false} />
 
-      <div className="students-table">
-        <div className="table-head">
-          <div>Mã HS</div>
-          <div>Họ và tên học sinh</div>
-          <div>Lớp</div>
-          <div>Trạm đón</div>
-          <div>Thông tin liên hệ</div>
-          <div>Trạng thái</div>
+      <div className="students-content">
+        <div className="students-header">
+          <h3>Danh sách học sinh</h3>
+          <div className="students-controls">
+            <button
+              className={`mode-btn ${mode === "go" ? "active" : ""}`}
+              onClick={() => setMode("go")}
+            >
+              Đón
+            </button>
+            <button
+              className={`mode-btn ${mode === "back" ? "active" : ""}`}
+              onClick={() => setMode("back")}
+            >
+              Trả
+            </button>
+          </div>
         </div>
 
-        <div className="table-body">
-          {students.map((s, idx) => (
-            <div className="table-row" key={s.code}>
-              <div>{s.code}</div>
-              <div>{s.name}</div>
-              <div>{s.class}</div>
-              <div>{s.stop}</div>
-              <div>{s.contact}</div>
-              <div>
-                <button
-                  type="button"
-                  className={`status-btn ${
-                    s.status === "Chưa đón" ? "pending" : s.status === "Đang di chuyển" ? "ok" : "done"
-                  }`}
-                  onClick={() => toggleStatus(s.code)}
-                  disabled={s.status === "Đã xuống xe" || s.status === "Đã đón"}
-                >
-                  {s.status}
-                </button>
+        <div className="students-table">
+          <div className="table-head">
+            <div>Mã HS</div>
+            <div>Họ và tên học sinh</div>
+            <div>Lớp</div>
+            <div>Trạm đón</div>
+            <div>Thông tin liên hệ</div>
+            <div>Trạng thái</div>
+          </div>
+
+          <div className="table-body">
+            {students.map((s, idx) => (
+              <div className="table-row" key={s.code}>
+                <div>{s.code}</div>
+                <div>{s.name}</div>
+                <div>{s.class}</div>
+                <div>{s.stop}</div>
+                <div>{s.contact}</div>
+                <div>
+                  <button
+                    type="button"
+                    className={`status-btn ${
+                      s.status === "Chưa đón"
+                        ? "pending"
+                        : s.status === "Đang di chuyển"
+                        ? "ok"
+                        : "done"
+                    }`}
+                    onClick={() => toggleStatus(s.code)}
+                    disabled={
+                      s.status === "Đã xuống xe" || s.status === "Đã đón"
+                    }
+                  >
+                    {s.status}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

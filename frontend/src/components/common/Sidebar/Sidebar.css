@@ -107,7 +107,7 @@
 
 .alert-button {
   width: 100%;
-  background: #e11d48; /* red-600 */
+  background: radial-gradient(circle, #ff0000 50%, #bb0000 100%);
   color: #fff;
   border: none;
   padding: 10px 12px;

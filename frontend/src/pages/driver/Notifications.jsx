@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Header from "../../components/common/Header/header";
 import notifications from "../../data/notifications";
 import "./Notifications.css";
 
@@ -19,44 +20,79 @@ export default function Notifications() {
 
   return (
     <div className="notifications-page">
-      <div className="notifications-header">
-        <div className="tabs">
-          <button className={`tab ${tab === "inbox" ? "active" : ""}`} onClick={() => { setTab("inbox"); setPage(1); }}>
-            Hộp thư đến
-          </button>
-          <button className={`tab ${tab === "sent" ? "active" : ""}`} onClick={() => { setTab("sent"); setPage(1); }}>
-            Đã gửi
-          </button>
-        </div>
-      </div>
+      <Header title="Thông báo" showSearch={false} />
 
-      <div className="notifications-list-card">
-        <div className="notifications-list-header">
-          <div className="col col-check"><input type="checkbox" /></div>
-          <div className="col col-from">Người gửi</div>
-          <div className="col col-subject">Tiêu đề</div>
-          <div className="col col-preview">Xem trước</div>
-          <div className="col col-time">Thời gian</div>
+      <div className="notifications-content">
+        <div className="notifications-header">
+          <div className="tabs">
+            <button
+              className={`tab ${tab === "inbox" ? "active" : ""}`}
+              onClick={() => {
+                setTab("inbox");
+                setPage(1);
+              }}
+            >
+              Hộp thư đến
+            </button>
+            <button
+              className={`tab ${tab === "sent" ? "active" : ""}`}
+              onClick={() => {
+                setTab("sent");
+                setPage(1);
+              }}
+            >
+              Đã gửi
+            </button>
+          </div>
         </div>
 
-        <div className="notifications-list">
-          {visible.length === 0 && <div className="empty">Không có thông báo.</div>}
-          {visible.map((n) => (
-            <div key={n.id} className={`notification-row ${n.read ? "read" : "unread"}`}>
-              <div className="col col-check"><input type="checkbox" /></div>
-              <div className="col col-from"><strong>{n.from}</strong></div>
-              <div className="col col-subject">{n.subject}</div>
-              <div className="col col-preview">{n.preview}</div>
-              <div className="col col-time">{n.time}</div>
+        <div className="notifications-list-card">
+          <div className="notifications-list-header">
+            <div className="col col-check">
+              <input type="checkbox" />
             </div>
-          ))}
-        </div>
+            <div className="col col-from">Người gửi</div>
+            <div className="col col-subject">Tiêu đề</div>
+            <div className="col col-preview">Xem trước</div>
+            <div className="col col-time">Thời gian</div>
+          </div>
 
-        <div className="notifications-footer">
-          <div className="pagination">
-            <button onClick={() => goto(page - 1)} disabled={page <= 1}>{`‹`}</button>
-            <span className="page-info">{page} / {totalPages}</span>
-            <button onClick={() => goto(page + 1)} disabled={page >= totalPages}>{`›`}</button>
+          <div className="notifications-list">
+            {visible.length === 0 && (
+              <div className="empty">Không có thông báo.</div>
+            )}
+            {visible.map((n) => (
+              <div
+                key={n.id}
+                className={`notification-row ${n.read ? "read" : "unread"}`}
+              >
+                <div className="col col-check">
+                  <input type="checkbox" />
+                </div>
+                <div className="col col-from">
+                  <strong>{n.from}</strong>
+                </div>
+                <div className="col col-subject">{n.subject}</div>
+                <div className="col col-preview">{n.preview}</div>
+                <div className="col col-time">{n.time}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="notifications-footer">
+            <div className="pagination">
+              <button
+                onClick={() => goto(page - 1)}
+                disabled={page <= 1}
+              >{`‹`}</button>
+              <span className="page-info">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => goto(page + 1)}
+                disabled={page >= totalPages}
+              >{`›`}</button>
+            </div>
           </div>
         </div>
       </div>

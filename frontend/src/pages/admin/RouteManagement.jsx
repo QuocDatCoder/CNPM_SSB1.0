@@ -247,7 +247,10 @@ export default function RouteManagement() {
                   <div className="route-stops-list">
                     {selectedRoute.stops.map((stop, index) => (
                       <div key={stop.id} className="route-stop-item">
-                        <div className="route-stop-number">{index + 1}</div>
+                        <div className="route-stop-number">
+                          {/* {index + 1} */}
+                          <img src="./icons/location.png" alt="location" />
+                        </div>
                         <div className="route-stop-info">
                           <div className="route-stop-name">{stop.name}</div>
                           <div className="route-stop-time">
