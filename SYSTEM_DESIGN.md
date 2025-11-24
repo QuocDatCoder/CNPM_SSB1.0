@@ -63,3 +63,41 @@ graph TD
     
     NodeServer -->|4. Query/Save Data| DB
     NodeServer -.->|5. Broadcast Location| ReactApp
+
+```
+3.2. Luồng xử lý dữ liệu với Google Maps
+Hiển thị: React App tải trực tiếp bản đồ từ máy chủ Google Maps về trình duyệt người dùng.
+
+Dữ liệu nghiệp vụ: React App gọi API lên Node.js Server để lấy danh sách các điểm dừng (Lat/Lng) và lộ trình.
+
+Vẽ lộ trình: React App sử dụng dữ liệu từ Server để vẽ đường đi (Polyline) và ghim điểm dừng (Markers) lên lớp bản đồ Google Maps.
+
+4. Mô Hình Yêu Cầu & Chức Năng (Functional Requirements)
+Hệ thống React Frontend được chia thành 3 phân hệ (Views) dựa trên quyền người dùng:
+
+4.1. Admin Dashboard (Web React)
+Quản lý hạ tầng: CRUD Xe, Tuyến đường, Điểm dừng.
+
+Điều phối: Lập lịch trình (Schedule) cho tài xế.
+
+Giám sát: Xem bản đồ Google Maps hiển thị vị trí toàn bộ đội xe đang hoạt động.
+
+4.2. Driver Interface (Mobile Web React)
+Nhận việc: Xem lịch trình phân công.
+
+Tracking:
+
+Sử dụng GPS của thiết bị.
+
+Liên tục gửi tọa độ về Server qua Socket.io.
+
+Hiển thị vị trí hiện tại của mình trên Google Maps nền.
+
+4.3. Passenger Portal (Public Web React)
+Tra cứu: Tìm kiếm tuyến xe.
+
+Theo dõi:
+
+Xem xe đang chạy đến đâu trên Google Maps.
+
+Xem ước tính thời gian xe đến (dựa trên API Google Directions hoặc tính toán đơn giản).
