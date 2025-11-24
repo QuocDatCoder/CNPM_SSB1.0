@@ -413,55 +413,13 @@
   flex-shrink: 0;
 }
 
-.start-dot {
-  background: #10b981;
+.calendar-icon {
+  font-size: 18px;
 }
-
-.end-dot {
-  background: #f59e0b;
+.chev {
+  margin-left: 8px;
+  color: #374151;
 }
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .assignments-page {
-    padding: 12px;
-  }
-
-  .assignments-title {
-    font-size: 24px;
-  }
-
-  .assignments-content {
-    padding: 16px;
-  }
-
-  .view-toggle-section {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .date-navigation {
-    justify-content: center;
-  }
-
-  .view-toggle {
-    width: 100%;
-  }
-
-  .toggle-btn {
-    flex: 1;
-  }
-
-  .week-view {
-    grid-template-columns: 1fr;
-  }
-
-  .trip-header {
-    flex-wrap: wrap;
-  }
-
-  .trip-action-btn {
-    width: 100%;
-    margin-top: 8px;
-  }
+.week-indicator {
+  padding: 0 8px;
 }
