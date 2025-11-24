@@ -1,41 +1,26 @@
-import React, { useState } from "react";
-import Sidebar from "./components/common/Sidebar/Sidebar";
-import Dashboard from "./pages/admin/Dashboard";
-import Bus from "./pages/admin/Bus";
-import Drivers from "./pages/admin/Drivers";
-import Schedule from "./pages/admin/Schedule";
-import Student from "./pages/admin/Student";
-import Message from "./pages/admin/Message";
-import RouteManagement from "./pages/admin/RouteManagement";
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import HomePage from "./pages/HomePage";
+import AdminLayout from "./layouts/AdminLayout";
+import DriverLayout from "./layouts/DriverLayout";
+import ParentLayout from "./layouts/ParentLayout";
 import "./index.css";
 
 export default function App() {
-  const [page, setPage] = useState("Trang chủ");
-
-  function renderPage() {
-    switch (page) {
-      case "Xe buýt":
-        return <Bus />;
-      case "Tài xế":
-        return <Drivers />;
-      case "Tuyến đường":
-        return <RouteManagement />;
-      case "Lịch trình":
-        return <Schedule />;
-      case "Học sinh":
-        return <Student />;
-      case "Tin nhắn":
-        return <Message />;
-      case "Trang chủ":
-      default:
-        return <Dashboard />;
-    }
-  }
-
   return (
-    <div className="app-container">
-      <Sidebar active={page} onSelect={(label) => setPage(label)} />
-      {renderPage()}
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/admin" element={<AdminLayout />} />
+        <Route path="/driver" element={<DriverLayout />} />
+        <Route path="/parent" element={<ParentLayout />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
   );
 }

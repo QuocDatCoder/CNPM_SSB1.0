@@ -221,3 +221,359 @@
     color: #666;
   }
 }
+
+/* Modal Overlay */
+.student-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* width: 200vh; */
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Student Info Modal */
+.student-info-modal {
+  background: white;
+  border-radius: 12px;
+  width: 75vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  scrollbar-width: none;
+}
+
+.student-info-header {
+  /* display: flex;
+  flex-direction: row;
+  justify-content: left; */
+  background: linear-gradient(180deg, #004933 0%, #00986a 100%);
+  padding: 30px;
+  text-align: center;
+  border-radius: 12px 12px 0 0;
+  position: relative;
+}
+
+.student-info-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.student-info-avatar svg {
+  width: 60px;
+  height: 60px;
+  fill: #10b981;
+}
+
+.student-info-name {
+  font-size: 24px;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.student-info-content {
+  padding: 30px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.student-info-left,
+.student-info-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.student-info-field {
+  display: flex;
+  flex-direction: row;
+  /* justify-content: center; */
+  align-items: center;
+  gap: 10px;
+}
+
+.student-info-field label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #012923;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.student-info-field span {
+  font-size: 15px;
+  color: #333;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.student-info-field input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.student-info-field input:focus {
+  outline: none;
+  border-color: #10b981;
+}
+
+.student-account-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f9fafb;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.student-account-fields h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 20px 0;
+}
+
+.student-info-actions {
+  padding: 0 30px 30px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.student-btn-edit {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: linear-gradient(to bottom, #8eb704 0%, #006239 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+}
+
+.student-btn-edit:hover {
+  background: linear-gradient(to bottom, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+}
+
+.student-btn-edit svg {
+  width: 16px;
+  height: 16px;
+  fill: white;
+}
+
+.student-btn-primary {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: linear-gradient(to bottom, #0497b7 0%, #006239 84%);
+  color: white;
+  transition: all 0.3s;
+}
+
+.student-btn-primary:hover {
+  background: linear-gradient(to bottom, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 25px;
+  padding: 20px 0;
+}
+
+.pagination-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 8px 12px;
+  border: 2px solid #10b981;
+  background-color: white;
+  color: #10b981;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #10b981;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.pagination-btn.active {
+  background-color: #10b981;
+  color: white;
+  font-weight: 600;
+}
+
+.pagination-btn:disabled {
+  border-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Add Student Modal */
+.student-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 70vw;
+  width: 70vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  scrollbar-width: none;
+}
+
+.student-modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #333;
+}
+
+.add-student-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.student-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 25px;
+}
+
+.student-avatar-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.student-avatar-label {
+  color: #666;
+  font-size: 14px;
+}
+
+.student-form {
+  display: flex;
+  flex-direction: column;
+  width: 70%;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.student-form-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.student-form-row label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.student-form-row input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.student-form-row input:focus {
+  outline: none;
+  border-color: #10b981;
+}
+
+/* .birday-and-gender {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  flex: 1;
+} */
+.student-gender-group {
+  display: flex;
+  gap: 20px;
+}
+
+.student-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.student-radio-label input[type="radio"] {
+  width: auto;
+  cursor: pointer;
+}
+
+.student-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.student-btn-secondary {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s;
+  background-color: #f3f4f6;
+  color: #333;
+}
+
+.student-btn-secondary:hover {
+  background-color: #e5e7eb;
+}

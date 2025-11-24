@@ -1,0 +1,143 @@
+.assignments-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.assignments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.week-select .week-btn {
+  background: #ffffff;
+  border: 1px solid #e6e9ef;
+  padding: 10px 14px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.assignments-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.print-btn {
+  background: #fff;
+  border: 2px solid #10b981;
+  color: #10b981;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.week-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(180deg, #059669, #10b981);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.nav-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: white;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+.week-col {
+  display: flex;
+  flex-direction: column;
+  height: 320px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.week-day {
+  background: #059669;
+  color: #fff;
+  padding: 12px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.slot {
+  flex: 1;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.empty-slot {
+  background: #f8faf9;
+}
+
+.go-slot {
+  background: #ffffff;
+  border-bottom: 2px solid rgba(0,0,0,0.02);
+}
+
+.back-slot {
+  background: #4b806f;
+  color: #fff;
+}
+
+.slot-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.slot-time {
+  color: inherit;
+}
+
+.calendar-icon { font-size: 18px; }
+.chev { margin-left: 8px; color: #374151; }
+.week-indicator { padding: 0 8px; }
+
+.week-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #e6e9ef;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+  z-index: 50;
+  min-width: 260px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week-option {
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.week-option:hover { background: #f3f4f6; }
+.week-option.active { background: linear-gradient(180deg,#059669,#10b981); color: #fff; }
+.week-option-label { font-weight: 700; }
+.week-option-range { font-size: 12px; color: #6b7280; }

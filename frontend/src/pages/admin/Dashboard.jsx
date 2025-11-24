@@ -1,37 +1,60 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Polyline,
+  Marker,
+  Popup,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import "./Dashboard.css";
+import { routes } from "../../data/routes";
 
-const routes = [
-  {
-    id: 1,
-    name: "Tuyến 1",
-    street: "Đường: An Dương Vương",
-    time: "4:00–6:00",
-  },
-  {
-    id: 2,
-    name: "Tuyến 2",
-    street: "Đường: An Dương Vương",
-    time: "4:00–6:00",
-  },
-  {
-    id: 3,
-    name: "Tuyến 3",
-    street: "Đường: An Dương Vương",
-    time: "4:00–6:00",
-  },
-  {
-    id: 4,
-    name: "Tuyến 4",
-    street: "Đường: An Dương Vương",
-    time: "4:00–6:00",
-  },
-  { id: 5, name: "Tuyến 5", street: "Đường: Lê Lợi", time: "6:00–8:00" },
-  { id: 6, name: "Tuyến 6", street: "Đường: Trường Chinh", time: "7:00–9:00" },
-];
+// Fix leaflet icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+});
+
+// Icon xe bus
+const busIcon = L.icon({
+  iconUrl: "/icons/busmap.png",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+// Icon điểm bắt đầu
+const startIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+});
+
+// Icon điểm kết thúc
+const endIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/149/149060.png",
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+});
+
+// Icon trạm dừng
+const stopIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/3448/3448636.png",
+  iconSize: [28, 28],
+  iconAnchor: [14, 28],
+});
 
 export default function Dashboard() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedRoute, setSelectedRoute] = useState(null);
+  const [routePath, setRoutePath] = useState([]);
+  const [busPos, setBusPos] = useState(null);
   const itemsPerPage = 4;
 
   const handlePrev = () => {
@@ -43,6 +66,58 @@ export default function Dashboard() {
   };
 
   const visibleRoutes = routes.slice(currentIndex, currentIndex + itemsPerPage);
+
+  // Fetch route from OSRM
+  async function fetchRoute(start, end) {
+    const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+
+      if (!json.routes) return [];
+
+      const coords = json.routes[0].geometry.coordinates.map((c) => [
+        c[1],
+        c[0],
+      ]);
+      return coords;
+    } catch (error) {
+      console.error("Error fetching route:", error);
+      return [];
+    }
+  }
+
+  // Handle route selection
+  const handleSelectRoute = async (route) => {
+    setSelectedRoute(route);
+    const path = await fetchRoute(route.start, route.end);
+    setRoutePath(path);
+    if (path.length > 0) {
+      setBusPos(path[0]);
+    }
+  };
+
+  // Animation chạy xe
+  useEffect(() => {
+    if (routePath.length === 0) return;
+
+    let index = 0;
+
+    const interval = setInterval(() => {
+      index++;
+      if (index >= routePath.length) index = 0;
+
+      setBusPos(routePath[index]);
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [routePath]);
+
+  // Load route 1 by default
+  useEffect(() => {
+    handleSelectRoute(routes[0]);
+  }, []);
 
   return (
     <div className="dashboard">
@@ -67,7 +142,14 @@ export default function Dashboard() {
 
         <div className="dashboard-routes-container">
           {visibleRoutes.map((route) => (
-            <div className="dashboard-route-card" key={route.id}>
+            <div
+              className={`dashboard-route-card ${
+                selectedRoute?.id === route.id ? "selected" : ""
+              }`}
+              key={route.id}
+              onClick={() => handleSelectRoute(route)}
+              style={{ cursor: "pointer" }}
+            >
               <div className="dashboard-route">
                 <div className="dashboard-route-icon">
                   <svg viewBox="0 0 24 24" fill="white" width="24" height="24">
@@ -81,11 +163,13 @@ export default function Dashboard() {
 
               <div className="dashboard-infor-route">
                 <div className="dashboard-route-street-content">
-                  <p className="dashboard-route-street">{route.street}</p>
+                  <p className="dashboard-route-street">
+                    Đường: {route.street}
+                  </p>
                 </div>
                 <div className="dashboard-route-time-content">
                   <div className="dashboard-route-clock-icon">
-                    <img src="/icons/clock.png" alt="Edit" />
+                    <img src="/icons/clock.png" alt="Time" />
                   </div>
                   <div>
                     <p className="dashboard-route-time">{route.time}</p>
@@ -106,12 +190,50 @@ export default function Dashboard() {
       </div>
 
       <div className="map-section">
-        <iframe
-          title="map"
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d501726.5286824077!2d106.41533104999999!3d10.754666449999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x317529292e8d3dd1%3A0xf15f5aad773c112b!2zSOG7kyBDaMOtIE1pbmgsIFZp4buHdCBOYW0!5e0!3m2!1svi!2s!4v1700000000000!5m2!1svi!2s"
-          allowFullScreen=""
-          loading="lazy"
-        ></iframe>
+        {selectedRoute && (
+          <MapContainer
+            center={selectedRoute.start}
+            zoom={14}
+            style={{ height: "100%", width: "100%" }}
+            key={selectedRoute.id}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+            {/* Vẽ tuyến */}
+            {routePath.length > 0 && (
+              <Polyline positions={routePath} color="blue" weight={5} />
+            )}
+
+            {/* Marker điểm bắt đầu */}
+            <Marker position={selectedRoute.start} icon={startIcon}>
+              <Popup>Điểm bắt đầu: {selectedRoute.startName}</Popup>
+            </Marker>
+
+            {/* Marker điểm kết thúc */}
+            <Marker position={selectedRoute.end} icon={endIcon}>
+              <Popup>Điểm kết thúc: {selectedRoute.endName}</Popup>
+            </Marker>
+
+            {/* Marker các trạm dừng */}
+            {selectedRoute.stops &&
+              selectedRoute.stops.map((stop, index) => (
+                <Marker key={stop.id} position={stop.position} icon={stopIcon}>
+                  <Popup>
+                    <strong>{stop.name}</strong>
+                    <br />
+                    Giờ đến: {stop.time}
+                  </Popup>
+                </Marker>
+              ))}
+
+            {/* Marker xe chạy */}
+            {busPos && (
+              <Marker position={busPos} icon={busIcon}>
+                <Popup>{selectedRoute.name}</Popup>
+              </Marker>
+            )}
+          </MapContainer>
+        )}
       </div>
     </div>
   );

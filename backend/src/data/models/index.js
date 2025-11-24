@@ -10,6 +10,7 @@ const Schedule = require('./schedule.model');
 const ScheduleStudent = require('./scheduleStudent.model');
 const LocationHistory = require('./locationHistory.model');
 const Notification = require('./notification.model');
+const AssignmentHistory = require('./assignmentHistory.model');
 
 // 2. Định nghĩa Mối quan hệ
 
@@ -23,6 +24,9 @@ RouteStop.belongsTo(Route, { foreignKey: 'route_id' });
 
 Stop.hasMany(RouteStop, { foreignKey: 'stop_id' });
 RouteStop.belongsTo(Stop, { foreignKey: 'stop_id' });
+
+Student.belongsTo(Route, { foreignKey: 'default_route_id', as: 'registeredRoute' });
+Route.hasMany(Student, { foreignKey: 'default_route_id' });
 
 // --- Schedules ---
 Schedule.belongsTo(Route, { foreignKey: 'route_id' });
@@ -45,5 +49,6 @@ module.exports = {
   sequelize,
   User, Bus, Stop, Route, RouteStop,
   Student, Schedule, ScheduleStudent,
-  LocationHistory, Notification
+  LocationHistory, Notification,
+  AssignmentHistory
 };

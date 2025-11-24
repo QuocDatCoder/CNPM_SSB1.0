@@ -1,0 +1,105 @@
+.home-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.home-container {
+  text-align: center;
+  color: white;
+  max-width: 1200px;
+}
+
+.home-container h1 {
+  font-size: 42px;
+  margin-bottom: 15px;
+  font-weight: 700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.home-container > p {
+  font-size: 20px;
+  margin-bottom: 50px;
+  opacity: 0.95;
+}
+
+.role-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 30px;
+  margin-top: 40px;
+}
+
+.role-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px 30px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.role-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+.role-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.role-card h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.role-card p {
+  font-size: 15px;
+  opacity: 0.7;
+  line-height: 1.5;
+}
+
+.admin-card {
+  color: #1e40af;
+}
+
+.admin-card:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: white;
+}
+
+.admin-card:hover p {
+  opacity: 0.9;
+}
+
+.driver-card {
+  color: #047857;
+}
+
+.driver-card:hover {
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  color: white;
+}
+
+.driver-card:hover p {
+  opacity: 0.9;
+}
+
+.parent-card {
+  color: #7c2d12;
+}
+
+.parent-card:hover {
+  background: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
+  color: white;
+}
+
+.parent-card:hover p {
+  opacity: 0.9;
+}

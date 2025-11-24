@@ -50,43 +50,45 @@
   object-fit: cover;
 }
 
-.route-info {
+.routemgmt-info {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   padding: 15px;
   background-color: #1a1a1a;
   color: white;
+  height: 42%;
 }
 
-.route-details {
+.routemgmt-details {
   margin-bottom: 12px;
+  width: 70%;
 }
 
-.route-details p {
+.routemgmt-details p {
   margin: 5px 0;
   font-size: 13px;
 }
 
-.route-id {
+.routemgmt-id {
   font-weight: 600;
 }
 
-.route-distance,
-.route-duration,
-.route-stations,
-.route-endpoints {
+.routemgmt-distance,
+.routemgmt-duration,
+.routemgmt-stations,
+.routemgmt-endpoints {
   opacity: 0.9;
 }
 
-.route-actions {
+.routemgmt-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
   align-items: center;
 }
 
-.route-action-btn {
+.routemgmt-action-btn {
   /* padding: 6px 12px; */
   border-radius: 5px;
   border: none;
@@ -97,12 +99,12 @@
   align-items: center;
   gap: 5px;
 }
-.route-view-btn-container {
+.routemgmt-view-btn-container {
   width: 100%;
   height: 70%;
   position: relative;
 }
-.route-view-btn {
+.routemgmt-view-btn {
   background: linear-gradient(180deg, #04b85b 0%, #025229 100%);
   width: 100%;
   height: 40%;
@@ -113,15 +115,15 @@
   bottom: 3px;
 }
 
-.route-view-btn:hover {
+.routemgmt-view-btn:hover {
   background-color: #22c55e;
 }
 
-.route-icon {
+.routemgmt-icon {
   font-size: 16px;
 }
 
-.route-edit-delete-btn {
+.routemgmt-edit-delete-btn {
   display: flex;
   flex-direction: row;
   width: 100%;
@@ -129,13 +131,13 @@
   gap: 5px;
 }
 
-.route-edit-btn-container,
-.route-delete-btn-container {
+.routemgmt-edit-btn-container,
+.routemgmt-delete-btn-container {
   width: 50%;
   box-sizing: border-box;
 }
 
-.route-delete-btn {
+.routemgmt-delete-btn {
   background: radial-gradient(circle, #ff0000 36%, #ab0000 100%);
   color: white;
   width: 100%;
@@ -147,7 +149,7 @@
   font-size: 16px;
 }
 
-.route-edit-btn {
+.routemgmt-edit-btn {
   background: radial-gradient(circle, #c7d104 0%, #666b02 100%);
   color: white;
   width: 100%;
@@ -159,18 +161,18 @@
   font-size: 16px;
 }
 
-.route-delete-btn img,
-.route-edit-btn img {
+.routemgmt-delete-btn img,
+.routemgmt-edit-btn img {
   width: 40%;
   height: 36px;
   object-fit: contain;
 }
 
-.route-edit-btn:hover {
+.routemgmt-edit-btn:hover {
   background-color: #f59e0b;
 }
 
-.route-delete-btn:hover {
+.routemgmt-delete-btn:hover {
   background-color: #dc2626;
 }
 
@@ -205,10 +207,278 @@
   font-weight: 300;
 }
 
+/* Modal */
+.route-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.route-modal {
+  background: white;
+  border-radius: 12px;
+  width: 80vw;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  scrollbar-width: none;
+}
+
+.route-modal-header {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: white;
+  padding: 20px 30px;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.route-modal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.route-modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 32px;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+}
+
+.route-modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.route-modal-body {
+  padding: 30px;
+}
+
+.route-infor-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.route-detail-section {
+  margin-bottom: 0;
+}
+
+.route-detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.route-detail-section h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #4ade80;
+}
+.route-info-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+}
+
+.route-info-grid-left,
+.route-info-grid-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.route-info-row {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 15px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.route-info-label {
+  font-weight: 600;
+  color: #666;
+}
+
+.route-info-value {
+  color: #1a1a1a;
+}
+
+/* Map view in modal */
+.route-map-view {
+  margin-top: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.route-map-view .leaflet-container {
+  border-radius: 8px;
+}
+
+/* Stops list */
+.route-stops-list {
+  position: relative;
+  width: 100%;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  column-gap: 20px;
+}
+
+.route-stops-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.route-stops-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.route-stops-list::-webkit-scrollbar-thumb {
+  background: #4ade80;
+  border-radius: 10px;
+}
+
+.route-stops-list::-webkit-scrollbar-thumb:hover {
+  background: #22c55e;
+}
+
+.route-stop-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.route-stop-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.route-stop-info {
+  flex: 1;
+  background-color: #f9fafb;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border-left: 3px solid #4ade80;
+}
+
+.route-stop-name {
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.route-stop-time {
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.route-stop-time-icon {
+  font-size: 14px;
+}
+
+.route-stop-connector {
+  display: none;
+}
+
+.route-modal-footer {
+  padding: 20px 30px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.route-btn-close {
+  padding: 10px 24px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background-color: white;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.route-btn-close:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .route-grid {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 20px;
+  }
+
+  .route-modal {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .route-modal-body {
+    padding: 20px;
+  }
+
+  .route-infor-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .route-info-row {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .route-info-label {
+    font-size: 14px;
+  }
+
+  .route-stops-list {
+    max-height: 300px;
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }

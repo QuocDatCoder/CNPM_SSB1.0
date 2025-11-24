@@ -1,0 +1,33 @@
+.students-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.students-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.students-controls { display:flex; gap:8px; }
+.mode-btn { padding:8px 12px; border-radius:8px; border:1px solid #e6e9ef; background:#fff; cursor:pointer; }
+.mode-btn.active { background: linear-gradient(180deg,#059669,#10b981); color:#fff; border-color:transparent; }
+
+.students-table { background:#fff; border-radius:8px; padding:12px; box-shadow:0 1px 6px rgba(0,0,0,0.06); }
+.table-head { display:grid; grid-template-columns: 100px 2fr 80px 1.2fr 160px 120px; gap:12px; font-weight:700; padding:8px 12px; background:#0b6b4e; color:#fff; border-radius:6px; }
+.table-body { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+.table-row { display:grid; grid-template-columns: 100px 2fr 80px 1.2fr 160px 120px; gap:12px; align-items:center; padding:12px; border-radius:6px; background: linear-gradient(180deg,#ffffff,#f5f7fb); }
+.status { padding:6px 10px; border-radius:999px; font-weight:600; display:inline-block; }
+.status.ok { background:#10b981; color:#fff; }
+.status.pending { background:#f97316; color:#fff; }
+.status-btn { padding:6px 10px; border-radius:999px; font-weight:600; border: none; cursor: pointer; }
+.status-btn.ok { background:#10b981; color:#fff; }
+.status-btn.pending { background:#f97316; color:#fff; }
+
+.status-btn.done { background:#6b7280; color:#fff; }
+
+.status-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

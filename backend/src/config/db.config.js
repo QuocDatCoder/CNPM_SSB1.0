@@ -14,6 +14,14 @@ const sequelize = new Sequelize(dbName, dbUser, dbPass, {
   logging: false
 });
 
-// ... (đoạn test connection giữ nguyên)
+const testConnection = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('✅ Kết nối Database thành công!');
+  } catch (error) {
+    console.error('❌ Kết nối thất bại:', error.message);
+  }
+};
 
+testConnection();
 module.exports = sequelize;

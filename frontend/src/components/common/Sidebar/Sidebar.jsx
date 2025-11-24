@@ -1,19 +1,30 @@
 import React from "react";
 import "./Sidebar.css";
 
-const menuItems = [
+const defaultMenuItems = [
   { icon: "/icons/home.png", label: "Trang chủ" },
   { icon: "/icons/bus.png", label: "Xe buýt" },
   { icon: "/icons/driver.png", label: "Tài xế" },
   { icon: "/icons/route.png", label: "Tuyến đường" },
   { icon: "/icons/schedule.png", label: "Lịch trình" },
   { icon: "/icons/student.png", label: "Học sinh" },
-  { icon: "/icons/message.png", label: "Tin nhắn", divider: true },
+  { icon: "/icons/message.png", label: "Tin nhắn" },
+  { icon: "/icons/statistical.png", label: "Thống kê", divider: true },
 ];
 
-export default function Sidebar({ active, onSelect }) {
+export default function Sidebar({
+  active,
+  onSelect,
+  menuItems: propMenuItems,
+  showAlertButton = false,
+}) {
+  const menuItems = propMenuItems || defaultMenuItems;
+
   return (
     <div className="sidebar">
+      <div className="logo-session">
+        <img src="/image/logo.png" className="logo-image" />
+      </div>
       {menuItems.map((item, index) => (
         <React.Fragment key={index}>
           {item.divider && <hr className="divider" />}
@@ -35,6 +46,21 @@ export default function Sidebar({ active, onSelect }) {
           </div>
         </React.Fragment>
       ))}
+      {showAlertButton && (
+        <div className="sidebar-footer">
+          <button
+            className="alert-button"
+            onClick={() => {
+              if (typeof window !== "undefined")
+                console.log("Gửi cảnh báo clicked");
+              // If parent provided a handler, call it via onSelect with a special label
+              onSelect && onSelect("Gửi cảnh báo");
+            }}
+          >
+            Gửi cảnh báo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
