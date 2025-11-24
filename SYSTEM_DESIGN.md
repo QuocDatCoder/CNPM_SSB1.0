@@ -41,19 +41,19 @@ Hệ thống hoạt động theo mô hình **Client-Server** kết hợp với d
 ```mermaid
 graph TD
     subgraph "Client Layer (Frontend)"
-        ReactApp[💻/📱 <b>ReactJS Web Application</b><br/>(Admin / Driver / User Views)]
+        ReactApp["💻/📱 <b>ReactJS Web Application</b><br/>(Admin / Driver / User Views)"]
     end
 
     subgraph "External Services"
-        GoogleMaps[🌍 <b>Google Maps Platform</b><br/>(Maps JS API / Directions / Geocoding)]
+        GoogleMaps["🌍 <b>Google Maps Platform</b><br/>(Maps JS API / Directions / Geocoding)"]
     end
 
     subgraph "Backend Layer"
-        NodeServer[<b>Node.js Express Server</b><br/>(API Gateway & Socket Server)]
+        NodeServer["<b>Node.js Express Server</b><br/>(API Gateway & Socket Server)"]
     end
 
     subgraph "Data Layer"
-        DB[(<b>MariaDB / MySQL</b><br/>Database)]
+        DB[("<b>MariaDB / MySQL</b><br/>Database")]
     end
 
     %% Luồng tương tác
