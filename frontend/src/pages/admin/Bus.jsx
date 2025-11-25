@@ -10,8 +10,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Header from "../../components/common/Header/header";
 import "./Bus.css";
-import busesData from "../../data/buses";
-import { routes } from "../../data/routes";
+import BusService from "../../services/bus.service";
+import RouteService from "../../services/route.service";
 
 // Fix leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -53,7 +53,9 @@ const stopIcon = L.icon({
 });
 
 export default function Bus() {
-  const [buses, setBuses] = useState(busesData);
+  const [buses, setBuses] = useState([]);
+  const [routes, setRoutes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -70,6 +72,28 @@ export default function Bus() {
     yearManufactured: "",
     maintenanceDate: "",
   });
+
+  // Load data from API
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [busesData, routesData] = await Promise.all([
+        BusService.getAllBuses(),
+        RouteService.getAllRoutes(),
+      ]);
+      setBuses(busesData);
+      setRoutes(routesData);
+    } catch (error) {
+      console.error("Error loading data:", error);
+      alert("Không thể tải dữ liệu. Vui lòng kiểm tra kết nối backend.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleViewDetail = (bus) => {
     setSelectedBus(bus);
@@ -149,19 +173,29 @@ export default function Bus() {
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = () => {
-    setBuses(
-      buses.map((bus) => (bus.id === editFormData.id ? editFormData : bus))
-    );
-    setShowEditModal(false);
-    alert("Đã cập nhật thông tin xe buýt!");
+  const handleSaveEdit = async () => {
+    try {
+      await BusService.updateBus(selectedBus.id, editFormData);
+      await loadData();
+      setShowEditModal(false);
+      alert("Cập nhật xe thành công!");
+    } catch (error) {
+      console.error("Error updating bus:", error);
+      alert("Không thể cập nhật xe. Vui lòng thử lại.");
+    }
   };
 
-  const handleDelete = (e, id) => {
+  const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("Bạn có chắc chắn muốn xóa xe buýt này?")) {
-      setBuses(buses.filter((bus) => bus.id !== id));
-      alert("Đã xóa xe buýt!");
+      try {
+        await BusService.deleteBus(id);
+        await loadData();
+        alert("Xóa xe thành công!");
+      } catch (error) {
+        console.error("Error deleting bus:", error);
+        alert("Không thể xóa xe. Vui lòng thử lại.");
+      }
     }
   };
 
@@ -176,7 +210,7 @@ export default function Bus() {
     setShowAddModal(true);
   };
 
-  const handleSaveNewBus = () => {
+  const handleSaveNewBus = async () => {
     if (
       !newBusData.licensePlate ||
       !newBusData.manufacturer ||
@@ -188,22 +222,22 @@ export default function Bus() {
       return;
     }
 
-    const newBus = {
-      id: String(buses.length + 1).padStart(3, "0"),
-      licensePlate: newBusData.licensePlate,
-      manufacturer: newBusData.manufacturer,
-      seats: parseInt(newBusData.seats),
-      yearManufactured: parseInt(newBusData.yearManufactured),
-      distanceTraveled: 0,
-      maintenanceDate: newBusData.maintenanceDate,
-      status: "ngừng hoạt động",
-      route: "Chưa phân tuyến",
-      image: "/image/bus.png",
-    };
-
-    setBuses([...buses, newBus]);
-    setShowAddModal(false);
-    alert("Đã thêm xe buýt mới!");
+    try {
+      await BusService.createBus(newBusData);
+      await loadData();
+      setShowAddModal(false);
+      setNewBusData({
+        licensePlate: "",
+        manufacturer: "",
+        seats: "",
+        yearManufactured: "",
+        maintenanceDate: "",
+      });
+      alert("Thêm xe mới thành công!");
+    } catch (error) {
+      console.error("Error creating bus:", error);
+      alert("Không thể thêm xe mới. Vui lòng thử lại.");
+    }
   };
 
   const filteredBuses = buses.filter(
@@ -211,6 +245,17 @@ export default function Bus() {
       bus.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.route.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="bus-page">
+        <Header title="Xe buýt" />
+        <div style={{ textAlign: "center", padding: "50px" }}>
+          <p>Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bus-page">

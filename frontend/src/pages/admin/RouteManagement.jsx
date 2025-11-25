@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/common/Header/header";
 import "./RouteManagement.css";
-import { routes as routeData } from "../../data/routes";
+import RouteService from "../../services/route.service";
 import {
   MapContainer,
   TileLayer,
@@ -42,11 +42,31 @@ const stopIcon = L.icon({
 });
 
 export default function RouteManagement() {
-  const [routes, setRoutes] = useState(routeData);
+  const [routes, setRoutes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [routePath, setRoutePath] = useState([]);
+
+  useEffect(() => {
+    loadRoutes();
+  }, []);
+
+  const loadRoutes = async () => {
+    try {
+      setLoading(true);
+      const data = await RouteService.getAllRoutes();
+      setRoutes(data);
+    } catch (error) {
+      console.error("Error loading routes:", error);
+      alert(
+        "Không thể tải dữ liệu tuyến đường. Vui lòng kiểm tra kết nối backend."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEdit = (id) => {
     console.log("Edit route:", id);

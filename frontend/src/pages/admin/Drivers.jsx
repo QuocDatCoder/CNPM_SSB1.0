@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/common/Header/header";
 import "./Drivers.css";
-import driversData from "../../data/drivers";
+import DriverService from "../../services/driver.service";
 
 export default function Drivers() {
   const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [addStep, setAddStep] = useState(1); // 1: Thông tin, 2: Tài khoản
@@ -30,8 +31,21 @@ export default function Drivers() {
   });
 
   useEffect(() => {
-    setDrivers(driversData);
+    loadDrivers();
   }, []);
+
+  const loadDrivers = async () => {
+    try {
+      setLoading(true);
+      const data = await DriverService.getAllDrivers();
+      setDrivers(data);
+    } catch (error) {
+      console.error("Error loading drivers:", error);
+      alert("Không thể tải dữ liệu tài xế. Vui lòng kiểm tra kết nối backend.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = (id) => {
     console.log("Delete driver:", id);

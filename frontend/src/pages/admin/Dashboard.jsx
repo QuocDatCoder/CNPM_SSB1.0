@@ -9,7 +9,7 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./Dashboard.css";
-import { routes } from "../../data/routes";
+import RouteService from "../../services/route.service";
 
 // Fix leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -51,11 +51,33 @@ const stopIcon = L.icon({
 });
 
 export default function Dashboard() {
+  const [routes, setRoutes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [routePath, setRoutePath] = useState([]);
   const [busPos, setBusPos] = useState(null);
   const itemsPerPage = 4;
+
+  useEffect(() => {
+    loadRoutes();
+  }, []);
+
+  const loadRoutes = async () => {
+    try {
+      setLoading(true);
+      const data = await RouteService.getAllRoutes();
+      setRoutes(data);
+      if (data.length > 0) {
+        handleSelectRoute(data[0]);
+      }
+    } catch (error) {
+      console.error("Error loading routes:", error);
+      alert("Không thể tải dữ liệu tuyến đường.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePrev = () => {
     setCurrentIndex((prev) => Math.max(0, prev - 1));
@@ -113,11 +135,6 @@ export default function Dashboard() {
 
     return () => clearInterval(interval);
   }, [routePath]);
-
-  // Load route 1 by default
-  useEffect(() => {
-    handleSelectRoute(routes[0]);
-  }, []);
 
   return (
     <div className="dashboard">

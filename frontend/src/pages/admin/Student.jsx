@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/common/Header/header";
 import "./Student.css";
-import studentsData from "../../data/students";
+import api from "../../services/api";
 
 export default function Student() {
   const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -34,8 +35,24 @@ export default function Student() {
   });
 
   useEffect(() => {
-    setStudents(studentsData);
+    loadStudents();
   }, []);
+
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get("/students");
+      setStudents(response);
+    } catch (error) {
+      console.error("Error loading students:", error);
+      alert(
+        "Không thể tải dữ liệu học sinh. Vui lòng kiểm tra kết nối backend."
+      );
+      setStudents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = (id) => {
     console.log("Delete student:", id);

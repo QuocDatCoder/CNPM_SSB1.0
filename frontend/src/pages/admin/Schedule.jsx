@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../../components/common/Header/header";
 import "./Schedule.css";
-
-const scheduleData = [];
+import RouteService from "../../services/route.service";
+import DriverService from "../../services/driver.service";
+import BusService from "../../services/bus.service";
+import ScheduleService from "../../services/schedule.service";
 
 // Generate real calendar for any month/year
 const generateCalendar = (year, month) => {
@@ -33,7 +35,11 @@ export default function Schedule() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [schedules, setSchedules] = useState(scheduleData);
+  const [schedules, setSchedules] = useState([]);
+  const [routes, setRoutes] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [buses, setBuses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [activeShiftFilter, setActiveShiftFilter] = useState("di"); // 'di' or 've'
   const [newSchedule, setNewSchedule] = useState({
@@ -58,6 +64,34 @@ export default function Schedule() {
 
   const { firstDay, daysInMonth } = generateCalendar(currentYear, currentMonth);
   const calendarDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      const [schedulesData, routesData, driversData, busesData] =
+        await Promise.all([
+          ScheduleService.getAllSchedules(),
+          RouteService.getAllRoutes(),
+          DriverService.getAllDrivers(),
+          BusService.getAllBuses(),
+        ]);
+      setSchedules(schedulesData);
+      setRoutes(routesData);
+      setDrivers(driversData);
+      setBuses(busesData);
+    } catch (error) {
+      console.error("Error loading schedule data:", error);
+      alert(
+        "Không thể tải dữ liệu lịch trình. Vui lòng kiểm tra kết nối backend."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Format date for display
   const getFormattedDate = () => {
