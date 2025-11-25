@@ -127,7 +127,7 @@ CREATE TABLE `Schedules` (
   `bus_id` INT NOT NULL,
   `ngay_chay` DATE NOT NULL,
   `trang_thai` ENUM('chuabatdau', 'dangchay', 'hoanthanh', 'huy') DEFAULT 'chuabatdau',
-  `gio_bat_dau` TIME NOT NULL DEFAULT '06:00:00';
+  `gio_bat_dau` TIME NOT NULL DEFAULT '06:00:00',
   `thoi_gian_bat_dau_thuc_te` DATETIME DEFAULT NULL,
   `thoi_gian_ket_thuc_thuc_te` DATETIME DEFAULT NULL,
   
