@@ -1,41 +1,67 @@
 const { Route, RouteStop, Stop } = require('../data/models');
 
-// 1. Lấy danh sách tất cả tuyến (Kèm logic xử lý hiển thị cho Card)
+// Hàm helper: Format giờ từ "06:00:00" -> "6:00"
+const formatTime = (timeStr) => {
+    if (!timeStr) return "00:00";
+    const [hour, minute] = timeStr.split(':');
+    return `${parseInt(hour)}:${minute}`;
+};
+
+// 1. Lấy danh sách tất cả tuyến
 const getAllRoutes = async () => {
     try {
-        // Lấy dữ liệu thô từ DB (Join bảng RouteStop và Stop)
         const routes = await Route.findAll({
             include: [
                 {
                     model: RouteStop,
-                    include: [{ model: Stop, attributes: ['ten_diem'] }] // Chỉ lấy tên trạm
+                    include: [{ 
+                        model: Stop, 
+                        // Lấy đủ thông tin để vẽ map
+                        attributes: ['id', 'ten_diem', 'latitude', 'longitude'] 
+                    }]
                 }
             ]
         });
 
-        // Xử lý dữ liệu để FE dễ hiển thị
         const formattedRoutes = routes.map(route => {
-            const stops = route.RouteStops || [];
+            const stopsRaw = route.RouteStops || [];
             
-            stops.sort((a, b) => a.thu_tu - b.thu_tu);
+            // 1. Sắp xếp trạm theo thứ tự 1, 2, 3...
+            stopsRaw.sort((a, b) => a.thu_tu - b.thu_tu);
 
-            // Logic tìm điểm đầu và cuối
-            const startPoint = stops.length > 0 ? stops[0].Stop.ten_diem : 'N/A';
-            const endPoint = stops.length > 0 ? stops[stops.length - 1].Stop.ten_diem : 'N/A';
+            // 2. Tìm trạm đầu và trạm cuối
+            const firstStop = stopsRaw.length > 0 ? stopsRaw[0].Stop : null;
+            const lastStop = stopsRaw.length > 0 ? stopsRaw[stopsRaw.length - 1].Stop : null;
 
+            // 3. Format danh sách Stops con
+            const stopsList = stopsRaw.map(s => ({
+                id: s.Stop.id,
+                name: `Trạm ${s.thu_tu}: ${s.Stop.ten_diem}`,
+                position: [parseFloat(s.Stop.latitude), parseFloat(s.Stop.longitude)],
+                time: formatTime(s.gio_don_du_kien)
+            }));
+
+            // 4. Trả về Object đúng format FE cần
             return {
                 id: route.id,
-                ma_so: `00${route.id}`.slice(-3), 
-                ten_tuyen: route.ten_tuyen,
-                mo_ta: route.mo_ta,
-                loai_tuyen: route.loai_tuyen, 
-                loai_tuyen_text: route.loai_tuyen === 'luot_di' ? 'Lượt đi' : 'Lượt về',
+                name: route.ten_tuyen,        
+                street: route.mo_ta || "",     
+                distance: `${route.khoang_cach}km`,
+                duration: `${route.thoi_gian_du_kien} phút`,
                 
-                // Thông tin hiển thị lên thẻ
-                khoang_cach: `${route.khoang_cach} km`,
-                thoi_gian: `${route.thoi_gian_du_kien} phút`,
-                so_tram: `${stops.length} trạm`,
-                diem_dau_cuoi: `${startPoint} - ${endPoint}`
+                // Lấy từ DB (cột khung_gio bạn đã thêm) hoặc mặc định
+                time: route.khung_gio || "05:00 - 21:00", 
+                
+                // Tọa độ Start/End [lat, lng]
+                start: firstStop ? [parseFloat(firstStop.latitude), parseFloat(firstStop.longitude)] : [0, 0],
+                end: lastStop ? [parseFloat(lastStop.latitude), parseFloat(lastStop.longitude)] : [0, 0],
+                
+                startName: firstStop ? firstStop.ten_diem : "",
+                endName: lastStop ? lastStop.ten_diem : "",
+                
+                mapImage: "/image/map-route.png", // Hardcode ảnh theo yêu cầu
+                
+                stops: stopsList // Mảng các trạm
             };
         });
 
@@ -45,52 +71,73 @@ const getAllRoutes = async () => {
     }
 };
 
-// 2. Lấy chi tiết 1 tuyến (Để hiển thị danh sách trạm vào ô "Đường" khi xếp lịch)
+// 2. Lấy chi tiết 1 tuyến (Format y hệt như trên)
 const getRouteById = async (id) => {
     try {
         const route = await Route.findByPk(id, {
             include: [
                 {
                     model: RouteStop,
-                    include: [{ model: Stop }],
+                    include: [{ model: Stop }]
                 }
-            ],
-            // Sắp xếp trạm khi query
-            order: [[RouteStop, 'thu_tu', 'ASC']] 
+            ]
         });
-        return route;
+
+        if (!route) return null;
+
+        const stopsRaw = route.RouteStops || [];
+        stopsRaw.sort((a, b) => a.thu_tu - b.thu_tu);
+
+        const firstStop = stopsRaw.length > 0 ? stopsRaw[0].Stop : null;
+        const lastStop = stopsRaw.length > 0 ? stopsRaw[stopsRaw.length - 1].Stop : null;
+
+        const stopsList = stopsRaw.map(s => ({
+            id: s.Stop.id,
+            name: `Trạm ${s.thu_tu}: ${s.Stop.ten_diem}`,
+            position: [parseFloat(s.Stop.latitude), parseFloat(s.Stop.longitude)],
+            time: formatTime(s.gio_don_du_kien)
+        }));
+
+        return {
+            id: `00${route.id}`.slice(-3),
+            name: route.ten_tuyen,
+            street: route.mo_ta || "",
+            distance: `${route.khoang_cach}km`,
+            duration: `${route.thoi_gian_du_kien} phút`,
+            time: route.khung_gio || "05:00 - 21:00",
+            start: firstStop ? [parseFloat(firstStop.latitude), parseFloat(firstStop.longitude)] : [0, 0],
+            end: lastStop ? [parseFloat(lastStop.latitude), parseFloat(lastStop.longitude)] : [0, 0],
+            startName: firstStop ? firstStop.ten_diem : "",
+            endName: lastStop ? lastStop.ten_diem : "",
+            mapImage: "/image/map-route.png",
+            stops: stopsList
+        };
     } catch (error) {
         throw error;
     }
 };
-// 3. Lấy danh sách các trạm của 1 tuyến (Sắp xếp theo thứ tự)
+
+// 3. Hàm phụ: Lấy stops (Giữ lại hàm này nếu FE dùng API riêng lẻ)
 const getStopsByRouteId = async (routeId) => {
     try {
         const routeStops = await RouteStop.findAll({
             where: { route_id: routeId },
-            include: [
-                { 
-                    model: Stop,
-                    attributes: ['id', 'ten_diem', 'dia_chi', 'latitude', 'longitude'] 
-                }
-            ],
-            order: [['thu_tu', 'ASC']] // Quan trọng: Sắp xếp từ trạm 1 -> trạm cuối
+            include: [{ model: Stop }],
+            order: [['thu_tu', 'ASC']]
         });
 
-        // Format lại dữ liệu cho đẹp để FE dễ dùng
         return routeStops.map(item => ({
             thu_tu: item.thu_tu,
             stop_id: item.Stop.id,
             ten_tram: item.Stop.ten_diem,
             dia_chi: item.Stop.dia_chi,
-            gio_du_kien: item.gio_don_du_kien,
-            lat: item.Stop.latitude,
-            lng: item.Stop.longitude
+            gio_du_kien: formatTime(item.gio_don_du_kien),
+            lat: parseFloat(item.Stop.latitude),
+            lng: parseFloat(item.Stop.longitude)
         }));
     } catch (error) {
         throw error;
     }
 };
-
 
 module.exports = { getAllRoutes, getRouteById, getStopsByRouteId };

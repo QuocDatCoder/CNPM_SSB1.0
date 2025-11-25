@@ -23,6 +23,10 @@ const Route = sequelize.define('Route', {
     type: DataTypes.DECIMAL(5, 2), 
     defaultValue: 0 
   },
+  khung_gio: {
+    type: DataTypes.STRING(50), // Lưu chuỗi
+    allowNull: true
+  },
   thoi_gian_du_kien: { 
     type: DataTypes.INTEGER, 
     defaultValue: 0 

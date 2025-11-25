@@ -71,6 +71,7 @@ CREATE TABLE `Routes` (
   `ten_tuyen` VARCHAR(200) NOT NULL,
   `mo_ta` TEXT DEFAULT NULL,
   `khoang_cach` DECIMAL(5,2) DEFAULT 0 COMMENT 'Đơn vị km',
+  `khung_gio` VARCHAR(50),
   `thoi_gian_du_kien` INT DEFAULT 0 COMMENT 'Đơn vị phút',
   `loai_tuyen` ENUM('luot_di', 'luot_ve') NOT NULL DEFAULT 'luot_di'
   
