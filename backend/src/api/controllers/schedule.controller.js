@@ -1,87 +1,86 @@
 const scheduleService = require('../../services/schedule.service');
 
-// 1. Phân công lịch chạy
-const createSchedule = async (req, res) => {
-    try {
-        const schedule = await scheduleService.createSchedule(req.body);
-        res.status(201).json({ success: true, data: schedule });
-    } catch (error) {
-        // Lỗi 400: Bad Request (Thường do trùng lịch)
-        res.status(400).json({ success: false, message: error.message });
-    }
-};
-
-// 2. Lấy danh sách lịch trình (Bảng Dashboard)
-const getSchedules = async (req, res) => {
-    try {
-        const schedules = await scheduleService.getAllSchedules();
-        res.status(200).json({ success: true, data: schedules });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-// 2. Cập nhật
-const updateSchedule = async (req, res) => {
-    try {
-        const data = await scheduleService.updateSchedule(req.params.id, req.body);
-        res.status(200).json({ success: true, data });
-    } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
-    }
-};
-// 3. Xóa lịch trình
-const deleteSchedule = async (req, res) => {
-    try {
-        const result = await scheduleService.deleteSchedule(req.params.id);
-        if (!result) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy lịch trình' });
+const scheduleController = {
+    // 1. Lấy danh sách tất cả lịch trình (Dashboard)
+    getAllSchedules: async (req, res) => {
+        try {
+            const schedules = await scheduleService.getAllSchedules();
+            res.status(200).json(schedules);
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi lấy danh sách lịch trình", error: error.message });
         }
-        res.status(200).json({ success: true, message: 'Xóa thành công' });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    },
+
+    // 2. Tạo lịch trình mới
+    createSchedule: async (req, res) => {
+        try {
+            // req.body chứa: { route_id, driver_id, bus_id, ngay_chay, gio_bat_dau }
+            const newSchedule = await scheduleService.createSchedule(req.body);
+            res.status(201).json(newSchedule);
+        } catch (error) {
+            // Trả về 400 nếu lỗi logic (ví dụ: trùng lịch)
+            res.status(400).json({ message: error.message });
+        }
+    },
+
+    // 3. Cập nhật lịch trình
+    updateSchedule: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const updatedSchedule = await scheduleService.updateSchedule(id, req.body);
+            res.status(200).json(updatedSchedule);
+        } catch (error) {
+            res.status(400).json({ message: error.message });
+        }
+    },
+
+    // 4. Xóa lịch trình
+    deleteSchedule: async (req, res) => {
+        try {
+            const { id } = req.params;
+            await scheduleService.deleteSchedule(id);
+            res.status(204).send(); // 204 No Content (Xóa thành công)
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi xóa lịch trình", error: error.message });
+        }
+    },
+
+    // 5. Lấy lịch làm việc 1 tuần của tài xế (Admin xem)
+    getDriverWeekSchedule: async (req, res) => {
+        try {
+            const { driverId } = req.params;
+            const weekSchedule = await scheduleService.getDriverWeekSchedule(driverId);
+            res.status(200).json(weekSchedule);
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi lấy lịch tài xế", error: error.message });
+        }
+    },
+
+    // 6. Lấy lịch làm việc (App Tài xế xem)
+    getMySchedule: async (req, res) => {
+        try {
+            const { driverId } = req.params;
+            const mySchedule = await scheduleService.getMySchedule(driverId);
+            res.status(200).json(mySchedule);
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi lấy lịch cá nhân", error: error.message });
+        }
+    },
+
+    // 7. Lấy lịch sử phân công (History Logs)
+    getAssignmentHistory: async (req, res) => {
+        try {
+            // Lấy query params từ URL: ?date=2024-05-20&type=completed
+            const filters = {
+                date: req.query.date,
+                type: req.query.type
+            };
+            const history = await scheduleService.getAssignmentHistory(filters);
+            res.status(200).json(history);
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi lấy lịch sử", error: error.message });
+        }
     }
 };
 
-// 4. Lấy lịch sử thao tác (Log)
-const getHistory = async (req, res) => {
-    try {
-        // Lấy tham số lọc: ?date=...&type=...
-        const { date, type } = req.query; 
-        const history = await scheduleService.getHistory(date, type);
-        res.status(200).json({ success: true, data: history });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// 5. API Admin xem lịch Tài xế (Dạng Tuần)
-const getAdminWeekSchedule = async (req, res) => {
-    try {
-        // Không cần lấy driverId từ params nữa
-        const data = await scheduleService.getAdminWeekSchedule(); 
-        res.status(200).json({ success: true, data });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// 6. API App Tài xế xem lịch mình (Dạng Ngày)
-const getScheduleDriverApp = async (req, res) => {
-    try {
-        const { driverId } = req.params;
-        const data = await scheduleService.getScheduleForDriverApp(driverId);
-        res.status(200).json({ success: true, data });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-module.exports = { 
-    createSchedule, 
-    getSchedules, 
-    updateSchedule,
-    deleteSchedule, 
-    getHistory,
-    getAdminWeekSchedule,
-    getScheduleDriverApp
-};
+module.exports = scheduleController;

@@ -1,19 +1,21 @@
 const { Bus, Schedule, Route } = require('../data/models');
 const { Op } = require('sequelize');
 
-// 1. Lấy danh sách 
+// 1. Lấy danh sách tất cả xe buýt
 const getAllBuses = async () => {
     try {
         const today = new Date();
-        
-        // B1: Lấy danh sách xe (Raw)
+        today.setHours(0, 0, 0, 0); // Reset giờ về 0 để so sánh ngày chính xác
+
+        // B1: Lấy danh sách xe
         const buses = await Bus.findAll({
             order: [['id', 'ASC']]
         });
 
-        // B2: Tìm lịch trình cho từng xe 
+        // B2: Tìm lịch trình hôm nay của từng xe để lấy tên tuyến
         const formattedBuses = await Promise.all(buses.map(async (bus) => {
             
+            // Tìm xem hôm nay xe này chạy tuyến nào
             const currentSchedule = await Schedule.findOne({
                 where: { 
                     bus_id: bus.id,
@@ -24,18 +26,18 @@ const getAllBuses = async () => {
 
             const routeName = currentSchedule ? currentSchedule.Route.ten_tuyen : "Chưa phân công";
 
+          
             return {
                 id: bus.id, 
-                licensePlate: bus.bien_so_xe,
-                manufacturer: bus.hang_xe || "",
-                seats: bus.so_ghe,
-                yearManufactured: bus.nam_san_xuat || 0,
-                distanceTraveled: parseFloat(bus.so_km_da_chay || 0),
-                maintenanceDate: bus.lich_bao_duong || null,
+                bien_so_xe: bus.bien_so_xe,         
+                hang_xe: bus.hang_xe || "",          
+                so_ghe: bus.so_ghe,                 
+                nam_san_xuat: bus.nam_san_xuat || 0,
+                so_km_da_chay: parseFloat(bus.so_km_da_chay || 0), 
+                lich_bao_duong: bus.lich_bao_duong || null,        
+                trang_thai: bus.trang_thai,         
                 
-                status: bus.trang_thai,
-                
-                route: routeName,
+                ten_tuyen: routeName,                
                 image: "/image/bus.png"
             };
         }));
@@ -47,44 +49,38 @@ const getAllBuses = async () => {
     }
 };
 
-// 2. Thêm xe mới (Map Key: Anh -> Việt, Value: Giữ nguyên)
-const createBus = async (dataFE) => {
-    const busDataDB = {
-        bien_so_xe: dataFE.licensePlate,
-        hang_xe: dataFE.manufacturer,
-        nam_san_xuat: dataFE.yearManufactured,
-        so_ghe: dataFE.seats,
-        so_km_da_chay: dataFE.distanceTraveled,
-        lich_bao_duong: dataFE.maintenanceDate,
-        trang_thai: dataFE.status 
-    };
-    return await Bus.create(busDataDB);
+// 2. Thêm xe mới
+const createBus = async (data) => {
+    try {
+        return await Bus.create(data);
+    } catch (error) {
+        throw error;
+    }
 };
 
-// 3. Sửa thông tin xe
-const updateBus = async (id, dataFE) => {
-    const bus = await Bus.findByPk(id);
-    if (!bus) return null;
+// 3. Sửa thông tin xe (Chỉ cập nhật những field được cung cấp)
+const updateBus = async (id, data) => {
+    try {
+        const bus = await Bus.findByPk(id);
+        if (!bus) return null;
 
-    const updateData = {};
-    if (dataFE.licensePlate) updateData.bien_so_xe = dataFE.licensePlate;
-    if (dataFE.manufacturer) updateData.hang_xe = dataFE.manufacturer;
-    if (dataFE.yearManufactured) updateData.nam_san_xuat = dataFE.yearManufactured;
-    if (dataFE.seats) updateData.so_ghe = dataFE.seats;
-    if (dataFE.distanceTraveled) updateData.so_km_da_chay = dataFE.distanceTraveled;
-    if (dataFE.maintenanceDate) updateData.lich_bao_duong = dataFE.maintenanceDate;
-    if (dataFE.status) updateData.trang_thai = dataFE.status;
-
-    await bus.update(updateData);
-    return bus;
+        await bus.update(data);
+        return bus;
+    } catch (error) {
+        throw error;
+    }
 };
 
-// 4. Xóa xe
+// 4. Xóa xe theo ID
 const deleteBus = async (id) => {
-    const bus = await Bus.findByPk(id);
-    if (!bus) return null;
-    await bus.destroy();
-    return true;
+    try {
+        const bus = await Bus.findByPk(id);
+        if (!bus) return null;
+        await bus.destroy();
+        return true;
+    } catch (error) {
+        throw error;
+    }
 };
 
 module.exports = { getAllBuses, createBus, updateBus, deleteBus };

@@ -25,6 +25,14 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(150),
     allowNull: false
   },
+  ngay_sinh: {
+    type: DataTypes.DATEONLY, 
+    allowNull: true
+  },
+  gioi_tinh: {
+    type: DataTypes.ENUM('Nam', 'Nữ'), 
+    allowNull: true
+  },
   so_dien_thoai: {
     type: DataTypes.STRING(20),
     unique: true

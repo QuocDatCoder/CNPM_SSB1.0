@@ -21,11 +21,13 @@ CREATE TABLE `Users` (
   `email` VARCHAR(150) NOT NULL UNIQUE,
   `password_hash` VARCHAR(255) NOT NULL,
   `ho_ten` VARCHAR(150) NOT NULL,
+  `ngay_sinh` DATE DEFAULT NULL,
+  `gioi_tinh` ENUM('Nam', 'Nữ') DEFAULT NULL,
   `so_dien_thoai` VARCHAR(20) UNIQUE,
   `vai_tro` ENUM('admin', 'taixe', 'phuhuynh') NOT NULL,
   `dia_chi` VARCHAR(255) DEFAULT NULL,
   `bang_lai` VARCHAR(50) DEFAULT NULL, -- Chỉ dùng cho tài xế
-  `trang_thai_taixe` ENUM('hoatdong', 'nghi', 'tamdung') DEFAULT NULL, -- Chỉ dùng cho tài xế
+  `trang_thai_taixe` ENUM('Đang hoạt động', 'Nghỉ', 'Tạm dừng') DEFAULT NULL, -- Chỉ dùng cho tài xế
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -44,7 +46,7 @@ CREATE TABLE `Buses` (
   `so_km_da_chay` DECIMAL(10, 2) DEFAULT 0,
   `lich_bao_duong` DATE DEFAULT NULL,
   
-  `trang_thai` ENUM('hoatdong', 'baotri', 'ngung') DEFAULT 'hoatdong'
+  `trang_thai` ENUM('Đang hoạt động', 'Bảo trì', 'Ngừng') DEFAULT 'Ngừng'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
