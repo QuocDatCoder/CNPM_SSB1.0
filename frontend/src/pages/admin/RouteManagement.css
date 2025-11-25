@@ -268,12 +268,12 @@
 }
 
 .route-modal-body {
-  padding: 30px;
+  padding: 5px 20px 30px 20px;
 }
 
 .route-infor-content {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 2fr 3fr;
   gap: 30px;
   margin-bottom: 30px;
 }
@@ -296,14 +296,14 @@
 }
 .route-info-grid {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 20px;
 }
 
 .route-info-grid-left,
 .route-info-grid-right {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
@@ -464,12 +464,12 @@
     max-height: 95vh;
   }
 
-  .route-modal-body {
+  /* .route-modal-body {
     padding: 20px;
-  }
+  } */
 
   .route-infor-content {
-    grid-template-columns: 1fr;
+    grid-template-columns: 2fr 3fr;
     gap: 20px;
   }
 

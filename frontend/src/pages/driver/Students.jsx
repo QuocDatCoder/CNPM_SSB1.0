@@ -4,12 +4,13 @@ import "./Students.css";
 import studentsData from "../../data/students";
 
 export default function Students() {
-  const [mode, setMode] = useState("go"); // 'go' = Đưa đi, 'back' = Đưa về
+    const [mode, setMode] = useState("go"); // 'go' = Đưa đi, 'back' = Đưa về
   const [students, setStudents] = useState(
     studentsData.map((s) => ({
       // keep original fields and add aliases expected by this component
       ...s,
       name: s.fullname || s.name || "",
+      parent: s.parentName || s.parent || "",
       stop: s.station || s.route || s.stop || "",
       status: s.status || "Chưa đón",
     }))
@@ -56,6 +57,7 @@ export default function Students() {
           <div className="table-head">
             <div>Mã HS</div>
             <div>Họ và tên học sinh</div>
+            <div>Phụ huynh</div>
             <div>Lớp</div>
             <div>Trạm đón</div>
             <div>Thông tin liên hệ</div>
@@ -67,6 +69,7 @@ export default function Students() {
               <div className="table-row" key={s.code}>
                 <div>{s.code}</div>
                 <div>{s.name}</div>
+                <div>{s.parent}</div>
                 <div>{s.class}</div>
                 <div>{s.stop}</div>
                 <div>{s.contact}</div>

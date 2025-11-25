@@ -47,7 +47,7 @@ function Location() {
           {/* Student Info Card */}
           <div className="parent-location-student-card">
             <div className="parent-location-student-avatar">
-              <img src="/image/avata.png" alt="Student" />
+              <img src="/image/avatar2.png" alt="Student" />
             </div>
             <div className="parent-location-student-info">
               <h3>{studentInfo.name}</h3>

@@ -305,6 +305,7 @@ export default function Drivers() {
                           name="edit-gender"
                           value="Nam"
                           checked={editedDriver.gender === "Nam"}
+                          style={{ accentColor: "black" }}
                           onChange={(e) =>
                             setEditedDriver({
                               ...editedDriver,
@@ -320,6 +321,7 @@ export default function Drivers() {
                           name="edit-gender"
                           value="Nữ"
                           checked={editedDriver.gender === "Nữ"}
+                          style={{ accentColor: "black" }}
                           onChange={(e) =>
                             setEditedDriver({
                               ...editedDriver,
@@ -371,6 +373,23 @@ export default function Drivers() {
                   )}
                 </div>
 
+                <div className="driver-info-field">
+                  <label>Bằng Lái:</label>
+                  {isEditMode ? (
+                    <input
+                      type="text"
+                      value={editedDriver.licenseNumber}
+                      onChange={(e) =>
+                        setEditedDriver({
+                          ...editedDriver,
+                          licenseNumber: e.target.value,
+                        })
+                      }
+                    />
+                  ) : (
+                    <span>{selectedDriver.licenseNumber}</span>
+                  )}
+                </div>
                 <div className="driver-info-field">
                   <label>Địa chỉ:</label>
                   {isEditMode ? (
@@ -569,6 +588,7 @@ export default function Drivers() {
                             name="gender"
                             value="Nam"
                             checked={newDriver.gender === "Nam"}
+                            style={{ accentColor: "black" }}
                             onChange={(e) =>
                               setNewDriver({
                                 ...newDriver,
@@ -584,6 +604,7 @@ export default function Drivers() {
                             name="gender"
                             value="Nữ"
                             checked={newDriver.gender === "Nữ"}
+                            style={{ accentColor: "black" }}
                             onChange={(e) =>
                               setNewDriver({
                                 ...newDriver,
