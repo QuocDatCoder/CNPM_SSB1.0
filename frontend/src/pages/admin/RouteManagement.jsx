@@ -273,7 +273,7 @@ export default function RouteManagement() {
                         zoom={13}
                         style={{
                           height: "400px",
-                          width: "60%",
+                          width: "100%",
                           borderRadius: "8px",
                         }}
                         key={selectedRoute.id}
