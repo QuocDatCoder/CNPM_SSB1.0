@@ -350,7 +350,7 @@ export default function Message() {
                   className={`star-btn ${message.starred ? "starred" : ""}`}
                   onClick={() => handleToggleStar(message.id)}
                 >
-                  ☆
+                  {message.starred ? "★" : "☆"}
                 </button>
                 <div className="message-info">
                   <span className="message-sender">{message.sender}</span>
@@ -412,6 +412,7 @@ export default function Message() {
                           name="recipient-type"
                           value="driver"
                           checked={recipientType === "driver"}
+                          style={{ accentColor: "black" }}
                           onChange={(e) => {
                             setRecipientType(e.target.value);
                             setSelectedParents([]);
@@ -425,6 +426,7 @@ export default function Message() {
                           name="recipient-type"
                           value="parent"
                           checked={recipientType === "parent"}
+                          style={{ accentColor: "black" }}
                           onChange={(e) => {
                             setRecipientType(e.target.value);
                             setSelectedParents([]);
@@ -470,6 +472,7 @@ export default function Message() {
                                     getParentsByRoute(recipientFilter).length &&
                                   getParentsByRoute(recipientFilter).length > 0
                                 }
+                                style={{ accentColor: "black" }}
                                 onChange={(e) => {
                                   const allParentIds = getParentsByRoute(
                                     recipientFilter
@@ -500,6 +503,7 @@ export default function Message() {
                                     checked={selectedParents.includes(
                                       parent.id
                                     )}
+                                    style={{ accentColor: "black" }}
                                     onChange={(e) => {
                                       if (e.target.checked) {
                                         setSelectedParents([

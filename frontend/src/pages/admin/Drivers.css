@@ -437,7 +437,7 @@
 .driver-info-modal {
   background: white;
   border-radius: 12px;
-  width: 800px;
+  width: 60vw;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
@@ -494,8 +494,9 @@
 
 .driver-info-field {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
+  align-items: center;
 }
 
 .driver-info-field label {

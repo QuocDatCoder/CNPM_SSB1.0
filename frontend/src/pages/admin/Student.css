@@ -241,7 +241,7 @@
 .student-info-modal {
   background: white;
   border-radius: 12px;
-  width: 75vw;
+  width: 65vw;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
@@ -451,8 +451,8 @@
   background: white;
   border-radius: 12px;
   padding: 30px;
-  max-width: 70vw;
-  width: 70vw;
+  max-width: 60vw;
+  width: 60vw;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
@@ -538,6 +538,18 @@
   gap: 20px;
   flex: 1;
 } */
+.birday-student-add-new {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  /* flex: 1; */
+}
+.student-gender-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .student-gender-group {
   display: flex;
   gap: 20px;

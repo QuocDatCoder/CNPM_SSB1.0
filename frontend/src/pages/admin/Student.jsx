@@ -336,6 +336,7 @@ export default function Student() {
                               name="gender"
                               value="Nam"
                               checked={newStudent.gender === "Nam"}
+                              style={{ accentColor: "black" }}
                               onChange={(e) =>
                                 setNewStudent({
                                   ...newStudent,
@@ -351,6 +352,7 @@ export default function Student() {
                               name="gender"
                               value="Nữ"
                               checked={newStudent.gender === "Nữ"}
+                              style={{ accentColor: "black" }}
                               onChange={(e) =>
                                 setNewStudent({
                                   ...newStudent,
@@ -627,6 +629,7 @@ export default function Student() {
                             name="edit-gender"
                             value="Nam"
                             checked={editedStudent.gender === "Nam"}
+                            style={{ accentColor: "black" }}
                             onChange={(e) =>
                               setEditedStudent({
                                 ...editedStudent,
@@ -642,6 +645,7 @@ export default function Student() {
                             name="edit-gender"
                             value="Nữ"
                             checked={editedStudent.gender === "Nữ"}
+                            style={{ accentColor: "black" }}
                             onChange={(e) =>
                               setEditedStudent({
                                 ...editedStudent,

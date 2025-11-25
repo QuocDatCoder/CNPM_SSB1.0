@@ -181,67 +181,66 @@ export default function RouteManagement() {
             </div>
 
             <div className="route-modal-body">
-              <div className="route-infor-content">
-                <div className="route-detail-section">
-                  <h3>Thông tin chung</h3>
-                  <div className="route-info-grid">
-                    <div className="route-info-grid-left">
-                      <div className="route-info-row">
-                        <span className="route-info-label">Mã tuyến:</span>
-                        <span className="route-info-value">
-                          {selectedRoute.id}
-                        </span>
-                      </div>
-                      <div className="route-info-row">
-                        <span className="route-info-label">Tên tuyến:</span>
-                        <span className="route-info-value">
-                          {selectedRoute.name}
-                        </span>
-                      </div>
-                      <div className="route-info-row">
-                        <span className="route-info-label">Đường đi:</span>
-                        <span className="route-info-value">
-                          {selectedRoute.street}
-                        </span>
-                      </div>
-                      <div className="route-info-row">
-                        <span className="route-info-label">Độ dài:</span>
-                        <span className="route-info-value">
-                          {selectedRoute.distance}
-                        </span>
-                      </div>
+              <div className="route-detail-section">
+                <h3>Thông tin chung</h3>
+                <div className="route-info-grid">
+                  <div className="route-info-grid-left">
+                    <div className="route-info-row">
+                      <span className="route-info-label">Mã tuyến:</span>
+                      <span className="route-info-value">
+                        {selectedRoute.id}
+                      </span>
                     </div>
-                    <div className="route-info-grid-right">
-                      <div className="route-info-row">
-                        <span className="route-info-label">
-                          Thời gian dự kiến:
-                        </span>
-                        <span className="route-info-value">
-                          {selectedRoute.duration}
-                        </span>
-                      </div>
-                      <div className="route-info-row">
-                        <span className="route-info-label">Giờ hoạt động:</span>
-                        <span className="route-info-value">
-                          {selectedRoute.time}
-                        </span>
-                      </div>
-                      <div className="route-info-row">
-                        <span className="route-info-label">Điểm đầu:</span>
-                        <span className="route-info-value">
-                          {selectedRoute.startName}
-                        </span>
-                      </div>
-                      <div className="route-info-row">
-                        <span className="route-info-label">Điểm cuối:</span>
-                        <span className="route-info-value">
-                          {selectedRoute.endName}
-                        </span>
-                      </div>
+                    <div className="route-info-row">
+                      <span className="route-info-label">Tên tuyến:</span>
+                      <span className="route-info-value">
+                        {selectedRoute.name}
+                      </span>
+                    </div>
+                    <div className="route-info-row">
+                      <span className="route-info-label">Đường đi:</span>
+                      <span className="route-info-value">
+                        {selectedRoute.street}
+                      </span>
+                    </div>
+                    <div className="route-info-row">
+                      <span className="route-info-label">Độ dài:</span>
+                      <span className="route-info-value">
+                        {selectedRoute.distance}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="route-info-grid-right">
+                    <div className="route-info-row">
+                      <span className="route-info-label">
+                        Thời gian dự kiến:
+                      </span>
+                      <span className="route-info-value">
+                        {selectedRoute.duration}
+                      </span>
+                    </div>
+                    <div className="route-info-row">
+                      <span className="route-info-label">Giờ hoạt động:</span>
+                      <span className="route-info-value">
+                        {selectedRoute.time}
+                      </span>
+                    </div>
+                    <div className="route-info-row">
+                      <span className="route-info-label">Điểm đầu:</span>
+                      <span className="route-info-value">
+                        {selectedRoute.startName}
+                      </span>
+                    </div>
+                    <div className="route-info-row">
+                      <span className="route-info-label">Điểm cuối:</span>
+                      <span className="route-info-value">
+                        {selectedRoute.endName}
+                      </span>
                     </div>
                   </div>
                 </div>
-
+              </div>
+              <div className="route-infor-content">
                 <div className="route-detail-section">
                   <h3>Các trạm dừng ({selectedRoute.stops.length} trạm)</h3>
                   <div className="route-stops-list">
@@ -265,60 +264,59 @@ export default function RouteManagement() {
                     ))}
                   </div>
                 </div>
-              </div>
+                <div className="route-detail-section">
+                  <h3>Bản đồ tuyến đường</h3>
+                  <div className="route-map-view">
+                    {selectedRoute && (
+                      <MapContainer
+                        center={selectedRoute.start}
+                        zoom={13}
+                        style={{
+                          height: "400px",
+                          width: "60%",
+                          borderRadius: "8px",
+                        }}
+                        key={selectedRoute.id}
+                      >
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-              <div className="route-detail-section">
-                <h3>Bản đồ tuyến đường</h3>
-                <div className="route-map-view">
-                  {selectedRoute && (
-                    <MapContainer
-                      center={selectedRoute.start}
-                      zoom={13}
-                      style={{
-                        height: "400px",
-                        width: "100%",
-                        borderRadius: "8px",
-                      }}
-                      key={selectedRoute.id}
-                    >
-                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        {/* Vẽ tuyến */}
+                        {routePath.length > 0 && (
+                          <Polyline
+                            positions={routePath}
+                            color="#4ade80"
+                            weight={5}
+                          />
+                        )}
 
-                      {/* Vẽ tuyến */}
-                      {routePath.length > 0 && (
-                        <Polyline
-                          positions={routePath}
-                          color="#4ade80"
-                          weight={5}
-                        />
-                      )}
+                        {/* Marker điểm bắt đầu */}
+                        <Marker position={selectedRoute.start} icon={startIcon}>
+                          <Popup>Điểm bắt đầu: {selectedRoute.startName}</Popup>
+                        </Marker>
 
-                      {/* Marker điểm bắt đầu */}
-                      <Marker position={selectedRoute.start} icon={startIcon}>
-                        <Popup>Điểm bắt đầu: {selectedRoute.startName}</Popup>
-                      </Marker>
+                        {/* Marker điểm kết thúc */}
+                        <Marker position={selectedRoute.end} icon={endIcon}>
+                          <Popup>Điểm kết thúc: {selectedRoute.endName}</Popup>
+                        </Marker>
 
-                      {/* Marker điểm kết thúc */}
-                      <Marker position={selectedRoute.end} icon={endIcon}>
-                        <Popup>Điểm kết thúc: {selectedRoute.endName}</Popup>
-                      </Marker>
-
-                      {/* Marker các trạm dừng */}
-                      {selectedRoute.stops &&
-                        selectedRoute.stops.map((stop) => (
-                          <Marker
-                            key={stop.id}
-                            position={stop.position}
-                            icon={stopIcon}
-                          >
-                            <Popup>
-                              <strong>{stop.name}</strong>
-                              <br />
-                              Giờ đến: {stop.time}
-                            </Popup>
-                          </Marker>
-                        ))}
-                    </MapContainer>
-                  )}
+                        {/* Marker các trạm dừng */}
+                        {selectedRoute.stops &&
+                          selectedRoute.stops.map((stop) => (
+                            <Marker
+                              key={stop.id}
+                              position={stop.position}
+                              icon={stopIcon}
+                            >
+                              <Popup>
+                                <strong>{stop.name}</strong>
+                                <br />
+                                Giờ đến: {stop.time}
+                              </Popup>
+                            </Marker>
+                          ))}
+                      </MapContainer>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
