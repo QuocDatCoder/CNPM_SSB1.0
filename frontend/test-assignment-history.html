@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Assignment History API</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        border-bottom: 3px solid #4caf50;
+        padding-bottom: 10px;
+      }
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin: 20px 0;
+      }
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      label {
+        font-weight: bold;
+        color: #555;
+      }
+      input,
+      select {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+      button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        margin: 10px 5px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button:hover {
+        background: #45a049;
+      }
+      button.secondary {
+        background: #2196f3;
+      }
+      button.secondary:hover {
+        background: #0b7dda;
+      }
+      .result {
+        background: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 20px;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+      .success {
+        color: #4caf50;
+        font-weight: bold;
+      }
+      .error {
+        color: #f44336;
+        font-weight: bold;
+      }
+      pre {
+        background: #282c34;
+        color: #abb2bf;
+        padding: 15px;
+        border-radius: 5px;
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+      th,
+      td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      th {
+        background: #4caf50;
+        color: white;
+      }
+      tr:hover {
+        background: #f5f5f5;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin: 20px 0;
+      }
+      .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .stat-card h3 {
+        margin: 0;
+        font-size: 32px;
+      }
+      .stat-card p {
+        margin: 5px 0 0 0;
+        opacity: 0.9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📊 Test Assignment History API</h1>
+      <p>
+        Backend URL:
+        <strong>http://localhost:8080/api/schedules/history/logs</strong>
+      </p>
+
+      <div class="controls">
+        <div class="control-group">
+          <label for="dateFilter">Ngày:</label>
+          <input type="date" id="dateFilter" />
+        </div>
+        <div class="control-group">
+          <label for="typeFilter">Loại chuyến:</label>
+          <select id="typeFilter">
+            <option value="">Tất cả</option>
+            <option value="luot_di">Lượt đi</option>
+            <option value="luot_ve">Lượt về</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <button onclick="testAllRecords()">Lấy tất cả lịch sử</button>
+        <button onclick="testWithFilters()" class="secondary">
+          Lọc theo điều kiện
+        </button>
+        <button onclick="testToday()" class="secondary">Lịch sử hôm nay</button>
+        <button onclick="testCreateDelete()">Test Tạo + Xóa Schedule</button>
+      </div>
+
+      <div id="stats" class="stats" style="display: none"></div>
+
+      <div id="result" class="result">
+        <p>Chọn một test để bắt đầu...</p>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL = "http://localhost:8080/api";
+      const resultDiv = document.getElementById("result");
+      const statsDiv = document.getElementById("stats");
+
+      // Set today's date as default
+      document.getElementById("dateFilter").valueAsDate = new Date();
+
+      function displayStats(data) {
+        const total = data.length;
+        const luotDi = data.filter((d) => d.loai_tuyen === "luot_di").length;
+        const luotVe = data.filter((d) => d.loai_tuyen === "luot_ve").length;
+
+        statsDiv.style.display = "grid";
+        statsDiv.innerHTML = `
+          <div class="stat-card">
+            <h3>${total}</h3>
+            <p>Tổng số bản ghi</p>
+          </div>
+          <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <h3>${luotDi}</h3>
+            <p>Lượt đi</p>
+          </div>
+          <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <h3>${luotVe}</h3>
+            <p>Lượt về</p>
+          </div>
+        `;
+      }
+
+      function displayTable(data) {
+        if (data.length === 0) {
+          return "<p class='error'>Không có dữ liệu</p>";
+        }
+
+        let html = `
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tuyến</th>
+                <th>Loại</th>
+                <th>Thao tác</th>
+                <th>Thời gian</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        data.forEach((item) => {
+          const date = new Date(item.ngay);
+          const formattedDate = date.toLocaleString("vi-VN");
+          const loaiText =
+            item.loai_tuyen === "luot_di" ? "🟢 Lượt đi" : "🔵 Lượt về";
+
+          html += `
+            <tr>
+              <td>${item.id}</td>
+              <td><strong>${item.ten_tuyen}</strong></td>
+              <td>${loaiText}</td>
+              <td>${item.noidung}</td>
+              <td>${formattedDate}</td>
+            </tr>
+          `;
+        });
+
+        html += `
+            </tbody>
+          </table>
+        `;
+
+        return html;
+      }
+
+      async function testAllRecords() {
+        try {
+          resultDiv.innerHTML = "<p>🔄 Đang tải...</p>";
+          const response = await fetch(
+            `${API_BASE_URL}/schedules/history/logs`
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const result = await response.json();
+          const data = result.data || result;
+
+          displayStats(data);
+
+          resultDiv.innerHTML = `
+            <h3 class="success">✅ Thành công - Tất cả lịch sử</h3>
+            <p>Số bản ghi: <strong>${data.length}</strong></p>
+            ${displayTable(data)}
+            <details style="margin-top: 20px;">
+              <summary style="cursor: pointer; font-weight: bold;">Xem JSON Raw</summary>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            </details>
+          `;
+        } catch (error) {
+          statsDiv.style.display = "none";
+          resultDiv.innerHTML = `<p class="error">❌ Lỗi: ${error.message}</p>`;
+        }
+      }
+
+      async function testWithFilters() {
+        try {
+          const date = document.getElementById("dateFilter").value;
+          const type = document.getElementById("typeFilter").value;
+
+          let url = `${API_BASE_URL}/schedules/history/logs`;
+          const params = new URLSearchParams();
+          if (date) params.append("date", date);
+          if (type) params.append("type", type);
+
+          if (params.toString()) {
+            url += `?${params.toString()}`;
+          }
+
+          resultDiv.innerHTML = "<p>🔄 Đang tải...</p>";
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const result = await response.json();
+          const data = result.data || result;
+
+          displayStats(data);
+
+          resultDiv.innerHTML = `
+            <h3 class="success">✅ Thành công - Lọc theo điều kiện</h3>
+            <p>URL: <code>${url}</code></p>
+            <p>Ngày: <strong>${date || "Tất cả"}</strong> | Loại: <strong>${
+            type || "Tất cả"
+          }</strong></p>
+            <p>Số bản ghi: <strong>${data.length}</strong></p>
+            ${displayTable(data)}
+            <details style="margin-top: 20px;">
+              <summary style="cursor: pointer; font-weight: bold;">Xem JSON Raw</summary>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            </details>
+          `;
+        } catch (error) {
+          statsDiv.style.display = "none";
+          resultDiv.innerHTML = `<p class="error">❌ Lỗi: ${error.message}</p>`;
+        }
+      }
+
+      async function testToday() {
+        try {
+          const today = new Date().toISOString().split("T")[0];
+          resultDiv.innerHTML = "<p>🔄 Đang tải lịch sử hôm nay...</p>";
+
+          const response = await fetch(
+            `${API_BASE_URL}/schedules/history/logs?date=${today}`
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const result = await response.json();
+          const data = result.data || result;
+
+          displayStats(data);
+
+          resultDiv.innerHTML = `
+            <h3 class="success">✅ Lịch sử hôm nay (${today})</h3>
+            <p>Số bản ghi: <strong>${data.length}</strong></p>
+            ${displayTable(data)}
+            <details style="margin-top: 20px;">
+              <summary style="cursor: pointer; font-weight: bold;">Xem JSON Raw</summary>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            </details>
+          `;
+        } catch (error) {
+          statsDiv.style.display = "none";
+          resultDiv.innerHTML = `<p class="error">❌ Lỗi: ${error.message}</p>`;
+        }
+      }
+
+      async function testCreateDelete() {
+        try {
+          resultDiv.innerHTML = "<p>🔄 Đang test tạo và xóa schedule...</p>";
+
+          // 1. Tạo schedule mới
+          const createPayload = {
+            route_id: 1,
+            driver_id: 1,
+            bus_id: 1,
+            ngay_chay: new Date().toISOString().split("T")[0],
+            gio_bat_dau: "06:00:00",
+          };
+
+          const createResponse = await fetch(`${API_BASE_URL}/schedules`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(createPayload),
+          });
+
+          if (!createResponse.ok) {
+            throw new Error(`Tạo schedule thất bại: ${createResponse.status}`);
+          }
+
+          const createResult = await createResponse.json();
+          const scheduleId = createResult.data
+            ? createResult.data.id
+            : createResult.id;
+
+          // Wait 1 second
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // 2. Lấy lịch sử
+          const historyResponse = await fetch(
+            `${API_BASE_URL}/schedules/history/logs`
+          );
+          const historyResult = await historyResponse.json();
+          const historyData = historyResult.data || historyResult;
+
+          // 3. Xóa schedule
+          const deleteResponse = await fetch(
+            `${API_BASE_URL}/schedules/${scheduleId}`,
+            {
+              method: "DELETE",
+            }
+          );
+
+          if (!deleteResponse.ok && deleteResponse.status !== 204) {
+            throw new Error(`Xóa schedule thất bại: ${deleteResponse.status}`);
+          }
+
+          // Wait 1 second
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // 4. Lấy lịch sử lần nữa
+          const historyResponse2 = await fetch(
+            `${API_BASE_URL}/schedules/history/logs`
+          );
+          const historyResult2 = await historyResponse2.json();
+          const historyData2 = historyResult2.data || historyResult2;
+
+          displayStats(historyData2);
+
+          resultDiv.innerHTML = `
+            <h3 class="success">✅ Test Tạo + Xóa thành công!</h3>
+            <p><strong>Bước 1:</strong> Tạo schedule ID: ${scheduleId}</p>
+            <p><strong>Bước 2:</strong> Lịch sử sau khi tạo: ${
+              historyData.length
+            } bản ghi</p>
+            <p><strong>Bước 3:</strong> Xóa schedule ID: ${scheduleId}</p>
+            <p><strong>Bước 4:</strong> Lịch sử sau khi xóa: ${
+              historyData2.length
+            } bản ghi</p>
+            <p class="success">✅ Cả 2 thao tác đều được ghi log!</p>
+            ${displayTable(historyData2.slice(0, 10))}
+            <details style="margin-top: 20px;">
+              <summary style="cursor: pointer; font-weight: bold;">Xem 10 bản ghi mới nhất</summary>
+              <pre>${JSON.stringify(historyData2.slice(0, 10), null, 2)}</pre>
+            </details>
+          `;
+        } catch (error) {
+          statsDiv.style.display = "none";
+          resultDiv.innerHTML = `<p class="error">❌ Lỗi: ${error.message}</p>`;
+        }
+      }
+    </script>
+  </body>
+</html>

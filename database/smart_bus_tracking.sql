@@ -204,7 +204,8 @@ CREATE TABLE `AssignmentHistory` (
   `tuyen` VARCHAR(255) NOT NULL ,
   `thao_tac` VARCHAR(255) NOT NULL,
   `loai_tuyen` ENUM('luot_di', 'luot_ve') DEFAULT NULL,
-  `thoi_gian` DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+  `thoi_gian` DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  `ngay_chay_thuc_te` DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 COMMIT;
