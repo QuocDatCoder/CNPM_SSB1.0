@@ -37,16 +37,16 @@ VALUES
 
 -- 2. THÊM XE BUÝT (10 Xe)
 INSERT INTO `Buses` (`bien_so_xe`, `hang_xe`, `nam_san_xuat`, `so_ghe`, `so_km_da_chay`, `lich_bao_duong`, `trang_thai`) VALUES
-('59B-000.01', 'Hyundai', 2022, 45, 15000.50, '2025-12-01', 'Ngừng'),
+('59B-000.01', 'Hyundai', 2022, 45, 15000.50, '2025-12-01', 'Đang hoạt động'),
 ('59B-000.02', 'Thaco', 2021, 45, 25000.00, '2025-11-15', 'Đang hoạt động'),
 ('59B-000.03', 'Samco', 2020, 30, 40000.20, '2025-10-20', 'Ngừng'),
 ('59B-000.04', 'Hyundai', 2023, 45, 5000.00, '2026-01-01', 'Ngừng'),
-('59B-000.05', 'Thaco', 2019, 30, 60000.00, '2025-09-30', 'Bảo Trì'),
+('59B-000.05', 'Thaco', 2019, 30, 60000.00, '2025-09-30', 'Bảo trì'),
 ('50E-111.11', 'Samco', 2022, 30, 12000.00, '2025-12-10', 'Ngừng'),
 ('50E-222.22', 'Hyundai', 2021, 45, 22000.00, '2025-11-25', 'Ngừng'),
 ('50E-333.33', 'Thaco', 2020, 45, 35000.00, '2025-10-05', 'Ngừng'),
 ('50E-444.44', 'Samco', 2023, 30, 8000.00, '2026-02-15', 'Ngừng'),
-('50E-555.55', 'VinBus', 2024, 50, 2000.00, '2026-05-20', 'Đang hoạt động');
+('50E-555.55', 'VinBus', 2024, 50, 2000.00, '2026-05-20', 'Ngừng');
 
 -- --------------------------------------------------------
 
@@ -186,11 +186,16 @@ INSERT INTO `ScheduleStudents` (`schedule_id`, `student_id`, `stop_id`, `trang_t
 (1, 15, 1, 'daxuong');
 
 -- Lịch sử phân công
-INSERT INTO `AssignmentHistory` (`tuyen`, `loai_tuyen`, `thao_tac`) VALUES
-('Tuyến 1: Q1 - Q5', 'luot_di', 'Phân công tài xế Nguyễn Văn Bác và xe 59B-000.01'),
-('Tuyến 1: Q5 - Q1', 'luot_ve', 'Phân công tài xế Nguyễn Văn Bác và xe 59B-000.01'),
-('Tuyến 2: KTX - Q1', 'luot_di', 'Phân công tài xế Trần Văn Tài và xe 59B-000.02'),
-('Tuyến 2: Q1 - KTX', 'luot_ve', 'Phân công tài xế Trần Văn Tài và xe 59B-000.02'),
-('Tuyến 3: Thủ Đức - Hàng Xanh', 'luot_di', 'Tạo lịch trình mới - Chưa phân công'),
-('Tuyến 3: Hàng Xanh - Thủ Đức', 'luot_ve', 'Tạo lịch trình mới - Chưa phân công');
+INSERT INTO `AssignmentHistory` (`tuyen`, `loai_tuyen`, `thao_tac`, `thoi_gian`, `ngay_chay_thuc_te`) VALUES
+('Tuyến 1: Q1 - Q5', 'luot_di', 'Phân công tài xế Nguyễn Văn Bác và xe 59B-000.01', NOW(), CURDATE()),
+('Tuyến 1: Q5 - Q1', 'luot_ve', 'Phân công tài xế Nguyễn Văn Bác và xe 59B-000.01', NOW(), CURDATE()),
+('Tuyến 2: KTX - Q1', 'luot_di', 'Phân công tài xế Trần Văn Tài và xe 59B-000.02', NOW(), CURDATE()),
+('Tuyến 2: Q1 - KTX', 'luot_ve', 'Phân công tài xế Trần Văn Tài và xe 59B-000.02', NOW(), CURDATE()),
+('Tuyến 3: Thủ Đức - Hàng Xanh', 'luot_di', 'Tạo lịch trình mới - Chưa phân công', NOW(), CURDATE()),
+('Tuyến 3: Hàng Xanh - Thủ Đức', 'luot_ve', 'Tạo lịch trình mới - Chưa phân công', NOW(), CURDATE()),
+-- Lịch sử cho ngày mai
+('Tuyến 1: Q1 - Q5', 'luot_di', 'Phân công tài xế Phạm Văn Lái và xe 59B-000.03', NOW(), DATE_ADD(CURDATE(), INTERVAL 1 DAY)),
+('Tuyến 1: Q5 - Q1', 'luot_ve', 'Phân công tài xế Phạm Văn Lái và xe 59B-000.03', NOW(), DATE_ADD(CURDATE(), INTERVAL 1 DAY)),
+('Tuyến 2: KTX - Q1', 'luot_di', 'Phân công tài xế Hoàng Văn Xe và xe 59B-000.04', NOW(), DATE_ADD(CURDATE(), INTERVAL 1 DAY)),
+('Tuyến 3: Thủ Đức - Hàng Xanh', 'luot_di', 'Tạo lịch trình - Chưa phân công', NOW(), DATE_ADD(CURDATE(), INTERVAL 1 DAY));
 COMMIT;

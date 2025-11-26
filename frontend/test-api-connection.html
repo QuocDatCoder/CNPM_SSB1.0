@@ -88,6 +88,7 @@
         <button onclick="testRoutes()">Test Routes API</button>
         <button onclick="testDrivers()">Test Drivers API</button>
         <button onclick="testSchedules()">Test Schedules API</button>
+        <button onclick="testAssignmentHistory()">Test History API</button>
         <button onclick="testAll()">Test All</button>
       </div>
 
@@ -178,6 +179,31 @@
         }
       }
 
+      async function testAssignmentHistory() {
+        try {
+          // Test without filters
+          const response = await fetch(
+            `${API_BASE_URL}/schedules/history/logs`
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+
+          // Test with filters (today's date, lượt đi)
+          const today = new Date().toISOString().split("T")[0];
+          const responseFiltered = await fetch(
+            `${API_BASE_URL}/schedules/history/logs?date=${today}&type=luot_di`
+          );
+          const dataFiltered = await responseFiltered.json();
+
+          displayResult("Assignment History API", true, {
+            all_records: data.data || data,
+            filtered_today_luot_di: dataFiltered.data || dataFiltered,
+          });
+        } catch (error) {
+          displayResult("Assignment History API", false, null, error.message);
+        }
+      }
+
       async function testAll() {
         resultDiv.innerHTML = "<p>🔄 Đang test tất cả APIs...</p>";
 
@@ -187,6 +213,7 @@
           { name: "Routes", endpoint: "routes" },
           { name: "Drivers", endpoint: "driver-test" },
           { name: "Schedules", endpoint: "schedules" },
+          { name: "Assignment History", endpoint: "schedules/history/logs" },
         ];
 
         let html = "<h3>Test All APIs</h3>";

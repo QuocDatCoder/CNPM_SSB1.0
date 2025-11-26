@@ -69,6 +69,12 @@ export default function Schedule() {
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    if (selectedDate) {
+      loadAssignmentHistory();
+    }
+  }, [selectedDate, activeShiftFilter]);
+
   const loadAllData = async () => {
     try {
       setLoading(true);
@@ -90,6 +96,26 @@ export default function Schedule() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAssignmentHistory = async () => {
+    try {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(
+        2,
+        "0"
+      )}-${String(selectedDate).padStart(2, "0")}`;
+
+      const filters = {
+        date: dateStr,
+        type: activeShiftFilter === "di" ? "luot_di" : "luot_ve",
+      };
+
+      const history = await ScheduleService.getAssignmentHistory(filters);
+      setAssignmentHistory(history);
+    } catch (error) {
+      console.error("Error loading assignment history:", error);
+      setAssignmentHistory([]);
     }
   };
 
@@ -138,20 +164,10 @@ export default function Schedule() {
 
   // Get assignment history for selected date and shift
   const getAssignmentHistoryForDate = () => {
-    if (!selectedDate) return [];
+    if (!selectedDate || !assignmentHistory) return [];
 
-    const selectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(
-      2,
-      "0"
-    )}-${String(selectedDate).padStart(2, "0")}`;
-
-    return assignmentHistory
-      .filter(
-        (h) =>
-          h.ngay_chay === selectedDateStr &&
-          h.shift === (activeShiftFilter === "di" ? "Lượt đi" : "Lượt về")
-      )
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Backend already filters by date and shift type, just return sorted
+    return assignmentHistory;
   };
 
   // Get available routes for selected date (filter out fully booked routes)
@@ -374,6 +390,9 @@ export default function Schedule() {
 
       // Reload data
       await loadAllData();
+      if (selectedDate) {
+        await loadAssignmentHistory();
+      }
 
       setShowAddModal(false);
       alert("Thêm lịch trình thành công!");
@@ -403,6 +422,9 @@ export default function Schedule() {
       try {
         await ScheduleService.deleteSchedule(id);
         await loadAllData();
+        if (selectedDate) {
+          await loadAssignmentHistory();
+        }
         alert("Đã xóa lịch trình!");
       } catch (error) {
         console.error("Error deleting schedule:", error);
@@ -467,6 +489,9 @@ export default function Schedule() {
 
       // Reload data
       await loadAllData();
+      if (selectedDate) {
+        await loadAssignmentHistory();
+      }
 
       setShowEditModal(false);
       alert("Cập nhật lịch trình thành công!");
@@ -611,11 +636,11 @@ export default function Schedule() {
                   getAssignmentHistoryForDate().map((item) => (
                     <div key={item.id} className="assignment-item">
                       <div className="assignment-info">
-                        <span className="route-label">{item.route}</span>
+                        <span className="route-label">{item.ten_tuyen}</span>
                         <span className="time">
-                          {formatHistoryTime(item.timestamp)}
+                          {formatHistoryTime(item.ngay)}
                         </span>
-                        <span className="status">{item.action}</span>
+                        <span className="status">{item.noidung}</span>
                       </div>
                     </div>
                   ))
@@ -798,26 +823,26 @@ export default function Schedule() {
                 >
                   <option value="">-- Chưa chọn xe bus --</option>
                   {buses
-                    .filter((bus) => bus.status !== "bảo trì") // Exclude maintenance buses
+                    .filter((bus) => bus.status !== "Bảo trì") // Exclude maintenance buses
                     .sort((a, b) => {
-                      // Available buses first (status "ngừng" and not assigned)
+                      // Available buses first (status "Ngừng" and not assigned)
                       const aAvailable =
-                        a.status === "ngừng" && !isBusAssigned(a.id);
+                        a.status === "Ngừng" && !isBusAssigned(a.id);
                       const bAvailable =
-                        b.status === "ngừng" && !isBusAssigned(b.id);
+                        b.status === "Ngừng" && !isBusAssigned(b.id);
                       if (aAvailable && !bAvailable) return -1;
                       if (!aAvailable && bAvailable) return 1;
                       return 0;
                     })
                     .map((bus) => {
                       const isAvailable =
-                        bus.status === "ngừng" && !isBusAssigned(bus.id);
+                        bus.status === "Ngừng" && !isBusAssigned(bus.id);
                       const statusText =
-                        bus.status === "đang hoạt động"
+                        bus.status === "Đang hoạt động"
                           ? "(Đang chạy tuyến)"
-                          : bus.status === "ngừng" && isBusAssigned(bus.id)
+                          : bus.status === "Ngừng" && isBusAssigned(bus.id)
                           ? "(Đã phân công)"
-                          : bus.status === "bảo trì"
+                          : bus.status === "Bảo trì"
                           ? "(Bảo trì)"
                           : "";
 
@@ -995,27 +1020,27 @@ export default function Schedule() {
                       if (a.id === parseInt(editSchedule.bus_id)) return -1;
                       if (b.id === parseInt(editSchedule.bus_id)) return 1;
 
-                      // Available buses first (status "ngừng" and not assigned)
+                      // Available buses first (status "Ngừng" and not assigned)
                       const aAvailable =
-                        a.status === "ngừng" && !isBusAssignedForEdit(a.id);
+                        a.status === "Ngừng" && !isBusAssignedForEdit(a.id);
                       const bAvailable =
-                        b.status === "ngừng" && !isBusAssignedForEdit(b.id);
+                        b.status === "Ngừng" && !isBusAssignedForEdit(b.id);
                       if (aAvailable && !bAvailable) return -1;
                       if (!aAvailable && bAvailable) return 1;
                       return 0;
                     })
                     .map((bus) => {
                       const isAvailable =
-                        bus.status === "ngừng" && !isBusAssignedForEdit(bus.id);
+                        bus.status === "Ngừng" && !isBusAssignedForEdit(bus.id);
                       const isCurrentlySelected =
                         bus.id === parseInt(editSchedule.bus_id);
                       const statusText =
-                        bus.status === "đang hoạt động"
+                        bus.status === "Đang hoạt động"
                           ? "(Đang chạy tuyến)"
-                          : bus.status === "ngừng" &&
+                          : bus.status === "Ngừng" &&
                             isBusAssignedForEdit(bus.id)
                           ? "(Đã phân công)"
-                          : bus.status === "bảo trì"
+                          : bus.status === "Bảo trì"
                           ? "(Bảo trì)"
                           : "";
 

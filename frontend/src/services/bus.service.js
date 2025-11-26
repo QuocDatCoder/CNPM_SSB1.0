@@ -21,7 +21,7 @@ const BusService = {
         yearManufactured: bus.nam_san_xuat,
         distanceTraveled: bus.so_km_da_chay,
         maintenanceDate: bus.lich_bao_duong,
-        status: bus.trang_thai.toLowerCase(), // Normalize: "Ngừng" -> "ngừng", "Hoạt động" -> "hoạt động"
+        status: bus.trang_thai, // Keep original: 'Đang hoạt động', 'Bảo trì', 'Ngừng'
         route: bus.ten_tuyen || "Chưa phân tuyến",
         image: "/image/bus.png", // Default image
       }));
@@ -46,7 +46,7 @@ const BusService = {
         so_ghe: parseInt(busData.seats),
         so_km_da_chay: 0,
         lich_bao_duong: busData.maintenanceDate,
-        trang_thai: "ngung", // Default: ngừng hoạt động
+        trang_thai: "Ngừng", // Default: Ngừng (matches DB ENUM)
       };
 
       const response = await api.post("/buses", payload);
