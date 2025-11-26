@@ -17,6 +17,8 @@ USE `smart_bus_tracking_optimized`;
 --
 CREATE TABLE `Users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `driver_code` INT DEFAULT NULL, -- them cái này dùng cho tài xế
+  `parent_code` INT DEFAULT NULL, -- thêm cái này dùng cho phụ huynh
   `username` VARCHAR(50) NOT NULL UNIQUE, -- Đã thêm cột này
   `email` VARCHAR(150) NOT NULL UNIQUE,
   `password_hash` VARCHAR(255) NOT NULL,
@@ -30,6 +32,7 @@ CREATE TABLE `Users` (
   `trang_thai_taixe` ENUM('Đang hoạt động', 'Nghỉ', 'Tạm dừng') DEFAULT NULL, -- Chỉ dùng cho tài xế
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- --------------------------------------------------------
 
@@ -121,23 +124,23 @@ CREATE TABLE `Students` (
 
 --
 -- Bảng 8: `Schedules` (Lịch Trình / Chuyến Đi)
+-- *** CẬP NHẬT: driver_id và bus_id cho phép NULL (có thể phân công sau)
+-- *** CẬP NHẬT: Xóa unique indexes để cho phép tài xế/xe chạy cả lượt đi và lượt về trong cùng ngày
 --
 CREATE TABLE `Schedules` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `route_id` INT NOT NULL,
-  `driver_id` INT NOT NULL,
-  `bus_id` INT NOT NULL,
+  `driver_id` INT DEFAULT NULL,
+  `bus_id` INT DEFAULT NULL,
   `ngay_chay` DATE NOT NULL,
   `trang_thai` ENUM('chuabatdau', 'dangchay', 'hoanthanh', 'huy') DEFAULT 'chuabatdau',
   `gio_bat_dau` TIME NOT NULL DEFAULT '06:00:00',
   `thoi_gian_bat_dau_thuc_te` DATETIME DEFAULT NULL,
   `thoi_gian_ket_thuc_thuc_te` DATETIME DEFAULT NULL,
   
-  FOREIGN KEY (`route_id`) REFERENCES `Routes`(`id`),
-  FOREIGN KEY (`driver_id`) REFERENCES `Users`(`id`),
-  FOREIGN KEY (`bus_id`) REFERENCES `Buses`(`id`),
-  UNIQUE KEY `driver_day` (`driver_id`, `ngay_chay`),
-  UNIQUE KEY `bus_day` (`bus_id`, `ngay_chay`)
+  FOREIGN KEY (`route_id`) REFERENCES `Routes`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`driver_id`) REFERENCES `Users`(`id`) ON DELETE SET NULL,
+  FOREIGN KEY (`bus_id`) REFERENCES `Buses`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------

@@ -13,7 +13,31 @@ const ScheduleService = {
   async getAllSchedules() {
     try {
       const schedules = await api.get("/schedules");
-      return schedules;
+
+      // Transform data từ API format sang frontend format
+      return schedules.map((schedule) => ({
+        id: schedule.id,
+        route_id: schedule.route_id,
+        driver_id: schedule.driver_code,
+        bus_id: schedule.bus_id,
+        createDate: schedule.ngay_chay, // YYYY-MM-DD (từ database)
+        ngay_chay: schedule.ngay_chay, // Keep for backend compatibility
+        start: schedule.gio_bat_dau, // HH:MM:SS
+        trang_thai: schedule.trang_thai, // dangchay, hoanthanh, chuabatdau, huy
+
+        // Route info
+        route: schedule.ten_tuyen || "",
+        street: schedule.mo_ta || "lấy kh đc",
+        loai_tuyen: schedule.loai_tuyen || "luot_di",
+        shift: schedule.loai_tuyen === "luot_di" ? "Lượt đi" : "Lượt về", // Display format
+
+        // Bus info
+        busNumber: schedule.bien_so_xe || "Chưa phân xe",
+
+        // Driver info
+        driverName: schedule.ten_tai_xe || "Chưa phân tài xế",
+        driverPhone: schedule.sdt_tai_xe || "",
+      }));
     } catch (error) {
       console.error("Error fetching schedules:", error);
       throw error;
@@ -29,8 +53,10 @@ const ScheduleService = {
     try {
       const payload = {
         route_id: parseInt(scheduleData.route_id),
-        driver_id: parseInt(scheduleData.driver_id),
-        bus_id: parseInt(scheduleData.bus_id),
+        driver_id: scheduleData.driver_id
+          ? parseInt(scheduleData.driver_id)
+          : null,
+        bus_id: scheduleData.bus_id ? parseInt(scheduleData.bus_id) : null,
         ngay_chay: scheduleData.ngay_chay, // Format: YYYY-MM-DD
         gio_bat_dau: scheduleData.gio_bat_dau, // Format: HH:MM:SS
       };
@@ -53,8 +79,10 @@ const ScheduleService = {
     try {
       const payload = {
         route_id: parseInt(scheduleData.route_id),
-        driver_id: parseInt(scheduleData.driver_id),
-        bus_id: parseInt(scheduleData.bus_id),
+        driver_id: scheduleData.driver_id
+          ? parseInt(scheduleData.driver_id)
+          : null,
+        bus_id: scheduleData.bus_id ? parseInt(scheduleData.bus_id) : null,
         ngay_chay: scheduleData.ngay_chay,
         gio_bat_dau: scheduleData.gio_bat_dau,
       };

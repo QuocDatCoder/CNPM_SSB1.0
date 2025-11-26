@@ -1,58 +1,70 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../../config/db.config');
+const { DataTypes } = require("sequelize");
+const sequelize = require("../../config/db.config");
 
-const User = sequelize.define('User', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
+const User = sequelize.define(
+  "User",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    driver_code: {
+      type: DataTypes.INTEGER, // Thêm driver_code (theo cấu trúc bảng)
+      allowNull: true,
+    },
+    parent_code: {
+      type: DataTypes.INTEGER, // Thêm parent_code (theo cấu trúc bảng)
+      allowNull: true,
+    },
+    username: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: true,
+    },
+    email: {
+      type: DataTypes.STRING(150),
+      allowNull: false,
+      unique: true,
+    },
+    password_hash: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    ho_ten: {
+      type: DataTypes.STRING(150),
+      allowNull: false,
+    },
+    ngay_sinh: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    gioi_tinh: {
+      type: DataTypes.ENUM("Nam", "Nữ"),
+      allowNull: true,
+    },
+    so_dien_thoai: {
+      type: DataTypes.STRING(20),
+      unique: true,
+    },
+    vai_tro: {
+      type: DataTypes.ENUM("admin", "taixe", "phuhuynh"),
+      allowNull: false,
+    },
+    // Thông tin phụ
+    dia_chi: { type: DataTypes.STRING(255) },
+    bang_lai: { type: DataTypes.STRING(50) },
+    trang_thai_taixe: { type: DataTypes.ENUM("hoatdong", "nghi", "tamdung") },
+
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
   },
-  username: {
-    type: DataTypes.STRING(50),
-    allowNull: false, 
-    unique: true      
-  },
-  email: {
-    type: DataTypes.STRING(150),
-    allowNull: false,
-    unique: true
-  },
-  password_hash: {
-    type: DataTypes.STRING(255),
-    allowNull: false
-  },
-  ho_ten: {
-    type: DataTypes.STRING(150),
-    allowNull: false
-  },
-  ngay_sinh: {
-    type: DataTypes.DATEONLY, 
-    allowNull: true
-  },
-  gioi_tinh: {
-    type: DataTypes.ENUM('Nam', 'Nữ'), 
-    allowNull: true
-  },
-  so_dien_thoai: {
-    type: DataTypes.STRING(20),
-    unique: true
-  },
-  vai_tro: {
-    type: DataTypes.ENUM('admin', 'taixe', 'phuhuynh'),
-    allowNull: false
-  },
-  // Thông tin phụ
-  dia_chi: { type: DataTypes.STRING(255) },
-  bang_lai: { type: DataTypes.STRING(50) },
-  trang_thai_taixe: { type: DataTypes.ENUM('hoatdong', 'nghi', 'tamdung') },
-  
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+  {
+    tableName: "Users",
+    timestamps: false, // Tự quản lý created_at
   }
-}, {
-  tableName: 'Users',
-  timestamps: false // Tự quản lý created_at
-});
+);
 
 module.exports = User;

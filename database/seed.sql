@@ -4,46 +4,49 @@
 
 -- 1. THÊM USERS (1 Admin, 5 Tài xế, 14 Phụ huynh)
 -- Password demo: '123456' (Trong thực tế sẽ được mã hóa)
-INSERT INTO `Users` (`username`, `email`, `password_hash`, `ho_ten`, `so_dien_thoai`, `vai_tro`, `dia_chi`, `bang_lai`, `trang_thai_taixe`) VALUES
-('admin', 'admin@sbms.com', '$2a$10$HasHeDPasswoRd...', 'Quản Trị Viên', '0909000001', 'admin', 'TP.HCM', NULL, NULL),
+INSERT INTO `Users` 
+(`driver_code`, `parent_code`, `username`, `email`, `password_hash`, `ho_ten`, `ngay_sinh`, `gioi_tinh`, `so_dien_thoai`, `vai_tro`, `dia_chi`, `bang_lai`, `trang_thai_taixe`)
+VALUES
+-- Admin
+(NULL, NULL, 'admin', 'admin@sbms.com', '$2a$10$HasHeDPasswoRd...', 'Quản Trị Viên', NULL, NULL, '0909000001', 'admin', 'TP.HCM', NULL, NULL),
 
 -- 5 Tài xế
-('taixe1', 'taixe1@sbms.com', '123456', 'Nguyễn Văn Bác', '0909000002', 'taixe', 'Q.1, TP.HCM', 'Hạng E', 'hoatdong'),
-('taixe2', 'taixe2@sbms.com', '123456', 'Trần Văn Tài', '0909000003', 'taixe', 'Q.3, TP.HCM', 'Hạng E', 'hoatdong'),
-('taixe3', 'taixe3@sbms.com', '123456', 'Lê Văn Xế', '0909000004', 'taixe', 'Q.5, TP.HCM', 'Hạng D', 'hoatdong'),
-('taixe4', 'taixe4@sbms.com', '123456', 'Phạm Văn Lái', '0909000005', 'taixe', 'Q.10, TP.HCM', 'Hạng E', 'nghi'),
-('taixe5', 'taixe5@sbms.com', '123456', 'Hoàng Văn Xe', '0909000006', 'taixe', 'Q.TB, TP.HCM', 'Hạng E', 'tamdung'),
+(1, NULL, 'taixe1', 'taixe1@sbms.com', '123456', 'Nguyễn Văn Bác', NULL, 'Nam', '0909000002', 'taixe', 'Q.1, TP.HCM', 'Hạng E', 'Đang hoạt động'),
+(2, NULL, 'taixe2', 'taixe2@sbms.com', '123456', 'Trần Văn Tài', NULL, 'Nam', '0909000003', 'taixe', 'Q.3, TP.HCM', 'Hạng E', 'Đang hoạt động'),
+(3, NULL, 'taixe3', 'taixe3@sbms.com', '123456', 'Lê Văn Xế', NULL, 'Nam', '0909000004', 'taixe', 'Q.5, TP.HCM', 'Hạng D', 'Đang hoạt động'),
+(4, NULL, 'taixe4', 'taixe4@sbms.com', '123456', 'Phạm Văn Lái', NULL, 'Nam', '0909000005', 'taixe', 'Q.10, TP.HCM', 'Hạng E', 'Nghỉ'),
+(5, NULL, 'taixe5', 'taixe5@sbms.com', '123456', 'Hoàng Văn Xe', NULL, 'Nam', '0909000006', 'taixe', 'Q.TB, TP.HCM', 'Hạng E', 'Tạm dừng'),
 
 -- 14 Phụ huynh
-('ph1', 'ph1@gmail.com', '123456', 'Nguyễn Thị Mẹ A', '0911000001', 'phuhuynh', 'Q.1, TP.HCM', NULL, NULL),
-('ph2', 'ph2@gmail.com', '123456', 'Trần Văn Ba B', '0911000002', 'phuhuynh', 'Q.3, TP.HCM', NULL, NULL),
-('ph3', 'ph3@gmail.com', '123456', 'Lê Thị Mẹ C', '0911000003', 'phuhuynh', 'Q.5, TP.HCM', NULL, NULL),
-('ph4', 'ph4@gmail.com', '123456', 'Phạm Văn Ba D', '0911000004', 'phuhuynh', 'Q.10, TP.HCM', NULL, NULL),
-('ph5', 'ph5@gmail.com', '123456', 'Hoàng Thị Mẹ E', '0911000005', 'phuhuynh', 'Q.TB, TP.HCM', NULL, NULL),
-('ph6', 'ph6@gmail.com', '123456', 'Vũ Văn Ba F', '0911000006', 'phuhuynh', 'TP.Thủ Đức', NULL, NULL),
-('ph7', 'ph7@gmail.com', '123456', 'Đặng Thị Mẹ G', '0911000007', 'phuhuynh', 'Q.7, TP.HCM', NULL, NULL),
-('ph8', 'ph8@gmail.com', '123456', 'Bùi Văn Ba H', '0911000008', 'phuhuynh', 'Q.8, TP.HCM', NULL, NULL),
-('ph9', 'ph9@gmail.com', '123456', 'Đỗ Thị Mẹ I', '0911000009', 'phuhuynh', 'Q.12, TP.HCM', NULL, NULL),
-('ph10', 'ph10@gmail.com', '123456', 'Hồ Văn Ba K', '0911000010', 'phuhuynh', 'Hóc Môn', NULL, NULL),
-('ph11', 'ph11@gmail.com', '123456', 'Ngô Thị Mẹ L', '0911000011', 'phuhuynh', 'Củ Chi', NULL, NULL),
-('ph12', 'ph12@gmail.com', '123456', 'Dương Văn Ba M', '0911000012', 'phuhuynh', 'Bình Chánh', NULL, NULL),
-('ph13', 'ph13@gmail.com', '123456', 'Lý Thị Mẹ N', '0911000013', 'phuhuynh', 'Nhà Bè', NULL, NULL),
-('ph14', 'ph14@gmail.com', '123456', 'Vương Văn Ba O', '0911000014', 'phuhuynh', 'Cần Giờ', NULL, NULL);
+(NULL, 1, 'ph1', 'ph1@gmail.com', '123456', 'Nguyễn Thị Mẹ A', NULL, 'Nữ', '0911000001', 'phuhuynh', 'Q.1, TP.HCM', NULL, NULL),
+(NULL, 2, 'ph2', 'ph2@gmail.com', '123456', 'Trần Văn Ba B', NULL, 'Nam', '0911000002', 'phuhuynh', 'Q.3, TP.HCM', NULL, NULL),
+(NULL, 3, 'ph3', 'ph3@gmail.com', '123456', 'Lê Thị Mẹ C', NULL, 'Nữ', '0911000003', 'phuhuynh', 'Q.5, TP.HCM', NULL, NULL),
+(NULL, 4, 'ph4', 'ph4@gmail.com', '123456', 'Phạm Văn Ba D', NULL, 'Nam', '0911000004', 'phuhuynh', 'Q.10, TP.HCM', NULL, NULL),
+(NULL, 5, 'ph5', 'ph5@gmail.com', '123456', 'Hoàng Thị Mẹ E', NULL, 'Nữ', '0911000005', 'phuhuynh', 'Q.TB, TP.HCM', NULL, NULL),
+(NULL, 6, 'ph6', 'ph6@gmail.com', '123456', 'Vũ Văn Ba F', NULL, 'Nam', '0911000006', 'phuhuynh', 'TP.Thủ Đức', NULL, NULL),
+(NULL, 7, 'ph7', 'ph7@gmail.com', '123456', 'Đặng Thị Mẹ G', NULL, 'Nữ', '0911000007', 'phuhuynh', 'Q.7, TP.HCM', NULL, NULL),
+(NULL, 8, 'ph8', 'ph8@gmail.com', '123456', 'Bùi Văn Ba H', NULL, 'Nam', '0911000008', 'phuhuynh', 'Q.8, TP.HCM', NULL, NULL),
+(NULL, 9, 'ph9', 'ph9@gmail.com', '123456', 'Đỗ Thị Mẹ I', NULL, 'Nữ', '0911000009', 'phuhuynh', 'Q.12, TP.HCM', NULL, NULL),
+(NULL, 10, 'ph10', 'ph10@gmail.com', '123456', 'Hồ Văn Ba K', NULL, 'Nam', '0911000010', 'phuhuynh', 'Hóc Môn', NULL, NULL),
+(NULL, 11, 'ph11', 'ph11@gmail.com', '123456', 'Ngô Thị Mẹ L', NULL, 'Nữ', '0911000011', 'phuhuynh', 'Củ Chi', NULL, NULL),
+(NULL, 12, 'ph12', 'ph12@gmail.com', '123456', 'Dương Văn Ba M', NULL, 'Nam', '0911000012', 'phuhuynh', 'Bình Chánh', NULL, NULL),
+(NULL, 13, 'ph13', 'ph13@gmail.com', '123456', 'Lý Thị Mẹ N', NULL, 'Nữ', '0911000013', 'phuhuynh', 'Nhà Bè', NULL, NULL),
+(NULL, 14, 'ph14', 'ph14@gmail.com', '123456', 'Vương Văn Ba O', NULL, 'Nam', '0911000014', 'phuhuynh', 'Cần Giờ', NULL, NULL);
 
 -- --------------------------------------------------------
 
 -- 2. THÊM XE BUÝT (10 Xe)
 INSERT INTO `Buses` (`bien_so_xe`, `hang_xe`, `nam_san_xuat`, `so_ghe`, `so_km_da_chay`, `lich_bao_duong`, `trang_thai`) VALUES
-('59B-000.01', 'Hyundai', 2022, 45, 15000.50, '2025-12-01', 'hoatdong'),
-('59B-000.02', 'Thaco', 2021, 45, 25000.00, '2025-11-15', 'hoatdong'),
-('59B-000.03', 'Samco', 2020, 30, 40000.20, '2025-10-20', 'hoatdong'),
-('59B-000.04', 'Hyundai', 2023, 45, 5000.00, '2026-01-01', 'hoatdong'),
-('59B-000.05', 'Thaco', 2019, 30, 60000.00, '2025-09-30', 'baotri'),
-('50E-111.11', 'Samco', 2022, 30, 12000.00, '2025-12-10', 'hoatdong'),
-('50E-222.22', 'Hyundai', 2021, 45, 22000.00, '2025-11-25', 'hoatdong'),
-('50E-333.33', 'Thaco', 2020, 45, 35000.00, '2025-10-05', 'ngung'),
-('50E-444.44', 'Samco', 2023, 30, 8000.00, '2026-02-15', 'hoatdong'),
-('50E-555.55', 'VinBus', 2024, 50, 2000.00, '2026-05-20', 'hoatdong');
+('59B-000.01', 'Hyundai', 2022, 45, 15000.50, '2025-12-01', 'Ngừng'),
+('59B-000.02', 'Thaco', 2021, 45, 25000.00, '2025-11-15', 'Đang hoạt động'),
+('59B-000.03', 'Samco', 2020, 30, 40000.20, '2025-10-20', 'Ngừng'),
+('59B-000.04', 'Hyundai', 2023, 45, 5000.00, '2026-01-01', 'Ngừng'),
+('59B-000.05', 'Thaco', 2019, 30, 60000.00, '2025-09-30', 'Bảo Trì'),
+('50E-111.11', 'Samco', 2022, 30, 12000.00, '2025-12-10', 'Ngừng'),
+('50E-222.22', 'Hyundai', 2021, 45, 22000.00, '2025-11-25', 'Ngừng'),
+('50E-333.33', 'Thaco', 2020, 45, 35000.00, '2025-10-05', 'Ngừng'),
+('50E-444.44', 'Samco', 2023, 30, 8000.00, '2026-02-15', 'Ngừng'),
+('50E-555.55', 'VinBus', 2024, 50, 2000.00, '2026-05-20', 'Đang hoạt động');
 
 -- --------------------------------------------------------
 
@@ -145,19 +148,37 @@ INSERT INTO `Students` (`ho_ten`, `lop`, `ngay_sinh`, `gioi_tinh`, `gvcn`, `pare
 
 -- --------------------------------------------------------
 
--- 6. THÊM LỊCH TRÌNH (Schedules) - Dùng CURDATE() cho an toàn
--- Lưu ý: ID tài xế là 2,3,4,5,6 (Vì ID 1 là admin)
-INSERT INTO `Schedules` (`route_id`, `driver_id`, `bus_id`, `ngay_chay`, `trang_thai`) VALUES
-(1, 2, 1, CURDATE(), 'dangchay'), 
-(2, 3, 2, CURDATE(), 'chuabatdau'),
-(3, 4, 3, CURDATE(), 'hoanthanh'),
-(5, 5, 4, CURDATE(), 'chuabatdau'),
-(1, 2, 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'chuabatdau');
+-- 6. THÊM LỊCH TRÌNH (Schedules) 
+-- Lưu ý: 
+-- - ID tài xế: 2,3,4,5,6 (ID 1 là admin)
+-- - ID xe bus: 1-10
+-- - Một tài xế/xe có thể chạy cả lượt đi và lượt về trong cùng ngày
+-- - driver_id và bus_id có thể NULL (chưa phân công)
 
+-- HÔM NAY (CURDATE())
+INSERT INTO `Schedules` (`route_id`, `driver_id`, `bus_id`, `ngay_chay`, `trang_thai`) VALUES
+-- Tuyến 1: Cùng tài xế (ID 2) và xe (ID 1) chạy cả đi và về
+(1, 2, 1, CURDATE(), 'dangchay'),      -- Tuyến 1 Lượt đi: Q1->Q5
+(2, 2, 1, CURDATE(), 'chuabatdau'),    -- Tuyến 1 Lượt về: Q5->Q1 (cùng tài xế, cùng xe)
+
+-- Tuyến 2: Tài xế 3, xe 2 chạy cả 2 chiều
+(3, 3, 2, CURDATE(), 'hoanthanh'),     -- Tuyến 2 Lượt đi: KTX->Q1
+(4, 3, 2, CURDATE(), 'chuabatdau'),    -- Tuyến 2 Lượt về: Q1->KTX (cùng tài xế, cùng xe)
+
+-- Tuyến 3: Chỉ tạo lịch chưa phân tài xế/xe (NULL)
+(5, NULL, NULL, CURDATE(), 'chuabatdau'),  -- Tuyến 3 Lượt đi - Chưa phân công
+(6, NULL, NULL, CURDATE(), 'chuabatdau');  -- Tuyến 3 Lượt về - Chưa phân công
+
+-- NGÀY MAI (DATE_ADD)
+INSERT INTO `Schedules` (`route_id`, `driver_id`, `bus_id`, `ngay_chay`, `trang_thai`) VALUES
+(1, 4, 3, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'chuabatdau'),  -- Tuyến 1 đi
+(2, 4, 3, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'chuabatdau'),  -- Tuyến 1 về
+(3, 5, 4, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'chuabatdau'),  -- Tuyến 2 đi
+(5, NULL, NULL, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'chuabatdau'); -- Tuyến 3 chưa phân
 -- --------------------------------------------------------
 
 -- 7. ĐIỂM DANH & LỊCH SỬ
--- Điểm danh cho chuyến 1 (Đang chạy)
+-- Điểm danh cho schedule_id = 1 (Tuyến 1 lượt đi, đang chạy)
 INSERT INTO `ScheduleStudents` (`schedule_id`, `student_id`, `stop_id`, `trang_thai_don`) VALUES
 (1, 1, 1, 'dihoc'),
 (1, 2, 2, 'choxacnhan'),
@@ -165,10 +186,11 @@ INSERT INTO `ScheduleStudents` (`schedule_id`, `student_id`, `stop_id`, `trang_t
 (1, 15, 1, 'daxuong');
 
 -- Lịch sử phân công
-INSERT INTO `AssignmentHistory` (`tuyen`, `thao_tac`) VALUES
-('Tuyến 1: Q1 - Q5', 'Thêm phân công ngày hôm nay'),
-('Tuyến 1: Q5 - Q1', 'Thêm phân công ngày hôm nay'),
-('Tuyến 2: KTX - Q1', 'Cập nhật tài xế'),
-('Tuyến 3: Thủ Đức - Hàng Xanh', 'Thêm phân công');
-
+INSERT INTO `AssignmentHistory` (`tuyen`, `loai_tuyen`, `thao_tac`) VALUES
+('Tuyến 1: Q1 - Q5', 'luot_di', 'Phân công tài xế Nguyễn Văn Bác và xe 59B-000.01'),
+('Tuyến 1: Q5 - Q1', 'luot_ve', 'Phân công tài xế Nguyễn Văn Bác và xe 59B-000.01'),
+('Tuyến 2: KTX - Q1', 'luot_di', 'Phân công tài xế Trần Văn Tài và xe 59B-000.02'),
+('Tuyến 2: Q1 - KTX', 'luot_ve', 'Phân công tài xế Trần Văn Tài và xe 59B-000.02'),
+('Tuyến 3: Thủ Đức - Hàng Xanh', 'luot_di', 'Tạo lịch trình mới - Chưa phân công'),
+('Tuyến 3: Hàng Xanh - Thủ Đức', 'luot_ve', 'Tạo lịch trình mới - Chưa phân công');
 COMMIT;

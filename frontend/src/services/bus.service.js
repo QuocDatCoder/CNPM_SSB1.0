@@ -14,15 +14,15 @@ const BusService = {
     try {
       const response = await api.get("/buses");
       return response.map((bus) => ({
-        id: bus.id.toString(),
-        licensePlate: bus.licensePlate,
-        manufacturer: bus.manufacturer,
-        seats: bus.seats,
-        yearManufactured: bus.yearManufactured,
-        distanceTraveled: bus.distanceTraveled,
-        maintenanceDate: bus.maintenanceDate,
-        status: bus.status,
-        route: bus.route || "Chưa phân tuyến",
+        id: bus.id, // Keep as number for comparisons
+        licensePlate: bus.bien_so_xe,
+        manufacturer: bus.hang_xe,
+        seats: bus.so_ghe,
+        yearManufactured: bus.nam_san_xuat,
+        distanceTraveled: bus.so_km_da_chay,
+        maintenanceDate: bus.lich_bao_duong,
+        status: bus.trang_thai.toLowerCase(), // Normalize: "Ngừng" -> "ngừng", "Hoạt động" -> "hoạt động"
+        route: bus.ten_tuyen || "Chưa phân tuyến",
         image: "/image/bus.png", // Default image
       }));
     } catch (error) {
@@ -38,14 +38,15 @@ const BusService = {
    */
   async createBus(busData) {
     try {
+      // Frontend sends English names, convert to Vietnamese for database
       const payload = {
-        licensePlate: busData.licensePlate,
-        manufacturer: busData.manufacturer,
-        yearManufactured: parseInt(busData.yearManufactured),
-        seats: parseInt(busData.seats),
-        distanceTraveled: 0,
-        maintenanceDate: busData.maintenanceDate,
-        status: busData.status || "ngừng hoạt động",
+        bien_so_xe: busData.licensePlate,
+        hang_xe: busData.manufacturer,
+        nam_san_xuat: parseInt(busData.yearManufactured),
+        so_ghe: parseInt(busData.seats),
+        so_km_da_chay: 0,
+        lich_bao_duong: busData.maintenanceDate,
+        trang_thai: "ngung", // Default: ngừng hoạt động
       };
 
       const response = await api.post("/buses", payload);
@@ -64,14 +65,15 @@ const BusService = {
    */
   async updateBus(id, busData) {
     try {
+      // Frontend sends English names, convert to Vietnamese for database
       const payload = {
-        licensePlate: busData.licensePlate,
-        manufacturer: busData.manufacturer,
-        yearManufactured: parseInt(busData.yearManufactured),
-        seats: parseInt(busData.seats),
-        distanceTraveled: parseFloat(busData.distanceTraveled),
-        maintenanceDate: busData.maintenanceDate,
-        status: busData.status,
+        bien_so_xe: busData.licensePlate,
+        hang_xe: busData.manufacturer,
+        nam_san_xuat: parseInt(busData.yearManufactured),
+        so_ghe: parseInt(busData.seats),
+        so_km_da_chay: parseFloat(busData.distanceTraveled),
+        lich_bao_duong: busData.maintenanceDate,
+        trang_thai: busData.status,
       };
 
       const response = await api.put(`/buses/${id}`, payload);

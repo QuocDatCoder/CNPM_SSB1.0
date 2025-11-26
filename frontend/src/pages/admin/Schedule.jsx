@@ -32,7 +32,7 @@ export default function Schedule() {
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(today.getDate()); // Auto-select today's date
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [schedules, setSchedules] = useState([]);
@@ -156,22 +156,28 @@ export default function Schedule() {
 
   // Get available routes for selected date (filter out fully booked routes)
   const getAvailableRoutes = () => {
-    const routes = [
-      { id: "1", name: "Tuyến 1 - An Dương Vương" },
-      { id: "2", name: "Tuyến 2 - Lê Lợi" },
-      { id: "3", name: "Tuyến 3 - Nguyễn Huệ" },
-      { id: "4", name: "Tuyến 4 - Trường Chinh" },
-      { id: "5", name: "Tuyến 5 - Võ Văn Kiệt" },
-      { id: "6", name: "Tuyến 6 - Cách Mạng Tháng 8" },
-    ];
+    if (!routes || routes.length === 0) return [];
 
-    return routes.filter((route) => {
-      const routeSchedules = schedules.filter(
-        (s) => s.route_id === route.id && s.ngay_chay === newSchedule.ngay_chay
+    // Filter routes by selected shift (loai_tuyen)
+    const shiftType = newSchedule.shift === "di" ? "luot_di" : "luot_ve";
+
+    const filteredRoutes = routes.filter((route) => {
+      // Only show routes matching the selected shift
+      if (route.loai_tuyen !== shiftType) return false;
+
+      // Check if this route is already scheduled for this date and shift
+      const existingSchedule = schedules.find(
+        (s) =>
+          s.route_id === parseInt(route.id.replace(/^0+/, "")) &&
+          s.createDate === newSchedule.ngay_chay &&
+          s.loai_tuyen === shiftType
       );
-      // Show route if it has less than 2 schedules (not both shifts booked)
-      return routeSchedules.length < 2;
+
+      // Show route if not already scheduled
+      return !existingSchedule;
     });
+
+    return filteredRoutes;
   };
 
   // Get schedules for selected date only
@@ -182,18 +188,25 @@ export default function Schedule() {
       2,
       "0"
     )}-${String(selectedDate).padStart(2, "0")}`;
-    return schedules.filter((s) => s.ngay_chay === selectedDateStr);
+    return schedules.filter((s) => s.createDate === selectedDateStr);
   };
 
   // Check if driver is already assigned to a shift on the selected date
-  const isDriverAssigned = (driverId) => {
-    if (!driverId || !newSchedule.ngay_chay || !newSchedule.shift) return false;
+  const isDriverAssigned = (driverCode) => {
+    if (!driverCode || !newSchedule.ngay_chay || !newSchedule.shift)
+      return false;
+
+    const shiftType = newSchedule.shift === "di" ? "luot_di" : "luot_ve";
+
+    // Find the driver to get the actual driver_code number
+    const driver = drivers.find((d) => d.code === driverCode);
+    if (!driver) return false;
 
     return schedules.some(
       (s) =>
-        s.driver_id === driverId &&
-        s.ngay_chay === newSchedule.ngay_chay &&
-        s.shift === (newSchedule.shift === "di" ? "Lượt đi" : "Lượt về")
+        s.driver_id === driver.driver_code &&
+        s.createDate === newSchedule.ngay_chay &&
+        s.loai_tuyen === shiftType
     );
   };
 
@@ -201,27 +214,33 @@ export default function Schedule() {
   const isBusAssigned = (busId) => {
     if (!busId || !newSchedule.ngay_chay || !newSchedule.shift) return false;
 
+    const shiftType = newSchedule.shift === "di" ? "luot_di" : "luot_ve";
+
     return schedules.some(
       (s) =>
-        s.bus_id === busId &&
-        s.ngay_chay === newSchedule.ngay_chay &&
-        s.shift === (newSchedule.shift === "di" ? "Lượt đi" : "Lượt về")
+        s.bus_id === parseInt(busId) &&
+        s.createDate === newSchedule.ngay_chay &&
+        s.loai_tuyen === shiftType
     );
   };
 
   // Check if driver is already assigned (for edit mode)
-  const isDriverAssignedForEdit = (driverId) => {
-    if (!driverId || !editSchedule.ngay_chay || !editSchedule.shift)
+  const isDriverAssignedForEdit = (driverCode) => {
+    if (!driverCode || !editSchedule.ngay_chay || !editSchedule.shift)
       return false;
 
-    const shiftDisplay = editSchedule.shift === "di" ? "Lượt đi" : "Lượt về";
+    const shiftType = editSchedule.shift === "di" ? "luot_di" : "luot_ve";
+
+    // Find the driver to get the actual driver_code number
+    const driver = drivers.find((d) => d.code === driverCode);
+    if (!driver) return false;
 
     return schedules.some(
       (s) =>
         s.id !== editSchedule.id && // Exclude current schedule
-        s.driver_id === driverId &&
-        s.ngay_chay === editSchedule.ngay_chay &&
-        s.shift === shiftDisplay
+        s.driver_id === driver.driver_code &&
+        s.createDate === editSchedule.ngay_chay &&
+        s.loai_tuyen === shiftType // Only check SAME shift
     );
   };
 
@@ -229,14 +248,14 @@ export default function Schedule() {
   const isBusAssignedForEdit = (busId) => {
     if (!busId || !editSchedule.ngay_chay || !editSchedule.shift) return false;
 
-    const shiftDisplay = editSchedule.shift === "di" ? "Lượt đi" : "Lượt về";
+    const shiftType = editSchedule.shift === "di" ? "luot_di" : "luot_ve";
 
     return schedules.some(
       (s) =>
         s.id !== editSchedule.id && // Exclude current schedule
-        s.bus_id === busId &&
-        s.ngay_chay === editSchedule.ngay_chay &&
-        s.shift === shiftDisplay
+        s.bus_id === parseInt(busId) &&
+        s.createDate === editSchedule.ngay_chay &&
+        s.loai_tuyen === shiftType
     );
   };
 
@@ -284,27 +303,28 @@ export default function Schedule() {
     return existingSchedule.shift === "Lượt đi" ? "ve" : "di";
   };
 
-  // Handle route change to auto-set shift
+  // Handle route change - do NOT auto-change shift
   const handleRouteChange = (routeId) => {
-    const autoShift = getAvailableShift(routeId, newSchedule.ngay_chay);
     setNewSchedule({
       ...newSchedule,
       route_id: routeId,
-      shift: autoShift,
       driver_id: "", // Reset driver
       bus_id: "", // Reset bus
     });
   };
 
-  // Handle shift change
+  // Handle shift change - reset route, driver, bus
   const handleShiftChange = (shift) => {
     setNewSchedule({
       ...newSchedule,
       shift: shift,
+      route_id: "", // Reset route when shift changes
+      driver_id: "", // Reset driver
+      bus_id: "", // Reset bus
     });
   };
 
-  const handleSaveSchedule = () => {
+  const handleSaveSchedule = async () => {
     // Validation - only route, date, and shift are required
     if (!newSchedule.route_id || !newSchedule.ngay_chay || !newSchedule.shift) {
       alert(
@@ -313,84 +333,57 @@ export default function Schedule() {
       return;
     }
 
-    // Check if driver is already assigned to another route on same date and shift
-    if (newSchedule.driver_id) {
-      const driverConflict = schedules.find(
-        (s) =>
-          s.driver_id === newSchedule.driver_id &&
-          s.ngay_chay === newSchedule.ngay_chay &&
-          s.shift === (newSchedule.shift === "di" ? "Lượt đi" : "Lượt về")
+    try {
+      // Find route với loai_tuyen matching shift
+      const selectedRoute = routes.find(
+        (r) =>
+          r.id === newSchedule.route_id &&
+          r.loai_tuyen === (newSchedule.shift === "di" ? "luot_di" : "luot_ve")
       );
-      if (driverConflict) {
-        alert(
-          `Tài xế này đã được phân công cho ${driverConflict.route} (${driverConflict.shift}) trong ngày này!`
-        );
+
+      if (!selectedRoute) {
+        alert("Không tìm thấy tuyến đường phù hợp với chuyến đã chọn!");
         return;
       }
-    }
 
-    // Check if bus is already assigned to another route on same date and shift
-    if (newSchedule.bus_id) {
-      const busConflict = schedules.find(
-        (s) =>
-          s.bus_id === newSchedule.bus_id &&
-          s.ngay_chay === newSchedule.ngay_chay &&
-          s.shift === (newSchedule.shift === "di" ? "Lượt đi" : "Lượt về")
-      );
-      if (busConflict) {
-        alert(
-          `Xe bus này đã được sử dụng cho ${busConflict.route} (${busConflict.shift}) trong ngày này!`
-        );
-        return;
+      // Map driver_code to actual user ID
+      let actualDriverId = null;
+      if (newSchedule.driver_id) {
+        const driver = drivers.find((d) => d.code === newSchedule.driver_id);
+        if (!driver) {
+          alert("Không tìm thấy tài xế!");
+          return;
+        }
+        // Find user ID from driver_code
+        actualDriverId = driver.id; // This should be the user.id, not driver_code
       }
+
+      // Prepare payload for backend
+      const payload = {
+        route_id: parseInt(selectedRoute.id.replace(/^0+/, "")), // Remove leading zeros
+        driver_id: actualDriverId ? parseInt(actualDriverId) : null,
+        bus_id: newSchedule.bus_id ? parseInt(newSchedule.bus_id) : null,
+        ngay_chay: newSchedule.ngay_chay,
+        gio_bat_dau: "06:00:00", // Default start time
+      };
+
+      console.log("Creating schedule with payload:", payload);
+
+      // Call backend API
+      await ScheduleService.createSchedule(payload);
+
+      // Reload data
+      await loadAllData();
+
+      setShowAddModal(false);
+      alert("Thêm lịch trình thành công!");
+    } catch (error) {
+      console.error("Error creating schedule:", error);
+      alert(
+        error.message ||
+          "Không thể tạo lịch trình. Vui lòng kiểm tra lại thông tin!"
+      );
     }
-
-    // Route names mapping
-    const routeNames = {
-      1: { name: "Tuyến số 1", street: "Đường An Dương Vương" },
-      2: { name: "Tuyến số 2", street: "Đường Lê Lợi" },
-      3: { name: "Tuyến số 3", street: "Đường Nguyễn Huệ" },
-      4: { name: "Tuyến số 4", street: "Đường Trường Chinh" },
-      5: { name: "Tuyến số 5", street: "Đường Võ Văn Kiệt" },
-      6: { name: "Tuyến số 6", street: "Đường Cách Mạng Tháng 8" },
-    };
-
-    // Create new schedule entry
-    const createdAt = new Date().toISOString();
-    const newEntry = {
-      id: schedules.length + 1,
-      route: routeNames[newSchedule.route_id].name,
-      route_id: newSchedule.route_id,
-      street: routeNames[newSchedule.route_id].street,
-      createDate: new Date(newSchedule.ngay_chay).toLocaleDateString("vi-VN"),
-      shift: newSchedule.shift === "di" ? "Lượt đi" : "Lượt về",
-      time: "--:--", // Will be set when schedule starts
-      status: newSchedule.driver_id ? "Thay đổi" : "Phân công",
-      driver_id: newSchedule.driver_id,
-      bus_id: newSchedule.bus_id,
-      ngay_chay: newSchedule.ngay_chay,
-      trang_thai: newSchedule.trang_thai,
-      created_at: createdAt,
-    };
-
-    setSchedules([...schedules, newEntry]);
-
-    // Add to history
-    const historyEntry = {
-      id: assignmentHistory.length + 1,
-      route: routeNames[newSchedule.route_id].name,
-      timestamp: createdAt,
-      action: "Thêm",
-      ngay_chay: newSchedule.ngay_chay,
-      shift: newSchedule.shift === "di" ? "Lượt đi" : "Lượt về",
-    };
-    setAssignmentHistory([...assignmentHistory, historyEntry]);
-
-    setShowAddModal(false);
-    alert("Thêm lịch trình thành công!");
-
-    console.log("Saving schedule:", newEntry);
-    // TODO: Call API to save schedule
   };
 
   const handleCancelAdd = () => {
@@ -405,10 +398,16 @@ export default function Schedule() {
     });
   };
 
-  const handleDeleteSchedule = (id) => {
+  const handleDeleteSchedule = async (id) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa lịch trình này?")) {
-      setSchedules(schedules.filter((schedule) => schedule.id !== id));
-      alert("Đã xóa lịch trình!");
+      try {
+        await ScheduleService.deleteSchedule(id);
+        await loadAllData();
+        alert("Đã xóa lịch trình!");
+      } catch (error) {
+        console.error("Error deleting schedule:", error);
+        alert("Không thể xóa lịch trình. Vui lòng thử lại!");
+      }
     }
   };
 
@@ -416,91 +415,68 @@ export default function Schedule() {
     const schedule = schedules.find((s) => s.id === id);
     if (!schedule) return;
 
+    // Map driver_id (driver_code number) to driver.code (padded string)
+    let driverCodeString = "";
+    if (schedule.driver_id) {
+      const driver = drivers.find((d) => d.driver_code === schedule.driver_id);
+      if (driver) {
+        driverCodeString = driver.code;
+      }
+    }
+
     setEditSchedule({
       id: schedule.id,
       route_id: schedule.route_id,
       route: schedule.route,
       street: schedule.street,
-      driver_id: schedule.driver_id || "",
+      driver_id: driverCodeString,
       bus_id: schedule.bus_id || "",
-      ngay_chay: schedule.ngay_chay,
-      shift: schedule.shift === "L\u01b0\u1ee3t \u0111i" ? "di" : "ve",
+      ngay_chay: schedule.createDate, // Use createDate from API response
+      shift: schedule.shift === "Lượt đi" ? "di" : "ve",
       createDate: schedule.createDate,
     });
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = () => {
-    // Check if driver is already assigned to another route on same date and shift
-    if (editSchedule.driver_id) {
-      const driverConflict = schedules.find(
-        (s) =>
-          s.id !== editSchedule.id &&
-          s.driver_id === editSchedule.driver_id &&
-          s.ngay_chay === editSchedule.ngay_chay &&
-          s.shift === editSchedule.shift
+  const handleSaveEdit = async () => {
+    try {
+      // Map driver_code to actual user ID
+      let actualDriverId = null;
+      if (editSchedule.driver_id) {
+        const driver = drivers.find((d) => d.code === editSchedule.driver_id);
+        if (!driver) {
+          alert("Không tìm thấy tài xế!");
+          return;
+        }
+        actualDriverId = driver.id;
+      }
+
+      // Prepare payload
+      const payload = {
+        route_id: parseInt(editSchedule.route_id.toString().replace(/^0+/, "")),
+        driver_id: actualDriverId ? parseInt(actualDriverId) : null,
+        bus_id: editSchedule.bus_id ? parseInt(editSchedule.bus_id) : null,
+        ngay_chay: editSchedule.ngay_chay,
+        gio_bat_dau: editSchedule.start || "06:00:00",
+      };
+
+      console.log("Updating schedule with payload:", payload);
+
+      // Call backend API
+      await ScheduleService.updateSchedule(editSchedule.id, payload);
+
+      // Reload data
+      await loadAllData();
+
+      setShowEditModal(false);
+      alert("Cập nhật lịch trình thành công!");
+    } catch (error) {
+      console.error("Error updating schedule:", error);
+      alert(
+        error.message ||
+          "Không thể cập nhật lịch trình. Vui lòng kiểm tra lại thông tin!"
       );
-      if (driverConflict) {
-        alert(
-          `Tài xế này đã được phân công cho ${driverConflict.route} (${driverConflict.shift}) trong ngày này!`
-        );
-        return;
-      }
     }
-
-    // Check if bus is already assigned to another route on same date and shift
-    if (editSchedule.bus_id) {
-      const busConflict = schedules.find(
-        (s) =>
-          s.id !== editSchedule.id &&
-          s.bus_id === editSchedule.bus_id &&
-          s.ngay_chay === editSchedule.ngay_chay &&
-          s.shift === editSchedule.shift
-      );
-      if (busConflict) {
-        alert(
-          `Xe bus này đã được sử dụng cho ${busConflict.route} (${busConflict.shift}) trong ngày này!`
-        );
-        return;
-      }
-    }
-
-    // Update schedule
-    const updatedSchedules = schedules.map((s) => {
-      if (s.id === editSchedule.id) {
-        return {
-          ...s,
-          driver_id: editSchedule.driver_id,
-          bus_id: editSchedule.bus_id,
-          status:
-            editSchedule.driver_id && editSchedule.bus_id
-              ? "Thay đổi"
-              : "Phân công",
-        };
-      }
-      return s;
-    });
-
-    setSchedules(updatedSchedules);
-
-    // Add to history
-    const action =
-      editSchedule.driver_id && editSchedule.bus_id ? "Thay đổi" : "Phân công";
-    const historyEntry = {
-      id: assignmentHistory.length + 1,
-      route: editSchedule.route,
-      timestamp: new Date().toISOString(),
-      action: action,
-      ngay_chay: editSchedule.ngay_chay,
-      shift: editSchedule.shift === "di" ? "Lượt đi" : "Lượt về",
-    };
-    setAssignmentHistory([...assignmentHistory, historyEntry]);
-
-    setShowEditModal(false);
-    alert("Cập nhật lịch trình thành công!");
-
-    console.log("Updated schedule:", editSchedule);
-    // TODO: Call API to update schedule
   };
 
   const handleCancelEdit = () => {
@@ -680,11 +656,17 @@ export default function Schedule() {
                     <div className="col col-status">
                       <button
                         className={`status-btn ${
-                          item.status === "Phân công" ? "pending" : "assigned"
+                          !item.driver_id || !item.bus_id
+                            ? "pending"
+                            : "assigned"
                         }`}
-                        onClick={() => handleStatusClick(item.id, item.status)}
+                        onClick={() =>
+                          handleStatusClick(item.id, item.trang_thai)
+                        }
                       >
-                        {item.status}
+                        {!item.driver_id || !item.bus_id
+                          ? "Phân công"
+                          : "Thay đổi"}
                       </button>
                     </div>
                     <div className="col col-action">
@@ -759,26 +741,11 @@ export default function Schedule() {
                   onChange={(e) => handleRouteChange(e.target.value)}
                 >
                   <option value="">-- Chọn tuyến đường --</option>
-                  {getAvailableRoutes().map((route) => {
-                    const existingSchedule = schedules.find(
-                      (s) =>
-                        s.route_id === route.id &&
-                        s.ngay_chay === newSchedule.ngay_chay &&
-                        s.shift ===
-                          (newSchedule.shift === "di" ? "Lượt đi" : "Lượt về")
-                    );
-                    const isDisabled = !!existingSchedule;
-
-                    return (
-                      <option
-                        key={route.id}
-                        value={route.id}
-                        disabled={isDisabled}
-                      >
-                        {route.name} {isDisabled ? "(Đã đặt)" : ""}
-                      </option>
-                    );
-                  })}
+                  {getAvailableRoutes().map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {route.name}
+                    </option>
+                  ))}
                 </select>
                 {getAvailableRoutes().length === 0 && (
                   <p
@@ -803,22 +770,16 @@ export default function Schedule() {
                   }
                 >
                   <option value="">-- Chưa phân công tài xế --</option>
-                  <option value="1" disabled={isDriverAssigned("1")}>
-                    Nguyễn Văn A - 0901234567{" "}
-                    {isDriverAssigned("1") ? "(Đã phân công)" : ""}
-                  </option>
-                  <option value="2" disabled={isDriverAssigned("2")}>
-                    Trần Văn B - 0912345678{" "}
-                    {isDriverAssigned("2") ? "(Đã phân công)" : ""}
-                  </option>
-                  <option value="3" disabled={isDriverAssigned("3")}>
-                    Lê Văn C - 0923456789{" "}
-                    {isDriverAssigned("3") ? "(Đã phân công)" : ""}
-                  </option>
-                  <option value="4" disabled={isDriverAssigned("4")}>
-                    Phạm Văn D - 0934567890{" "}
-                    {isDriverAssigned("4") ? "(Đã phân công)" : ""}
-                  </option>
+                  {drivers.map((driver) => (
+                    <option
+                      key={driver.code}
+                      value={driver.code}
+                      disabled={isDriverAssigned(driver.code)}
+                    >
+                      {driver.fullname} - {driver.phone}{" "}
+                      {isDriverAssigned(driver.code) ? "(Đã phân công)" : ""}
+                    </option>
+                  ))}
                 </select>
                 {/* <p className="schedule-helper-text">
                   Tài xế không bắt buộc. Nếu chưa chọn, trạng thái sẽ là 'Phân
@@ -836,22 +797,41 @@ export default function Schedule() {
                   }
                 >
                   <option value="">-- Chưa chọn xe bus --</option>
-                  <option value="1" disabled={isBusAssigned("1")}>
-                    59A-12345 - Toyota Coaster (29 chỗ){" "}
-                    {isBusAssigned("1") ? "(Đã sử dụng)" : ""}
-                  </option>
-                  <option value="2" disabled={isBusAssigned("2")}>
-                    60B-23456 - Hyundai County (29 chỗ){" "}
-                    {isBusAssigned("2") ? "(Đã sử dụng)" : ""}
-                  </option>
-                  <option value="3" disabled={isBusAssigned("3")}>
-                    61C-34567 - Thaco TB120S (29 chỗ){" "}
-                    {isBusAssigned("3") ? "(Đã sử dụng)" : ""}
-                  </option>
-                  <option value="4" disabled={isBusAssigned("4")}>
-                    62D-45678 - Samco Felix (29 chỗ){" "}
-                    {isBusAssigned("4") ? "(Đã sử dụng)" : ""}
-                  </option>
+                  {buses
+                    .filter((bus) => bus.status !== "bảo trì") // Exclude maintenance buses
+                    .sort((a, b) => {
+                      // Available buses first (status "ngừng" and not assigned)
+                      const aAvailable =
+                        a.status === "ngừng" && !isBusAssigned(a.id);
+                      const bAvailable =
+                        b.status === "ngừng" && !isBusAssigned(b.id);
+                      if (aAvailable && !bAvailable) return -1;
+                      if (!aAvailable && bAvailable) return 1;
+                      return 0;
+                    })
+                    .map((bus) => {
+                      const isAvailable =
+                        bus.status === "ngừng" && !isBusAssigned(bus.id);
+                      const statusText =
+                        bus.status === "đang hoạt động"
+                          ? "(Đang chạy tuyến)"
+                          : bus.status === "ngừng" && isBusAssigned(bus.id)
+                          ? "(Đã phân công)"
+                          : bus.status === "bảo trì"
+                          ? "(Bảo trì)"
+                          : "";
+
+                      return (
+                        <option
+                          key={bus.id}
+                          value={bus.id}
+                          disabled={!isAvailable}
+                        >
+                          {bus.licensePlate} - {bus.manufacturer} ({bus.seats}{" "}
+                          chỗ) {statusText}
+                        </option>
+                      );
+                    })}
                 </select>
                 {/* <p className="schedule-helper-text">
                   Xe bus không bắt buộc. Có thể phân công sau
@@ -952,7 +932,9 @@ export default function Schedule() {
                 <input
                   type="text"
                   className="schedule-form-input schedule-readonly"
-                  value={editSchedule.shift === "di" ? "Lượt đi" : "Lượt về"}
+                  value={
+                    editSchedule.shift === "luot_di" ? "Lượt đi" : "Lượt về"
+                  }
                   readOnly
                 />
               </div>
@@ -981,22 +963,18 @@ export default function Schedule() {
                   }
                 >
                   <option value="">-- Chưa phân công tài xế --</option>
-                  <option value="1" disabled={isDriverAssignedForEdit("1")}>
-                    Nguyễn Văn A - 0901234567{" "}
-                    {isDriverAssignedForEdit("1") ? "(Đã phân công)" : ""}
-                  </option>
-                  <option value="2" disabled={isDriverAssignedForEdit("2")}>
-                    Trần Văn B - 0912345678{" "}
-                    {isDriverAssignedForEdit("2") ? "(Đã phân công)" : ""}
-                  </option>
-                  <option value="3" disabled={isDriverAssignedForEdit("3")}>
-                    Lê Văn C - 0923456789{" "}
-                    {isDriverAssignedForEdit("3") ? "(Đã phân công)" : ""}
-                  </option>
-                  <option value="4" disabled={isDriverAssignedForEdit("4")}>
-                    Phạm Văn D - 0934567890{" "}
-                    {isDriverAssignedForEdit("4") ? "(Đã phân công)" : ""}
-                  </option>
+                  {drivers.map((driver) => (
+                    <option
+                      key={driver.code}
+                      value={driver.code}
+                      disabled={isDriverAssignedForEdit(driver.code)}
+                    >
+                      {driver.fullname} - {driver.phone}{" "}
+                      {isDriverAssignedForEdit(driver.code)
+                        ? "(Đã phân công)"
+                        : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1010,22 +988,48 @@ export default function Schedule() {
                   }
                 >
                   <option value="">-- Chưa chọn xe bus --</option>
-                  <option value="1" disabled={isBusAssignedForEdit("1")}>
-                    59A-12345 - Toyota Coaster (29 chỗ){" "}
-                    {isBusAssignedForEdit("1") ? "(Đã sử dụng)" : ""}
-                  </option>
-                  <option value="2" disabled={isBusAssignedForEdit("2")}>
-                    60B-23456 - Hyundai County (29 chỗ){" "}
-                    {isBusAssignedForEdit("2") ? "(Đã sử dụng)" : ""}
-                  </option>
-                  <option value="3" disabled={isBusAssignedForEdit("3")}>
-                    61C-34567 - Thaco TB120S (29 chỗ){" "}
-                    {isBusAssignedForEdit("3") ? "(Đã sử dụng)" : ""}
-                  </option>
-                  <option value="4" disabled={isBusAssignedForEdit("4")}>
-                    62D-45678 - Samco Felix (29 chỗ){" "}
-                    {isBusAssignedForEdit("4") ? "(Đã sử dụng)" : ""}
-                  </option>
+                  {buses
+                    .filter((bus) => bus.status !== "bảo trì") // Exclude maintenance buses
+                    .sort((a, b) => {
+                      // Keep currently selected bus at top
+                      if (a.id === parseInt(editSchedule.bus_id)) return -1;
+                      if (b.id === parseInt(editSchedule.bus_id)) return 1;
+
+                      // Available buses first (status "ngừng" and not assigned)
+                      const aAvailable =
+                        a.status === "ngừng" && !isBusAssignedForEdit(a.id);
+                      const bAvailable =
+                        b.status === "ngừng" && !isBusAssignedForEdit(b.id);
+                      if (aAvailable && !bAvailable) return -1;
+                      if (!aAvailable && bAvailable) return 1;
+                      return 0;
+                    })
+                    .map((bus) => {
+                      const isAvailable =
+                        bus.status === "ngừng" && !isBusAssignedForEdit(bus.id);
+                      const isCurrentlySelected =
+                        bus.id === parseInt(editSchedule.bus_id);
+                      const statusText =
+                        bus.status === "đang hoạt động"
+                          ? "(Đang chạy tuyến)"
+                          : bus.status === "ngừng" &&
+                            isBusAssignedForEdit(bus.id)
+                          ? "(Đã phân công)"
+                          : bus.status === "bảo trì"
+                          ? "(Bảo trì)"
+                          : "";
+
+                      return (
+                        <option
+                          key={bus.id}
+                          value={bus.id}
+                          disabled={!isAvailable && !isCurrentlySelected}
+                        >
+                          {bus.licensePlate} - {bus.manufacturer} ({bus.seats}{" "}
+                          chỗ) {statusText}
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
 

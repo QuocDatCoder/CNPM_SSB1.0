@@ -146,6 +146,9 @@
 .dashboard-route-name {
   width: 60%;
   box-sizing: border-box;
+  /* display: flex;
+  align-items: center; */
+  /* justify-content: center; */
 }
 
 .dashboard-route-icon {
@@ -167,9 +170,13 @@
 
 .dashboard-route-card h3 {
   font-size: 18px;
-  /* margin: 10px 0; */
-  margin-left: -70px;
+  margin-top: 8px;
+  margin-left: -15px;
   font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dashboard-route-street-content {
   display: flex;
@@ -180,12 +187,14 @@
 }
 
 .dashboard-route-street {
-  font-size: 15px;
+  font-size: 12px;
   margin: 8px 0;
   /* align-items: left; */
   margin-bottom: 0px;
   opacity: 0.9;
+  text-align: left;
 }
+
 .dashboard-route-time-content {
   display: flex;
   flex-direction: row;

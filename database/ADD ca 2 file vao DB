@@ -1,0 +1,10 @@
+-- Thêm cột khung_gio vào bảng Routes
+ALTER TABLE `Routes` 
+ADD COLUMN `khung_gio` VARCHAR(50) DEFAULT '6:00-18:00' AFTER `thoi_gian_du_kien`;
+
+-- Update dữ liệu mẫu
+UPDATE `Routes` SET `khung_gio` = '6:00-17:00' WHERE `id` IN (1, 2);
+UPDATE `Routes` SET `khung_gio` = '5:30-17:30' WHERE `id` IN (3, 4);
+UPDATE `Routes` SET `khung_gio` = '6:00-18:00' WHERE `id` IN (5, 6);
+
+COMMIT;

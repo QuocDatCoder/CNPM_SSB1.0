@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test API Connection</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1000px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        border-bottom: 2px solid #4caf50;
+        padding-bottom: 10px;
+      }
+      button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        margin: 10px 5px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button:hover {
+        background: #45a049;
+      }
+      .result {
+        background: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 20px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .success {
+        color: #4caf50;
+        font-weight: bold;
+      }
+      .error {
+        color: #f44336;
+        font-weight: bold;
+      }
+      pre {
+        background: #282c34;
+        color: #abb2bf;
+        padding: 15px;
+        border-radius: 5px;
+        overflow-x: auto;
+      }
+      .status {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 3px;
+        margin-left: 10px;
+        font-size: 12px;
+      }
+      .status.ok {
+        background: #4caf50;
+        color: white;
+      }
+      .status.fail {
+        background: #f44336;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔧 Test Backend API Connection</h1>
+      <p>Backend URL: <strong>http://localhost:8080/api</strong></p>
+
+      <div>
+        <button onclick="testServer()">Test Server</button>
+        <button onclick="testBuses()">Test Buses API</button>
+        <button onclick="testRoutes()">Test Routes API</button>
+        <button onclick="testDrivers()">Test Drivers API</button>
+        <button onclick="testSchedules()">Test Schedules API</button>
+        <button onclick="testAll()">Test All</button>
+      </div>
+
+      <div id="result" class="result">
+        <p>Nhấn nút để test API...</p>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL = "http://localhost:8080/api";
+      const resultDiv = document.getElementById("result");
+
+      function displayResult(title, success, data, error = null) {
+        const statusClass = success ? "ok" : "fail";
+        const statusText = success ? "SUCCESS" : "FAILED";
+
+        let html = `
+                <h3>${title} <span class="status ${statusClass}">${statusText}</span></h3>
+            `;
+
+        if (success) {
+          html += `<p class="success">✅ Kết nối thành công!</p>`;
+          if (Array.isArray(data)) {
+            html += `<p>Số lượng records: <strong>${data.length}</strong></p>`;
+          }
+          html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        } else {
+          html += `<p class="error">❌ Lỗi: ${error}</p>`;
+          if (data) {
+            html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+          }
+        }
+
+        resultDiv.innerHTML = html;
+      }
+
+      async function testServer() {
+        try {
+          const response = await fetch("http://localhost:8080");
+          const data = await response.json();
+          displayResult("Server Health Check", true, data);
+        } catch (error) {
+          displayResult("Server Health Check", false, null, error.message);
+        }
+      }
+
+      async function testBuses() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/buses`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          displayResult("Buses API", true, data);
+        } catch (error) {
+          displayResult("Buses API", false, null, error.message);
+        }
+      }
+
+      async function testRoutes() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/routes`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          displayResult("Routes API", true, data);
+        } catch (error) {
+          displayResult("Routes API", false, null, error.message);
+        }
+      }
+
+      async function testDrivers() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/driver-test`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          displayResult("Drivers API", true, data);
+        } catch (error) {
+          displayResult("Drivers API", false, null, error.message);
+        }
+      }
+
+      async function testSchedules() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/schedules`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          displayResult("Schedules API", true, data);
+        } catch (error) {
+          displayResult("Schedules API", false, null, error.message);
+        }
+      }
+
+      async function testAll() {
+        resultDiv.innerHTML = "<p>🔄 Đang test tất cả APIs...</p>";
+
+        const tests = [
+          { name: "Server", endpoint: null },
+          { name: "Buses", endpoint: "buses" },
+          { name: "Routes", endpoint: "routes" },
+          { name: "Drivers", endpoint: "driver-test" },
+          { name: "Schedules", endpoint: "schedules" },
+        ];
+
+        let html = "<h3>Test All APIs</h3>";
+        let allPassed = true;
+
+        for (const test of tests) {
+          try {
+            const url =
+              test.name === "Server"
+                ? "http://localhost:8080"
+                : `${API_BASE_URL}/${test.endpoint}`;
+
+            const response = await fetch(url);
+            const data = await response.json();
+            const count = Array.isArray(data.data)
+              ? data.data.length
+              : Array.isArray(data)
+              ? data.length
+              : "-";
+            html += `<p>✅ ${test.name}: <span class="success">OK</span> (${count} records)</p>`;
+          } catch (error) {
+            html += `<p>❌ ${test.name}: <span class="error">${error.message}</span></p>`;
+            allPassed = false;
+          }
+        }
+
+        html += `<hr><p><strong>${
+          allPassed
+            ? "✅ Tất cả APIs hoạt động tốt!"
+            : "⚠️ Có API bị lỗi, vui lòng kiểm tra lại!"
+        }</strong></p>`;
+        resultDiv.innerHTML = html;
+      }
+    </script>
+  </body>
+</html>

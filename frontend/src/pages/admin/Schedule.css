@@ -497,9 +497,9 @@
   width: 90%;
   max-width: 600px;
   max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  scrollbar-width: none;
 }
 
 .schedule-modal-header {
@@ -510,6 +510,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .schedule-modal-header h2 {
@@ -539,6 +540,13 @@
 
 .schedule-modal-body {
   padding: 30px;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: none;
+}
+
+.schedule-modal-body::-webkit-scrollbar {
+  display: none;
 }
 
 .schedule-form-group {
@@ -566,6 +574,7 @@
   font-size: 14px;
   transition: all 0.3s;
   box-sizing: border-box;
+  position: relative; /* Đảm bảo dropdown hiển thị đúng vị trí */
 }
 
 .schedule-form-input:focus {
@@ -576,6 +585,13 @@
 
 .schedule-form-input option {
   padding: 10px;
+}
+
+/* Đảm bảo select dropdown xuất hiện dưới input */
+.schedule-form-group select.schedule-form-input {
+  appearance: auto;
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
 }
 
 .schedule-readonly {
@@ -627,6 +643,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .schedule-btn-cancel {

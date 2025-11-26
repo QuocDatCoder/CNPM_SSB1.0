@@ -47,8 +47,24 @@ export default function Drivers() {
     }
   };
 
-  const handleDelete = (id) => {
-    console.log("Delete driver:", id);
+  const handleDelete = async (driverCode) => {
+    const driver = drivers.find((d) => d.code === driverCode);
+    if (!driver) return;
+
+    if (
+      window.confirm(`Bạn có chắc chắn muốn xóa tài xế ${driver.fullname}?`)
+    ) {
+      try {
+        await DriverService.deleteDriver(driver.id);
+        alert("Đã xóa tài xế!");
+
+        // Reload danh sách tài xế
+        await loadDrivers();
+      } catch (error) {
+        console.error("Error deleting driver:", error);
+        alert("Không thể xóa tài xế. Vui lòng thử lại!");
+      }
+    }
   };
 
   const handleInfo = (code) => {
@@ -65,13 +81,20 @@ export default function Drivers() {
     setIsEditMode(!isEditMode);
   };
 
-  const handleSaveEdit = () => {
-    setDrivers(
-      drivers.map((d) => (d.code === editedDriver.code ? editedDriver : d))
-    );
-    setSelectedDriver(editedDriver);
-    setIsEditMode(false);
-    alert("Đã cập nhật thông tin tài xế!");
+  const handleSaveEdit = async () => {
+    try {
+      await DriverService.updateDriver(editedDriver.id, editedDriver);
+      setSelectedDriver(editedDriver);
+      setIsEditMode(false);
+      alert("Đã cập nhật thông tin tài xế!");
+
+      // Reload danh sách tài xế
+      await loadDrivers();
+      setShowInfoModal(false);
+    } catch (error) {
+      console.error("Error updating driver:", error);
+      alert("Không thể cập nhật thông tin tài xế. Vui lòng thử lại!");
+    }
   };
 
   const handleAdd = () => {
@@ -103,33 +126,32 @@ export default function Drivers() {
     }
   };
 
-  const handleCreateDriver = () => {
+  const handleCreateDriver = async () => {
     // Validate tài khoản
     if (!accountInfo.username || !accountInfo.password) {
       alert("Vui lòng điền đầy đủ thông tin tài khoản!");
       return;
     }
 
-    // Tạo mã tài xế mới
-    const newCode = String(drivers.length + 1).padStart(4, "0");
+    try {
+      const driverData = {
+        ...newDriver,
+        username: accountInfo.username,
+        password: accountInfo.password,
+      };
 
-    const driverToAdd = {
-      code: newCode,
-      ...newDriver,
-      avatar: "/image/logo.png",
-      monthlyTrips: 0,
-      username: accountInfo.username,
-      password: accountInfo.password,
-    };
+      await DriverService.createDriver(driverData);
+      alert(
+        `Đã thêm tài xế ${newDriver.fullname} với tài khoản ${accountInfo.username}!`
+      );
+      setShowAddModal(false);
 
-    setDrivers([...drivers, driverToAdd]);
-    console.log("Tạo tài xế mới:", driverToAdd);
-    console.log("Tài khoản:", accountInfo);
-
-    alert(
-      `Đã thêm tài xế ${newDriver.fullname} với tài khoản ${accountInfo.username}!`
-    );
-    setShowAddModal(false);
+      // Reload danh sách tài xế
+      await loadDrivers();
+    } catch (error) {
+      console.error("Error creating driver:", error);
+      alert("Không thể tạo tài xế mới. Vui lòng thử lại!");
+    }
   };
 
   const filtered = drivers.filter((d) => {

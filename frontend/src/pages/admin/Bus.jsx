@@ -103,18 +103,31 @@ export default function Bus() {
   const handleViewLocation = async (e, bus) => {
     e.stopPropagation();
 
-    if (bus.status !== "đang hoạt động") {
+    if (bus.status !== "đang hoạt động" && bus.status !== "đang hoạt động") {
       alert("Xe này không hoạt động nên không có vị trí!");
       return;
     }
 
     setSelectedBus(bus);
 
-    // Tìm route tương ứng với xe
-    const busRoute = routes.find((route) => bus.route.includes(route.street));
+    // Tìm route tương ứng với xe - so sánh tên tuyến
+    const busRoute = routes.find((route) => {
+      // bus.route là tên tuyến từ DB (VD: "Tuyến 1: Q1 - Q5")
+      // route.name là tên từ RouteService (VD: "Tuyến 1: Q1 - Q5")
+      return bus.route && route.name && bus.route.includes(route.name);
+    });
 
     if (!busRoute) {
-      alert("Không tìm thấy tuyến đường cho xe này!");
+      console.log("Bus route:", bus.route);
+      console.log(
+        "Available routes:",
+        routes.map((r) => r.name)
+      );
+      alert(
+        `Không tìm thấy tuyến đường cho xe này! Tuyến: ${
+          bus.route || "Chưa phân tuyến"
+        }`
+      );
       return;
     }
 
@@ -242,8 +255,13 @@ export default function Bus() {
 
   const filteredBuses = buses.filter(
     (bus) =>
-      bus.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.route.toLowerCase().includes(searchTerm.toLowerCase())
+      bus.id.toString().includes(searchTerm) ||
+      (bus.licensePlate &&
+        bus.licensePlate.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (bus.manufacturer &&
+        bus.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (bus.status &&
+        bus.status.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
