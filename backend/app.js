@@ -39,6 +39,10 @@ app.use('/api/driver-test', driverTestRoutes);
 const scheduleRoutes = require('./src/api/routes/schedule.routes');
 app.use('/api/schedules', scheduleRoutes);
 
+const trackingRoutes = require('./src/api/routes/tracking.routes');
+app.use('/api/tracking', trackingRoutes);
+
+
 app.get('/', (req, res) => {
   res.json({ message: 'Server SSB1.0 đang chạy ổn định!' });
 });
