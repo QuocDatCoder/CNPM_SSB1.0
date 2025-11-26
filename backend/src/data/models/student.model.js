@@ -31,11 +31,7 @@ const Student = sequelize.define('Student', {
     type: DataTypes.INTEGER,
     allowNull: false
   },
-  default_stop_id: {
-    type: DataTypes.INTEGER,
-    allowNull: true
-  },
-  default_route_id: {
+ default_route_stop_id: {
     type: DataTypes.INTEGER,
     allowNull: true
   }

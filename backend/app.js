@@ -39,6 +39,9 @@ app.use('/api/driver-test', driverTestRoutes);
 const scheduleRoutes = require('./src/api/routes/schedule.routes');
 app.use('/api/schedules', scheduleRoutes);
 
+const studentRoutes = require('./src/api/routes/student.routes');
+app.use('/api/students', studentRoutes);
+
 app.get('/', (req, res) => {
   res.json({ message: 'Server SSB1.0 đang chạy ổn định!' });
 });

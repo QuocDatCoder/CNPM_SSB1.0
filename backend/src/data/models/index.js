@@ -25,8 +25,9 @@ RouteStop.belongsTo(Route, { foreignKey: 'route_id' });
 Stop.hasMany(RouteStop, { foreignKey: 'stop_id' });
 RouteStop.belongsTo(Stop, { foreignKey: 'stop_id' });
 
-Student.belongsTo(Route, { foreignKey: 'default_route_id', as: 'registeredRoute' });
-Route.hasMany(Student, { foreignKey: 'default_route_id' });
+RouteStop.hasMany(Student, { foreignKey: 'default_route_stop_id' });
+Student.belongsTo(RouteStop, { foreignKey: 'default_route_stop_id', as: 'defaultRouteStop' });
+
 
 // --- Schedules ---
 Schedule.belongsTo(Route, { foreignKey: 'route_id' });
