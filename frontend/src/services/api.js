@@ -27,6 +27,11 @@ class ApiClient {
         throw new Error(error.message || `HTTP Error: ${response.status}`);
       }
 
+      // Handle 204 No Content (DELETE requests)
+      if (response.status === 204) {
+        return null;
+      }
+
       const result = await response.json();
       // Backend trả về {success, data}, chỉ lấy data
       return result.data !== undefined ? result.data : result;

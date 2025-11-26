@@ -103,7 +103,7 @@ export default function Bus() {
   const handleViewLocation = async (e, bus) => {
     e.stopPropagation();
 
-    if (bus.status !== "đang hoạt động" && bus.status !== "đang hoạt động") {
+    if (bus.status !== "Đang hoạt động") {
       alert("Xe này không hoạt động nên không có vị trí!");
       return;
     }
@@ -296,16 +296,17 @@ export default function Bus() {
                   <p className="bus-route">Tuyến đường: {bus.route}</p>
                   <p className="bus-status">Trạng thái: {bus.status}</p>
                 </div>
+
                 <div className="bus-actions">
                   <div>
                     <button
                       className={`action-btn-bus view-btn-bus ${
-                        bus.status !== "đang hoạt động" ? "disabled" : ""
+                        bus.status !== "Đang hoạt động" ? "disabled" : ""
                       }`}
                       onClick={(e) => handleViewLocation(e, bus)}
-                      disabled={bus.status !== "đang hoạt động"}
+                      disabled={bus.status !== "Đang hoạt động"}
                       title={
-                        bus.status === "đang hoạt động"
+                        bus.status === "Đang hoạt động"
                           ? "Xem vị trí"
                           : "Xe không hoạt động"
                       }
@@ -511,9 +512,9 @@ export default function Bus() {
                       })
                     }
                   >
-                    <option value="đang hoạt động">Đang hoạt động</option>
-                    <option value="bảo trì">Bảo trì</option>
-                    <option value="ngừng hoạt động">Ngừng hoạt động</option>
+                    <option value="Đang hoạt động">Đang hoạt động</option>
+                    <option value="Bảo trì">Bảo trì</option>
+                    <option value="Ngừng">Ngừng</option>
                   </select>
                 </div>
               </div>

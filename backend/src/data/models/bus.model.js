@@ -36,7 +36,7 @@ const Bus = sequelize.define(
     },
     // -------------------------------
     trang_thai: {
-      type: DataTypes.ENUM("Đang hoạt động", "Bảo Trì", "Ngừng"),
+      type: DataTypes.ENUM("Đang hoạt động", "Bảo trì", "Ngừng"),
       defaultValue: "Ngừng",
     },
   },

@@ -144,16 +144,31 @@ const createSchedule = async (data) => {
   // D. Ghi log
   try {
     const driver = data.driver_id ? await User.findByPk(data.driver_id) : null;
+    const bus = data.bus_id ? await Bus.findByPk(data.bus_id) : null;
+
+    let thaoTac = "Phân công mới";
+    if (driver && bus) {
+      thaoTac = `Phân công: Tài xế ${driver.ho_ten}, Xe ${bus.bien_so_xe}`;
+    } else if (driver) {
+      thaoTac = `Phân công: Tài xế ${driver.ho_ten} (Chưa chọn xe)`;
+    } else if (bus) {
+      thaoTac = `Phân công: Xe ${bus.bien_so_xe} (Chưa chọn tài xế)`;
+    } else {
+      thaoTac = "Tạo lịch trình (Chưa phân công)";
+    }
+
     await AssignmentHistory.create({
       tuyen: route.ten_tuyen,
       loai_tuyen: route.loai_tuyen,
-      thao_tac: `Phân công mới cho: ${
-        driver ? driver.ho_ten : "Chưa phân tài xế"
-      }`,
+      thao_tac: thaoTac,
       thoi_gian: new Date(),
+      ngay_chay_thuc_te: data.ngay_chay,
     });
+    console.log(
+      `✅ Đã ghi log: ${thaoTac} - Tuyến: ${route.ten_tuyen} - Ngày chạy: ${data.ngay_chay}`
+    );
   } catch (err) {
-    console.error("Lỗi ghi log:", err);
+    console.error("❌ Lỗi ghi log:", err);
   }
 
   return newSchedule;
@@ -215,14 +230,32 @@ const updateSchedule = async (id, data) => {
 
   // Ghi log update
   try {
+    const driver = data.driver_id ? await User.findByPk(data.driver_id) : null;
+    const bus = data.bus_id ? await Bus.findByPk(data.bus_id) : null;
+
+    let thaoTac = "Cập nhật phân công";
+    if (driver && bus) {
+      thaoTac = `Thay đổi: Tài xế ${driver.ho_ten}, Xe ${bus.bien_so_xe}`;
+    } else if (driver) {
+      thaoTac = `Thay đổi: Tài xế ${driver.ho_ten}`;
+    } else if (bus) {
+      thaoTac = `Thay đổi: Xe ${bus.bien_so_xe}`;
+    }
+
     await AssignmentHistory.create({
       tuyen: currentRoute.ten_tuyen,
       loai_tuyen: currentRoute.loai_tuyen,
-      thao_tac: "Cập nhật phân công",
+      thao_tac: thaoTac,
       thoi_gian: new Date(),
+      ngay_chay_thuc_te: data.ngay_chay || schedule.ngay_chay,
     });
+    console.log(
+      `✅ Đã ghi log: ${thaoTac} - Tuyến: ${
+        currentRoute.ten_tuyen
+      } - Ngày chạy: ${data.ngay_chay || schedule.ngay_chay}`
+    );
   } catch (e) {
-    console.error(e);
+    console.error("❌ Lỗi ghi log update:", e);
   }
 
   return schedule;
@@ -234,6 +267,7 @@ const deleteSchedule = async (id) => {
   if (!schedule) return null;
 
   const route = await Route.findByPk(schedule.route_id);
+  const ngayChay = schedule.ngay_chay;
   await schedule.destroy();
 
   // Ghi log xóa
@@ -241,11 +275,17 @@ const deleteSchedule = async (id) => {
     await AssignmentHistory.create({
       tuyen: route ? route.ten_tuyen : "N/A",
       loai_tuyen: route ? route.loai_tuyen : null,
-      thao_tac: "Hủy phân công (Xóa)",
+      thao_tac: "Hủy phân công (Xóa lịch trình)",
       thoi_gian: new Date(),
+      ngay_chay_thuc_te: ngayChay,
     });
+    console.log(
+      `✅ Đã ghi log: Xóa lịch trình - Tuyến: ${
+        route ? route.ten_tuyen : "N/A"
+      } - Ngày chạy: ${ngayChay}`
+    );
   } catch (err) {
-    console.error(err);
+    console.error("❌ Lỗi ghi log xóa:", err);
   }
 
   return true;
@@ -365,7 +405,7 @@ const getAssignmentHistory = async (filters) => {
     start.setHours(0, 0, 0, 0);
     const end = new Date(filters.date);
     end.setHours(23, 59, 59, 999);
-    whereClause.thoi_gian = { [Op.between]: [start, end] };
+    whereClause.ngay_chay_thuc_te = { [Op.between]: [start, end] };
   }
 
   if (filters.type) {
@@ -381,6 +421,7 @@ const getAssignmentHistory = async (filters) => {
   return history.map((h) => ({
     id: h.id,
     ngay: h.thoi_gian,
+    ngay_chay_thuc_te: h.ngay_chay_thuc_te,
     noidung: h.thao_tac,
     ten_tuyen: h.tuyen,
     loai_tuyen: h.loai_tuyen,

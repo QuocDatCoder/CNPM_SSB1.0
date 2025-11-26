@@ -148,11 +148,7 @@ const ScheduleService = {
    */
   async getAssignmentHistory(filters = {}) {
     try {
-      const params = {};
-      if (filters.date) params.date = filters.date;
-      if (filters.type) params.type = filters.type;
-
-      const response = await api.get("/schedules/history/logs", params);
+      const response = await api.get("/schedules/history/logs", filters);
       return response;
     } catch (error) {
       console.error("Error fetching assignment history:", error);

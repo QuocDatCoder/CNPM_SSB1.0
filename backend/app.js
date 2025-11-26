@@ -6,8 +6,7 @@ const morgan = require('morgan');
 // 1. Load Models và biến sequelize từ file index.js
 const { sequelize } = require('./src/data/models'); 
 
-
-// Nó sẽ quét các model và tạo bảng trong MySQL
+// Đồng bộ database
 sequelize.sync({ alter: true })
   .then(() => {
     console.log('✅ Database & tables synced! (Đã đồng bộ xong)');
@@ -41,6 +40,9 @@ app.use('/api/schedules', scheduleRoutes);
 
 const studentRoutes = require('./src/api/routes/student.routes');
 app.use('/api/students', studentRoutes);
+
+const trackingRoutes = require('./src/api/routes/tracking.routes');
+app.use('/api/tracking', trackingRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Server SSB1.0 đang chạy ổn định!' });
