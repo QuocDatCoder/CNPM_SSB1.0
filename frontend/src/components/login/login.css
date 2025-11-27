@@ -18,6 +18,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 0;
+  overflow: hidden;
+  /* input spacing vars */
+  --input-left-offset: 22px;
+  --input-right-offset: 14px;
 }
 
 .login-container {
@@ -38,6 +43,22 @@
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 1;
+}
+
+/* Full-screen blurred background behind the login card */
+.login-page-wrapper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(15, 23, 42, 0.25), rgba(15, 23, 42, 0.25)), url("/image/background-login.png");
+  background-size: cover;
+  background-position: center;
+  filter: blur(10px) brightness(0.7);
+  transform: scale(1.03);
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* --- Left Panel Styling --- */
@@ -175,18 +196,83 @@
 
 input {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  height: 44px;
+  padding: 10px var(--input-right-offset) 10px var(--input-left-offset);
+  border: 1px solid #e6edf0;
+  border-radius: 12px;
   font-size: 14px;
   outline: none;
-  transition: border-color 0.2s;
-  background-color: #f9fafb;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease, transform 180ms ease;
+  background-color: #fbfdfe;
+  box-shadow: inset 0 -1px 0 rgba(16,24,40,0.03);
+  color: #0f172a;
+}
+
+input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+input:hover {
+  box-shadow: 0 6px 18px rgba(15,23,42,0.04);
 }
 
 input:focus {
   border-color: #10b981;
-  background-color: white;
+  background-color: #ffffff;
+  box-shadow: 0 10px 30px rgba(16,185,129,0.08);
+  transform: translateY(-2px);
+}
+
+/* Make room for the password toggle button */
+.password-input-wrapper input {
+  padding-right: 48px;
+  padding-left: var(--input-left-offset);
+}
+
+/* Inputs with icons (future use) */
+.input-with-icon {
+  position: relative;
+}
+
+/* Specific rule for username input to ensure visible left offset */
+#username {
+  padding-left: calc(var(--input-left-offset) + 2px);
+}
+
+.input-with-icon .icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+}
+
+.input-with-icon input {
+  padding-left: calc(var(--input-left-offset) + 28px);
+}
+
+/* Keep icon inputs from shifting when focused */
+.input-with-icon input:focus {
+  padding-left: calc(var(--input-left-offset) + 28px);
+}
+
+/* Ensure password field caret doesn't collide with toggle */
+.password-input-wrapper input:focus {
+  padding-right: 48px;
+}
+
+/* Disabled state */
+input:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Error state helper class (apply from JS when needed) */
+.input-error {
+  border-color: #f87171 !important;
+  box-shadow: 0 6px 18px rgba(248,113,113,0.06) !important;
 }
 
 .password-input-wrapper {
@@ -204,6 +290,14 @@ input:focus {
   color: #6b7280;
   display: flex;
   align-items: center;
+  padding: 6px;
+  border-radius: 6px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.toggle-password:hover {
+  background-color: rgba(16,24,40,0.04);
+  color: #374151;
 }
 
 .btn-submit {
@@ -295,5 +389,9 @@ input:focus {
 
   .login-right {
     padding: 30px;
+  }
+  /* Slightly reduce input left padding on mobile */
+  .login-page-wrapper {
+    --input-left-offset: 16px;
   }
 }
