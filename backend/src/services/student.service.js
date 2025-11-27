@@ -1,5 +1,6 @@
-const { Student, User, RouteStop, Stop, Route, sequelize } = require('../data/models');
+const { Student, User, RouteStop, Stop, Route, ScheduleStudent, Schedule ,sequelize } = require('../data/models');
 const { Op } = require('sequelize');
+
 
 // 1. Lấy danh sách học sinh
 const getAllStudents = async () => {
@@ -68,8 +69,56 @@ const getAllStudents = async () => {
         throw error;
     }
 };
+const autoAssignToSchedule = async (studentId, routeId, stopId, transaction) => {
+    try {
+        // 1. Tìm route_stop_id tương ứng
+        const routeStop = await RouteStop.findOne({
+            where: { route_id: routeId, stop_id: stopId },
+            transaction
+        });
 
-// 2. Tạo Học sinh KÈM Phụ huynh
+        if (!routeStop) {
+            console.warn(`Không tìm thấy RouteStop cho Route ${routeId} và Stop ${stopId}`);
+            return; 
+        }
+
+        // 2. Tìm các lịch trình phù hợp
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        const schedules = await Schedule.findAll({
+            where: {
+                route_id: routeId,
+                ngay_chay: { [Op.gte]: today },
+                trang_thai: { [Op.ne]: 'hoanthanh' }
+            },
+            transaction
+        });
+
+        if (schedules.length === 0) return;
+
+        // 3. Gán học sinh vào từng lịch trình
+        for (const schedule of schedules) {
+        await ScheduleStudent.findOrCreate({
+            where: {
+                schedule_id: schedule.id,
+                student_id: studentId
+            },
+            defaults: {
+                stop_id: routeStop.stop_id,  // đúng cột
+                trang_thai_don: 'choxacnhan'
+            },
+            transaction
+        });
+    }
+
+
+    } catch (error) {
+        console.error("Lỗi tự động gán lịch trình:", error);
+    }
+};
+
+// 3. Tạo Học sinh KÈM Phụ huynh (Logic thông minh có transaction)
 const createStudentWithParent = async (data) => {
     const transaction = await sequelize.transaction();
 
@@ -77,41 +126,39 @@ const createStudentWithParent = async (data) => {
         let parentId = null;
         let parent = null;
 
-        // --- BƯỚC 1: XỬ LÝ PHỤ HUYNH ---
-        // Kiểm tra xem SĐT này đã có tài khoản chưa (tránh trùng lặp)
+        // ... (Logic xử lý Phụ huynh giữ nguyên như cũ) ...
+        // B1: Kiểm tra hoặc tạo mới Phụ huynh
         const existingParent = await User.findOne({
-            where: { so_dien_thoai: data.sdt_ph }
+            where: { so_dien_thoai: data.sdt_ph },
+            transaction
         });
 
         if (existingParent) {
             parent = existingParent;
             parentId = existingParent.id;
         } else {
-            // Tạo mới User vai trò phụ huynh
             parent = await User.create({
                 username: data.username || data.sdt_ph,
                 email: data.email_ph,
-                password_hash: data.password || '$2b$10$...',
+                password_hash: data.password || '123456', // Hash password thực tế ở đây
                 ho_ten: data.ho_ten_ph,
                 so_dien_thoai: data.sdt_ph,
                 dia_chi: data.dia_chi,
-                vai_tro: 'phuhuynh', 
+                vai_tro: 'phuhuynh',
             }, { transaction });
             parentId = parent.id;
         }
 
-        let routeStopId = null;
+        // --- BƯỚC 2: TÌM route_stop_id ĐỂ LƯU VÀO STUDENT ---
+        // (Lưu ý: Bảng Student mới của bạn dùng default_route_stop_id)
+        let defaultRouteStopId = null;
         if (data.route_id && data.stop_id) {
             const routeStop = await RouteStop.findOne({
-                where: {
-                    route_id: data.route_id,
-                    stop_id: data.stop_id
-                }
+                where: { route_id: data.route_id, stop_id: data.stop_id },
+                transaction
             });
             if (routeStop) {
-                routeStopId = routeStop.id;
-            } else {
-                console.warn(`Không tìm thấy RouteStop cho Route ${data.route_id} và Stop ${data.stop_id}`);
+                defaultRouteStopId = routeStop.id;
             }
         }
 
@@ -123,8 +170,14 @@ const createStudentWithParent = async (data) => {
             gioi_tinh: data.gioi_tinh,
             gvcn: data.gvcn,
             parent_id: parentId,
-            default_route_stop_id: routeStopId
+            default_route_stop_id: defaultRouteStopId // Lưu ID RouteStop
         }, { transaction });
+
+        // --- BƯỚC 4: GỌI HÀM TỰ ĐỘNG GÁN VÀO LỊCH TRÌNH ---
+        // Nếu có đủ thông tin tuyến và trạm, thực hiện gán
+        if (data.route_id && data.stop_id) {
+            await autoAssignToSchedule(student.id, data.route_id, data.stop_id, transaction);
+        }
 
         await transaction.commit();
         return { student, parent };

@@ -6,6 +6,7 @@ const {
   AssignmentHistory,
   RouteStop,
   Stop,
+  ScheduleStudent,
 } = require("../data/models");
 const { Op } = require("sequelize");
 
@@ -427,13 +428,144 @@ const getAssignmentHistory = async (filters) => {
     loai_tuyen: h.loai_tuyen,
   }));
 };
+// 8. Lấy danh sách học sinh theo lịch trình (Cho Tài xế xem danh sách đón)
+const getStudentsByScheduleId = async (scheduleId) => {
+    try {
+        // 1. Lấy thông tin chuyến đi để biết nó thuộc Route nào
+        const schedule = await Schedule.findByPk(scheduleId);
+        if (!schedule) throw new Error("Chuyến đi không tồn tại");
 
+        // 2. Lấy thứ tự các trạm của Route đó (Để sắp xếp danh sách đón)
+        const routeStops = await RouteStop.findAll({
+            where: { route_id: schedule.route_id },
+            order: [['thu_tu', 'ASC']]
+        });
+        
+        // Tạo map để tra cứu thứ tự: { stop_id: thu_tu }
+        // Ví dụ: { 10: 1, 15: 2 } (Trạm ID 10 là trạm số 1...)
+        const stopOrderMap = {};
+        routeStops.forEach(rs => {
+            stopOrderMap[rs.stop_id] = rs.thu_tu;
+        });
+
+        // 3. Lấy danh sách học sinh trong chuyến này
+        const scheduleStudents = await ScheduleStudent.findAll({
+            where: { schedule_id: scheduleId },
+            include: [
+                { 
+                    model: Student,
+                    attributes: ['id', 'ho_ten', 'lop', 'gioi_tinh', 'ngay_sinh'],
+                    include: [{ 
+                        model: User, as: 'parent', 
+                        attributes: ['ho_ten', 'so_dien_thoai'] // Lấy SĐT để tài xế gọi khi cần
+                    }]
+                },
+                {
+                    model: Stop,
+                    attributes: ['id', 'ten_diem', 'dia_chi', 'latitude', 'longitude']
+                }
+            ]
+        });
+
+        // 4. Format dữ liệu và Sắp xếp theo thứ tự trạm
+        const result = scheduleStudents.map(item => ({
+            // Thông tin điểm danh (để gọi API update status)
+            schedule_id: item.schedule_id,
+            student_id: item.student_id,
+            trang_thai: item.trang_thai_don, // 'choxacnhan', 'dihoc'...
+
+            // Thông tin hiển thị
+            ho_ten_hs: item.Student.ho_ten,
+            lop: item.Student.lop,
+            gioi_tinh: item.Student.gioi_tinh,
+            
+            // Thông tin phụ huynh (để gọi điện)
+            phu_huynh: item.Student.parent ? item.Student.parent.ho_ten : "",
+            sdt_ph: item.Student.parent ? item.Student.parent.so_dien_thoai : "",
+
+            // Thông tin điểm đón
+            ten_tram: item.Stop.ten_diem,
+            dia_chi_tram: item.Stop.dia_chi,
+            toa_do: [parseFloat(item.Stop.latitude), parseFloat(item.Stop.longitude)],
+            
+            // Thứ tự đón (Dùng để sort)
+            thu_tu_don: stopOrderMap[item.stop_id] || 999
+        }));
+
+        // Sắp xếp: Ai đón trạm đầu thì hiện lên trước
+        result.sort((a, b) => a.thu_tu_don - b.thu_tu_don);
+
+        return result;
+
+    } catch (error) {
+        throw error;
+    }
+};
+const getStudentsForDriverCurrentTrip = async (driverId) => {
+    try {
+        const today = new Date(); // Lấy ngày giờ hiện tại
+        const timeNow = today.toTimeString().split(' ')[0]; // "08:30:00"
+
+        // 1. Tìm tất cả lịch hôm nay của tài xế
+        const schedules = await Schedule.findAll({
+            where: {
+                driver_id: driverId,
+                ngay_chay: today
+            },
+            order: [['gio_bat_dau', 'ASC']]
+        });
+
+        if (!schedules || schedules.length === 0) {
+            return { message: "Hôm nay tài xế không có lịch chạy nào.", data: [] };
+        }
+
+        // 2. Thuật toán tìm "Chuyến gần nhất"
+        let selectedSchedule = null;
+
+        // Ưu tiên 1: Tìm chuyến đang chạy
+        const activeSchedule = schedules.find(s => s.trang_thai === 'dangchay');
+        
+        if (activeSchedule) {
+            selectedSchedule = activeSchedule;
+        } else {
+            // Ưu tiên 2: Tìm chuyến sắp chạy (Chưa bắt đầu và Giờ chạy > Giờ hiện tại)
+            // Hoặc nếu đã qua hết giờ thì lấy chuyến cuối cùng
+            const upcomingSchedule = schedules.find(s => 
+                s.trang_thai === 'chuabatdau' && s.gio_bat_dau >= timeNow
+            );
+            
+            // Nếu có chuyến sắp tới thì lấy, không thì lấy chuyến cuối cùng trong ngày (để xem lại)
+            selectedSchedule = upcomingSchedule || schedules[schedules.length - 1];
+        }
+
+        if (!selectedSchedule) {
+             return { message: "Không tìm thấy chuyến phù hợp.", data: [] };
+        }
+
+        // 3. Tái sử dụng hàm lấy học sinh cũ để lấy danh sách
+        const students = await getStudentsByScheduleId(selectedSchedule.id);
+
+        return {
+            current_schedule: {
+                id: selectedSchedule.id,
+                gio_bat_dau: selectedSchedule.gio_bat_dau,
+                trang_thai: selectedSchedule.trang_thai
+            },
+            students: students
+        };
+
+    } catch (error) {
+        throw error;
+    }
+};
 module.exports = {
   createSchedule,
   getAllSchedules,
   updateSchedule,
   deleteSchedule,
-  getAssignmentHistory, // Đổi tên hàm này
-  getDriverWeekSchedule, // Đổi tên hàm này
-  getMySchedule, // Đổi tên hàm này
+  getAssignmentHistory, 
+  getDriverWeekSchedule, 
+  getMySchedule, 
+  getStudentsByScheduleId,
+  getStudentsForDriverCurrentTrip
 };

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const scheduleController = require('../controllers/schedule.controller');
+const { verifyToken, isDriver } = require('../../middlewares/auth.middleware');
 
 // --- NHÓM API ĐẶC BIỆT (Đặt lên đầu) ---
 
@@ -14,7 +15,7 @@ router.get('/admin/driver/:driverId', scheduleController.getDriverWeekSchedule);
 
 // 3. App Tài xế xem lịch của mình
 // Endpoint: GET /api/schedules/driver/my-schedule/:driverId
-router.get('/driver/my-schedule/:driverId', scheduleController.getMySchedule);
+router.get('/my-schedule', verifyToken, scheduleController.getMySchedule);
 
 
 // --- NHÓM API CRUD CƠ BẢN ---
@@ -34,5 +35,8 @@ router.put('/:id', scheduleController.updateSchedule);
 // 7. Xóa lịch (Theo ID)
 // Endpoint: DELETE /api/schedules/:id
 router.delete('/:id', scheduleController.deleteSchedule);
+
+// GET http://localhost:8080/api/schedules/driver/current-students
+router.get('/driver/current-students', [verifyToken, isDriver], scheduleController.getMyCurrentStudents);
 
 module.exports = router;

@@ -73,15 +73,16 @@ const scheduleController = {
   // 6. Lấy lịch làm việc (App Tài xế xem)
   getMySchedule: async (req, res) => {
     try {
-      const { driverId } = req.params;
-      const mySchedule = await scheduleService.getMySchedule(driverId);
-      res.status(200).json(mySchedule);
+        const driverId = req.user.id; 
+
+        // Gọi Service với ID vừa lấy được
+        const data = await scheduleService.getMySchedule(driverId);
+        
+        res.status(200).json({ success: true, data });
     } catch (error) {
-      res
-        .status(500)
-        .json({ message: "Lỗi lấy lịch cá nhân", error: error.message });
+        res.status(500).json({ message: error.message });
     }
-  },
+},
 
   // 7. Lấy lịch sử phân công (History Logs)
   getAssignmentHistory: async (req, res) => {
@@ -103,6 +104,18 @@ const scheduleController = {
         });
     }
   },
-};
+getMyCurrentStudents: async (req, res) => {
+    try {
+        // Lấy ID từ Token (Middleware đã verify)
+        const driverId = req.user.id;
+
+        const result = await scheduleService.getStudentsForDriverCurrentTrip(driverId);
+        
+        res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}};
+
 
 module.exports = scheduleController;

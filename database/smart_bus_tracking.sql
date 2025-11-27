@@ -158,7 +158,7 @@ CREATE TABLE `ScheduleStudents` (
   
   FOREIGN KEY (`schedule_id`) REFERENCES `Schedules`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`student_id`) REFERENCES `Students`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`stop_id`) REFERENCES `Stops`(`id`),
+  FOREIGN KEY (`stop_id`) REFERENCES `Stops`(`id`) ON DELETE CASCADE,
   UNIQUE KEY `student_on_schedule` (`schedule_id`, `student_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

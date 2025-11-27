@@ -37,6 +37,16 @@ Schedule.belongsTo(Bus, { foreignKey: 'bus_id' });
 // --- Schedule Students ---
 Schedule.hasMany(ScheduleStudent, { foreignKey: 'schedule_id' });
 ScheduleStudent.belongsTo(Schedule, { foreignKey: 'schedule_id' });
+Stop.hasMany(ScheduleStudent, {
+  foreignKey: "stop_id",
+  onDelete: "CASCADE",
+});
+
+ScheduleStudent.belongsTo(Stop, {
+  foreignKey: "stop_id",
+  onDelete: "CASCADE",
+});
+
 
 Student.hasMany(ScheduleStudent, { foreignKey: 'student_id' });
 ScheduleStudent.belongsTo(Student, { foreignKey: 'student_id' });
