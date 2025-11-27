@@ -221,7 +221,7 @@ export default function RouteManagement() {
                 </div>
                 <div className="routemgmt-info">
                   <div className="routemgmt-details">
-                    <p className="routemgmt-id">Mã: {currentRoute.id}</p>
+                    <p className="routemgmt-id">{currentRoute.name}</p>
                     <p className="routemgmt-distance">
                       Độ dài: {currentRoute.distance}
                     </p>
