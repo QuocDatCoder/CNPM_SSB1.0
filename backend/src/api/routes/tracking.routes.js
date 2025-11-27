@@ -10,4 +10,4 @@ router.post('/location', verifyToken, isDriver, updateLocation);
 // Endpoint cập nhật trạng thái học sinh (chỉ tài xế được phép)
 router.post('/student-status', verifyToken, isDriver, updateStudentStatus);
 
-model.export = router;
+module.exports = router;
