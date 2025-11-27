@@ -222,20 +222,27 @@
 }
 
 .alert-textarea {
-  width: 100%;
+  width: 90%;
   min-height: 100px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border: 1px solid #e6edf0;
+  border-radius: 12px;
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
   margin-bottom: 16px;
+  background-color: #fbfdfe;
+  box-shadow: inset 0 -1px 0 rgba(16,24,40,0.03);
 }
 
 .alert-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #10b981;
+  box-shadow: 0 10px 30px rgba(16,185,129,0.08);
+}
+
+.alert-textarea::placeholder {
+  color: #9ca3af;
 }
 
 .alert-type {
@@ -250,15 +257,21 @@
 }
 
 .alert-type label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 6px 0;
   font-size: 14px;
   color: #555;
   cursor: pointer;
+  justify-content: flex-start; /* ensure radio + label text are left aligned */
 }
 
 .alert-type input[type="radio"] {
   margin-right: 8px;
+  width: 20px;
+  height: 20px;
+  accent-color: #5dffce;
 }
 
 .alert-options {
@@ -271,10 +284,33 @@
   font-size: 14px;
   color: #555;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
 }
 
 .alert-options input[type="checkbox"] {
   margin-right: 8px;
+  width: 20px;
+  height: 20px;
+  accent-color: #ef4444; /* leave red accent for admin checkboxes */
+}
+
+/* Ensure form inputs inside the alert modal don't inherit oversized styles */
+.alert-modal input[type="radio"],
+.alert-modal input[type="checkbox"]{
+  transform: none !important;
+  -webkit-transform: none !important;
+  appearance: radio !important;
+  -webkit-appearance: radio !important;
+  -moz-appearance: radio !important;
+}
+
+/* Smaller, concise layout for alert form fields */
+.alert-type,
+.alert-options {
+  display: block;
 }
 
 .alert-actions {
@@ -610,5 +646,18 @@
     left: 20px;
     padding: 12px 20px;
     font-size: 13px;
+  }
+
+  /* Adjust alert modal layout for small screens */
+  .alert-modal {
+    padding: 18px;
+  }
+
+  .alert-textarea {
+    min-height: 120px;
+  }
+
+  .alert-type label, .alert-options label {
+    gap: 8px;
   }
 }

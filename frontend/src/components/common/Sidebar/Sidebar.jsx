@@ -56,8 +56,9 @@ export default function Sidebar({
           </div>
         </React.Fragment>
       ))}
-      {showAlertButton && (
-        <div className="sidebar-footer">
+      {/* Footer area with alert + logout */}
+      <div className="sidebar-footer">
+        {showAlertButton && (
           <button
             className="alert-button"
             onClick={() => {
@@ -69,11 +70,9 @@ export default function Sidebar({
           >
             Gửi cảnh báo
           </button>
-        </div>
-      )}
+        )}
 
-      {/* Logout Button */}
-      <div className="sidebar-footer">
+        {/* Logout Button */}
         <button className="logout-button" onClick={handleLogout}>
           <svg
             width="20"

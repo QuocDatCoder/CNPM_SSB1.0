@@ -69,6 +69,20 @@
 .col-check {
   text-align: center;
 }
+
+/* Ensure checkboxes in notifications list use the default small appearance
+   and are not affected by other global styles */
+.notifications-list-card input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  vertical-align: middle;
+  transform: none !important;
+  -webkit-transform: none !important;
+  -webkit-appearance: auto !important;
+  appearance: auto !important;
+  accent-color: #10b981; /* green accent */
+}
 .col-from {
   font-weight: 600;
 }
