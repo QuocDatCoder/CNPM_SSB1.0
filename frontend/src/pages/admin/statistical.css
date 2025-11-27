@@ -1,5 +1,5 @@
 .statistical-page {
-  min-height: 100vh;
+  height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   width: 100%;
   flex: 1;
@@ -10,6 +10,13 @@
 .statistical-content {
   padding: 30px;
   flex: 1;
+  flex: 1; /* Chiếm toàn bộ không gian còn lại dưới Header */
+  overflow-y: auto; /* Tạo thanh cuộn riêng cho nội dung */
+  height: 100%; /* Đảm bảo chiều cao */
+
+  /* Tùy chỉnh thanh cuộn cho đẹp (tùy chọn) */
+  scrollbar-width: none;
+  /* scrollbar-color: #4ade80 #f1f1f1; */
 }
 
 /* Stat Cards */

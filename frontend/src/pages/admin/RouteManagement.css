@@ -3,13 +3,20 @@
   display: flex;
   flex-direction: column;
   background-color: #f5f5f5;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 /* Content */
 .route-content {
   padding: 30px 40px;
   position: relative;
+  flex: 1; /* Chiếm toàn bộ không gian còn lại dưới Header */
+  overflow-y: auto; /* Tạo thanh cuộn riêng cho nội dung */
+  height: 100%; /* Đảm bảo chiều cao */
+
+  /* Tùy chỉnh thanh cuộn cho đẹp (tùy chọn) */
+  scrollbar-width: none;
+  /* scrollbar-color: #4ade80 #f1f1f1; */
 }
 
 .route-grid {
@@ -32,6 +39,46 @@
 .route-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Shift Tabs for Route Pairs */
+.route-shift-tabs {
+  display: flex;
+  background-color: #f3f4f6;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.route-shift-tab {
+  flex: 1;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.route-shift-tab:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.route-shift-tab.active {
+  color: white;
+  background: linear-gradient(180deg, #0497b7 0%, #006239 100%);
+}
+
+.route-shift-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #10b981;
 }
 
 .route-map-container {

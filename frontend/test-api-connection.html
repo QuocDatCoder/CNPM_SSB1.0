@@ -88,6 +88,7 @@
         <button onclick="testRoutes()">Test Routes API</button>
         <button onclick="testDrivers()">Test Drivers API</button>
         <button onclick="testSchedules()">Test Schedules API</button>
+        <button onclick="testStudents()">Test Students API</button>
         <button onclick="testAssignmentHistory()">Test History API</button>
         <button onclick="testAll()">Test All</button>
       </div>
@@ -165,6 +166,16 @@
           displayResult("Drivers API", true, data);
         } catch (error) {
           displayResult("Drivers API", false, null, error.message);
+        }
+      }
+      async function testStudents() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/students/`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          displayResult("Students API", true, data);
+        } catch (error) {
+          displayResult("Students API", false, null, error.message);
         }
       }
 

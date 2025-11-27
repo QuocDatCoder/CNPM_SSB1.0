@@ -14,6 +14,83 @@ const RouteService = {
     try {
       const routes = await api.get("/routes");
 
+      // Map dữ liệu cho dropdown
+      return routes.map((route) => ({
+        id: route.id,
+        routeName: route.ten_tuyen,
+        description: route.mo_ta,
+        loai_tuyen: route.loai_tuyen,
+      }));
+    } catch (error) {
+      console.error("Error fetching routes:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách tuyến cho Student (gộp lượt đi/về thành 1)
+   * @returns {Promise<Array>}
+   */
+  async getRoutesForStudent() {
+    try {
+      const routes = await api.get("/routes");
+
+      // Gộp các tuyến có cùng tên (lượt đi/về)
+      const groupedRoutes = [];
+      const processed = new Set();
+
+      routes.forEach((route) => {
+        if (processed.has(route.id)) return;
+
+        // Tìm tuyến ngược (lượt về nếu đang là lượt đi, hoặc ngược lại)
+        const baseName = route.ten_tuyen.replace(/: .+ - .+$/, "");
+        const counterpart = routes.find(
+          (r) =>
+            r.id !== route.id &&
+            r.ten_tuyen.startsWith(baseName) &&
+            r.loai_tuyen !== route.loai_tuyen
+        );
+
+        if (counterpart) {
+          // Có cặp lượt đi/về - chỉ lấy 1 (ưu tiên lượt đi)
+          const mainRoute =
+            route.loai_tuyen === "luot_di" ? route : counterpart;
+          processed.add(route.id);
+          processed.add(counterpart.id);
+
+          groupedRoutes.push({
+            id: mainRoute.id, // Sử dụng ID của lượt đi
+            routeName: mainRoute.ten_tuyen, // Giữ nguyên tên đầy đủ của lượt đi
+            description: mainRoute.mo_ta,
+            loai_tuyen: mainRoute.loai_tuyen,
+          });
+        } else {
+          // Không có cặp - giữ nguyên
+          processed.add(route.id);
+          groupedRoutes.push({
+            id: route.id,
+            routeName: route.ten_tuyen,
+            description: route.mo_ta,
+            loai_tuyen: route.loai_tuyen,
+          });
+        }
+      });
+
+      return groupedRoutes;
+    } catch (error) {
+      console.error("Error fetching routes for student:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách routes với stops (cho Route Management page)
+   * @returns {Promise<Array>}
+   */
+  async getAllRoutesWithStops() {
+    try {
+      const routes = await api.get("/routes");
+
       // Fetch stops cho mỗi route
       const routesWithStops = await Promise.all(
         routes.map(async (route) => {
@@ -161,14 +238,34 @@ const RouteService = {
       const stops = await api.get("/stops");
       return stops.map((stop) => ({
         id: stop.id,
-        name: stop.ten_diem,
+        stopName: stop.ten_diem,
         address: stop.dia_chi,
         latitude: parseFloat(stop.latitude),
         longitude: parseFloat(stop.longitude),
-        position: [parseFloat(stop.latitude), parseFloat(stop.longitude)],
       }));
     } catch (error) {
       console.error("Error fetching stops:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy các trạm dừng của một tuyến cụ thể
+   * @param {string|number} routeId - ID của tuyến
+   * @returns {Promise<Array>}
+   */
+  async getStopsByRoute(routeId) {
+    try {
+      const stops = await api.get(`/routes/${routeId}/stops`);
+      return stops.map((stop) => ({
+        id: stop.id,
+        stopName: stop.ten_diem,
+        address: stop.dia_chi,
+        latitude: parseFloat(stop.latitude),
+        longitude: parseFloat(stop.longitude),
+      }));
+    } catch (error) {
+      console.error(`Error fetching stops for route ${routeId}:`, error);
       throw error;
     }
   },

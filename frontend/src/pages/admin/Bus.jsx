@@ -83,7 +83,7 @@ export default function Bus() {
       setLoading(true);
       const [busesData, routesData] = await Promise.all([
         BusService.getAllBuses(),
-        RouteService.getAllRoutes(),
+        RouteService.getAllRoutesWithStops(), // Sử dụng getAllRoutesWithStops để có đủ thông tin
       ]);
       setBuses(busesData);
       setRoutes(routesData);
@@ -113,14 +113,14 @@ export default function Bus() {
     // Tìm route tương ứng với xe - so sánh tên tuyến
     const busRoute = routes.find((route) => {
       // bus.route là tên tuyến từ DB (VD: "Tuyến 1: Q1 - Q5")
-      // route.name là tên từ RouteService (VD: "Tuyến 1: Q1 - Q5")
-      return bus.route && route.name && bus.route.includes(route.name);
+      // route.name là tên từ getAllRoutesWithStops (VD: "Tuyến 1: Q1 - Q5")
+      return bus.route && route.name && bus.route.trim() === route.name.trim();
     });
 
     if (!busRoute) {
-      console.log("Bus route:", bus.route);
+      console.log("Debug - Bus route:", bus.route);
       console.log(
-        "Available routes:",
+        "Debug - Available routes:",
         routes.map((r) => r.name)
       );
       alert(

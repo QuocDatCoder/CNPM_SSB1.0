@@ -3,12 +3,19 @@
   display: flex;
   flex-direction: column;
   background-color: #f5f5f5;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .schedule-content {
   padding: 30px 40px;
   flex: 1;
+  flex: 1; /* Chiếm toàn bộ không gian còn lại dưới Header */
+  overflow-y: auto; /* Tạo thanh cuộn riêng cho nội dung */
+  height: 100%; /* Đảm bảo chiều cao */
+
+  /* Tùy chỉnh thanh cuộn cho đẹp (tùy chọn) */
+  scrollbar-width: none;
+  /* scrollbar-color: #4ade80 #f1f1f1; */
 }
 
 .schedule-layout {

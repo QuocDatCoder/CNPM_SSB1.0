@@ -66,7 +66,7 @@ export default function Dashboard() {
   const loadRoutes = async () => {
     try {
       setLoading(true);
-      const data = await RouteService.getAllRoutes();
+      const data = await RouteService.getAllRoutesWithStops();
       setRoutes(data);
       if (data.length > 0) {
         handleSelectRoute(data[0]);

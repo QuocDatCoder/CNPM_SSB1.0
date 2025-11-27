@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/common/Header/header";
 import "./Student.css";
-import api from "../../services/api";
+import StudentService from "../../services/student.service";
+import RouteService from "../../services/route.service";
 
 export default function Student() {
   const [students, setStudents] = useState([]);
@@ -16,14 +17,17 @@ export default function Student() {
   const [addStep, setAddStep] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const studentsPerPage = 5;
+  const [routes, setRoutes] = useState([]);
+  const [stops, setStops] = useState([]);
+  const [filteredStops, setFilteredStops] = useState([]); // Trạm thuộc tuyến đang chọn
   const [newStudent, setNewStudent] = useState({
     fullname: "",
     dob: "",
     gender: "Nam",
     class: "",
     teacher: "",
-    route: "",
-    station: "",
+    route_id: "",
+    stop_id: "",
     parentName: "",
     contact: "",
     parentEmail: "",
@@ -35,14 +39,36 @@ export default function Student() {
   });
 
   useEffect(() => {
-    loadStudents();
+    loadAllData();
   }, []);
+
+  const loadAllData = async () => {
+    await Promise.all([loadStudents(), loadRoutes(), loadStops()]);
+  };
 
   const loadStudents = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/students");
-      setStudents(response);
+      const data = await StudentService.getAllStudents();
+      // Map dữ liệu từ backend sang format giao diện
+      const mappedStudents = data.map((student) => ({
+        id: student.id,
+        code: String(student.id).padStart(4, "0"),
+        fullname: student.ho_ten,
+        dob: student.ngay_sinh,
+        gender: student.gioi_tinh,
+        class: student.lop,
+        teacher: student.gvcn,
+        route: student.tuyen_duong || "Chưa phân tuyến",
+        route_id: student.current_route_id,
+        station: student.tram_don || "Chưa chọn trạm",
+        stop_id: student.current_stop_id,
+        parentName: student.ten_phu_huynh,
+        contact: student.sdt_phu_huynh,
+        parentEmail: student.email_phu_huynh,
+        address: student.dia_chi,
+      }));
+      setStudents(mappedStudents);
     } catch (error) {
       console.error("Error loading students:", error);
       alert(
@@ -54,17 +80,81 @@ export default function Student() {
     }
   };
 
-  const handleDelete = (id) => {
-    console.log("Delete student:", id);
+  const loadRoutes = async () => {
+    try {
+      const data = await RouteService.getRoutesForStudent();
+      setRoutes(data);
+    } catch (error) {
+      console.error("Error loading routes:", error);
+    }
   };
 
-  const handleInfo = (code) => {
-    const student = students.find((s) => s.code === code);
+  const loadStops = async () => {
+    try {
+      const data = await RouteService.getAllStops();
+      setStops(data);
+    } catch (error) {
+      console.error("Error loading stops:", error);
+    }
+  };
+
+  const loadStopsByRoute = async (routeId) => {
+    if (!routeId) {
+      setFilteredStops([]);
+      return;
+    }
+    try {
+      const data = await RouteService.getStopsByRoute(routeId);
+      setFilteredStops(data);
+    } catch (error) {
+      console.error("Error loading stops for route:", error);
+      setFilteredStops([]);
+    }
+  };
+
+  const handleRouteChangeInAdd = async (routeId) => {
+    setNewStudent({
+      ...newStudent,
+      route_id: routeId,
+      stop_id: "", // Reset stop khi đổi tuyến
+    });
+    await loadStopsByRoute(routeId);
+  };
+
+  const handleRouteChangeInEdit = async (routeId) => {
+    setEditedStudent({
+      ...editedStudent,
+      route_id: routeId,
+      stop_id: "", // Reset stop khi đổi tuyến
+    });
+    await loadStopsByRoute(routeId);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa học sinh này?")) {
+      return;
+    }
+    try {
+      await StudentService.deleteStudent(id);
+      alert("Đã xóa học sinh thành công!");
+      await loadStudents();
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      alert("Không thể xóa học sinh. Vui lòng thử lại!");
+    }
+  };
+
+  const handleInfo = (id) => {
+    const student = students.find((s) => s.id === id);
     if (student) {
       setSelectedStudent(student);
       setEditedStudent({ ...student });
       setIsEditMode(false);
       setShowInfoModal(true);
+      // Load stops cho route hiện tại
+      if (student.route_id) {
+        loadStopsByRoute(student.route_id);
+      }
     }
   };
 
@@ -72,26 +162,37 @@ export default function Student() {
     setIsEditMode(!isEditMode);
   };
 
-  const handleSaveEdit = () => {
-    setStudents(
-      students.map((s) => (s.code === editedStudent.code ? editedStudent : s))
-    );
-    setSelectedStudent(editedStudent);
-    setIsEditMode(false);
-    alert("Đã cập nhật thông tin học sinh!");
+  const handleSaveEdit = async () => {
+    try {
+      const payload = {
+        studentName: editedStudent.fullname,
+        class: editedStudent.class,
+        routeId: editedStudent.route_id,
+        stopId: editedStudent.stop_id,
+      };
+      await StudentService.updateStudent(editedStudent.id, payload);
+      alert("Đã cập nhật thông tin học sinh!");
+      await loadStudents();
+      setIsEditMode(false);
+      setShowInfoModal(false);
+    } catch (error) {
+      console.error("Error updating student:", error);
+      alert("Không thể cập nhật thông tin. Vui lòng thử lại!");
+    }
   };
 
   const handleAdd = () => {
     setShowAddModal(true);
     setAddStep(1);
+    setFilteredStops([]); // Reset filtered stops
     setNewStudent({
       fullname: "",
       dob: "",
       gender: "Nam",
       class: "",
       teacher: "",
-      route: "",
-      station: "",
+      route_id: "",
+      stop_id: "",
       parentName: "",
       contact: "",
       parentEmail: "",
@@ -117,26 +218,36 @@ export default function Student() {
     }
   };
 
-  const handleCreateStudent = () => {
-    if (!accountInfo.username || !accountInfo.password) {
-      alert("Vui lòng điền đầy đủ thông tin tài khoản!");
+  const handleCreateStudent = async () => {
+    if (!accountInfo.password) {
+      alert("Vui lòng điền mật khẩu cho tài khoản phụ huynh!");
       return;
     }
 
-    const newCode = String(students.length + 1).padStart(4, "0");
+    try {
+      const payload = {
+        parentName: newStudent.parentName,
+        parentPhone: newStudent.contact,
+        parentEmail: newStudent.parentEmail,
+        address: newStudent.address,
+        password: accountInfo.password,
+        studentName: newStudent.fullname,
+        class: newStudent.class,
+        dob: newStudent.dob,
+        gender: newStudent.gender,
+        teacher: newStudent.teacher,
+        routeId: newStudent.route_id,
+        stopId: newStudent.stop_id,
+      };
 
-    const studentToAdd = {
-      code: newCode,
-      ...newStudent,
-      username: accountInfo.username,
-      password: accountInfo.password,
-    };
-
-    setStudents([...students, studentToAdd]);
-    alert(
-      `Đã thêm học sinh ${newStudent.fullname} với tài khoản ${accountInfo.username}!`
-    );
-    setShowAddModal(false);
+      await StudentService.createStudent(payload);
+      alert(`Đã thêm học sinh ${newStudent.fullname} thành công!`);
+      setShowAddModal(false);
+      await loadStudents();
+    } catch (error) {
+      console.error("Error creating student:", error);
+      alert("Không thể thêm học sinh. Vui lòng thử lại!");
+    }
   };
 
   const filtered = students.filter((s) => {
@@ -232,14 +343,14 @@ export default function Student() {
               <div className="student-col student-col-actions">
                 <button
                   className="student-info-btn"
-                  onClick={() => handleInfo(student.code)}
+                  onClick={() => handleInfo(student.id)}
                   title="Thông tin"
                 >
                   <img src="/icons/infor.png" alt="Info" />
                 </button>
                 <button
                   className="student-delete-btn"
-                  onClick={() => handleDelete(student.code)}
+                  onClick={() => handleDelete(student.id)}
                   title="Xóa"
                 >
                   <img src="/icons/delete.png" alt="Delete" />
@@ -414,18 +525,41 @@ export default function Student() {
                     </div>
 
                     <div className="student-form-row">
+                      <label>Tuyến đường:</label>
+                      <select
+                        className="student-select-input"
+                        value={newStudent.route_id}
+                        onChange={(e) => handleRouteChangeInAdd(e.target.value)}
+                      >
+                        <option value="">-- Chọn tuyến --</option>
+                        {routes.map((route) => (
+                          <option key={route.id} value={route.id}>
+                            {route.routeName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="student-form-row">
                       <label>Trạm lên/xuống:</label>
-                      <input
-                        type="text"
-                        value={newStudent.station}
+                      <select
+                        className="student-select-input"
+                        value={newStudent.stop_id}
                         onChange={(e) =>
                           setNewStudent({
                             ...newStudent,
-                            station: e.target.value,
+                            stop_id: e.target.value,
                           })
                         }
-                        placeholder="ĐH Sài Gòn"
-                      />
+                        disabled={!newStudent.route_id}
+                      >
+                        <option value="">-- Chọn trạm --</option>
+                        {filteredStops.map((stop) => (
+                          <option key={stop.id} value={stop.id}>
+                            {stop.stopName}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="student-form-row">
@@ -715,18 +849,46 @@ export default function Student() {
                 </div>
 
                 <div className="student-info-field">
+                  <label>Tuyến đường:</label>
+                  {isEditMode ? (
+                    <select
+                      className="student-select-input"
+                      value={editedStudent.route_id}
+                      onChange={(e) => handleRouteChangeInEdit(e.target.value)}
+                    >
+                      <option value="">-- Chọn tuyến --</option>
+                      {routes.map((route) => (
+                        <option key={route.id} value={route.id}>
+                          {route.routeName}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span>{selectedStudent.route}</span>
+                  )}
+                </div>
+
+                <div className="student-info-field">
                   <label>Trạm lên/xuống:</label>
                   {isEditMode ? (
-                    <input
-                      type="text"
-                      value={editedStudent.station}
+                    <select
+                      className="student-select-input"
+                      value={editedStudent.stop_id}
                       onChange={(e) =>
                         setEditedStudent({
                           ...editedStudent,
-                          station: e.target.value,
+                          stop_id: e.target.value,
                         })
                       }
-                    />
+                      disabled={!editedStudent.route_id}
+                    >
+                      <option value="">-- Chọn trạm --</option>
+                      {filteredStops.map((stop) => (
+                        <option key={stop.id} value={stop.id}>
+                          {stop.stopName}
+                        </option>
+                      ))}
+                    </select>
                   ) : (
                     <span>{selectedStudent.station}</span>
                   )}

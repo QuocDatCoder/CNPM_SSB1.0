@@ -124,7 +124,7 @@ INSERT INTO `RouteStops` (`route_id`, `stop_id`, `thu_tu`, `gio_don_du_kien`) VA
 -- --------------------------------------------------------
 
 -- 5. THÊM HỌC SINH (20 HS).
-INSERT INTO `Students` (`ho_ten`, `lop`, `ngay_sinh`, `gioi_tinh`, `gvcn`, `parent_id`, `default_stop_id`) VALUES
+INSERT INTO `Students` (`ho_ten`, `lop`, `ngay_sinh`, `gioi_tinh`, `gvcn`, `parent_id`, `default_route_stop_id`) VALUES
 ('Nguyễn Văn Con A', '1A', '2018-01-01', 'Nam', 'Cô Lan', 7, 1),
 ('Trần Thị Con B', '2B', '2017-05-05', 'Nữ', 'Thầy Hùng', 8, 2),
 ('Lê Văn Con C', '3C', '2016-02-02', 'Nam', 'Cô Mai', 9, 3),

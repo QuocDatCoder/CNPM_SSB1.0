@@ -48,6 +48,7 @@ export default function RouteManagement() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [routePath, setRoutePath] = useState([]);
+  const [selectedShift, setSelectedShift] = useState({}); // Track selected shift for each route pair
 
   useEffect(() => {
     loadRoutes();
@@ -56,8 +57,55 @@ export default function RouteManagement() {
   const loadRoutes = async () => {
     try {
       setLoading(true);
-      const data = await RouteService.getAllRoutes();
-      setRoutes(data);
+      const data = await RouteService.getAllRoutesWithStops();
+
+      // Gộp các tuyến có cùng tên (luợt đi và về)
+      const groupedRoutes = [];
+      const processed = new Set();
+
+      data.forEach((route) => {
+        if (processed.has(route.id)) return;
+
+        // Tìm tuyến ngược (luợt về nếu đang là luợt đi, hoặc ngược lại)
+        const baseName = route.name.replace(/: .+ - .+$/, "");
+        const counterpart = data.find(
+          (r) =>
+            r.id !== route.id &&
+            r.name.startsWith(baseName) &&
+            r.loai_tuyen !== route.loai_tuyen
+        );
+
+        if (counterpart) {
+          processed.add(route.id);
+          processed.add(counterpart.id);
+
+          groupedRoutes.push({
+            id: route.id,
+            pairId: counterpart.id,
+            name: baseName,
+            luot_di: route.loai_tuyen === "luot_di" ? route : counterpart,
+            luot_ve: route.loai_tuyen === "luot_ve" ? route : counterpart,
+            isPair: true,
+          });
+        } else {
+          processed.add(route.id);
+          groupedRoutes.push({
+            ...route,
+            isPair: false,
+          });
+        }
+      });
+
+      setRoutes(groupedRoutes);
+
+      // Initialize selected shifts
+      const initialShifts = {};
+      groupedRoutes.forEach((route) => {
+        if (route.isPair) {
+          initialShifts[route.id] = "luot_di";
+        }
+      });
+      setSelectedShift(initialShifts);
     } catch (error) {
       console.error("Error loading routes:", error);
       alert(
@@ -76,11 +124,19 @@ export default function RouteManagement() {
     console.log("Delete route:", id);
   };
 
-  const handleViewRoute = async (route) => {
-    setSelectedRoute(route);
+  const handleViewRoute = async (route, shift = null) => {
+    let displayRoute = route;
+
+    if (route.isPair && shift) {
+      displayRoute = shift === "luot_di" ? route.luot_di : route.luot_ve;
+    } else if (route.isPair) {
+      displayRoute = route.luot_di;
+    }
+
+    setSelectedRoute(displayRoute);
     setShowDetailModal(true);
     // Fetch route from OSRM
-    const path = await fetchRoute(route.start, route.end);
+    const path = await fetchRoute(displayRoute.start, displayRoute.end);
     setRoutePath(path);
   };
 
@@ -117,61 +173,108 @@ export default function RouteManagement() {
 
       <div className="route-content">
         <div className="route-grid">
-          {filteredRoutes.map((route, index) => (
-            <div className="route-card" key={index}>
-              <div className="route-map-container">
-                <img src={route.mapImage} alt="Map" className="route-map" />
-              </div>
-              <div className="routemgmt-info">
-                <div className="routemgmt-details">
-                  <p className="routemgmt-id">Mã: {route.id}</p>
-                  <p className="routemgmt-distance">Độ dài: {route.distance}</p>
-                  <p className="routemgmt-duration">
-                    Thời gian dự định: {route.duration}
-                  </p>
-                  <p className="routemgmt-stations">
-                    Số trạm: {route.stops.length} trạm
-                  </p>
-                  <p className="routemgmt-endpoints">
-                    Điểm đầu/cuối: {route.startName}, {route.endName}
-                  </p>
-                </div>
-                <div className="routemgmt-actions">
-                  <div className="routemgmt-view-btn-container">
+          {filteredRoutes.map((route, index) => {
+            const currentRoute = route.isPair
+              ? selectedShift[route.id] === "luot_di"
+                ? route.luot_di
+                : route.luot_ve
+              : route;
+
+            return (
+              <div className="route-card" key={route.id || index}>
+                {route.isPair && (
+                  <div className="route-shift-tabs">
                     <button
-                      className="routemgmt-action-btn routemgmt-view-btn"
-                      onClick={() => handleViewRoute(route)}
-                      title="Xem tuyến"
+                      className={`route-shift-tab ${
+                        selectedShift[route.id] === "luot_di" ? "active" : ""
+                      }`}
+                      onClick={() =>
+                        setSelectedShift({
+                          ...selectedShift,
+                          [route.id]: "luot_di",
+                        })
+                      }
                     >
-                      <span className="routemgmt-icon">📍</span>
-                      Xem tuyến
+                      Luợt đi
+                    </button>
+                    <button
+                      className={`route-shift-tab ${
+                        selectedShift[route.id] === "luot_ve" ? "active" : ""
+                      }`}
+                      onClick={() =>
+                        setSelectedShift({
+                          ...selectedShift,
+                          [route.id]: "luot_ve",
+                        })
+                      }
+                    >
+                      Luợt về
                     </button>
                   </div>
-
-                  <div className="routemgmt-edit-delete-btn">
-                    <div className="routemgmt-edit-btn-container">
+                )}
+                <div className="route-map-container">
+                  <img
+                    src={currentRoute.mapImage}
+                    alt="Map"
+                    className="route-map"
+                  />
+                </div>
+                <div className="routemgmt-info">
+                  <div className="routemgmt-details">
+                    <p className="routemgmt-id">Mã: {currentRoute.id}</p>
+                    <p className="routemgmt-distance">
+                      Độ dài: {currentRoute.distance}
+                    </p>
+                    <p className="routemgmt-duration">
+                      Thời gian dự định: {currentRoute.duration}
+                    </p>
+                    <p className="routemgmt-stations">
+                      Số trạm: {currentRoute.stops.length} trạm
+                    </p>
+                    <p className="routemgmt-endpoints">
+                      Điểm đầu/cuối: {currentRoute.startName},{" "}
+                      {currentRoute.endName}
+                    </p>
+                  </div>
+                  <div className="routemgmt-actions">
+                    <div className="routemgmt-view-btn-container">
                       <button
-                        className="routemgmt-action-btn routemgmt-edit-btn"
-                        onClick={() => handleEdit(route.id)}
-                        title="Chỉnh sửa"
+                        className="routemgmt-action-btn routemgmt-view-btn"
+                        onClick={() =>
+                          handleViewRoute(route, selectedShift[route.id])
+                        }
+                        title="Xem tuyến"
                       >
-                        <img src="/icons/edit.png" alt="Edit" />
+                        <span className="routemgmt-icon">📍</span>
+                        Xem tuyến
                       </button>
                     </div>
-                    <div className="routemgmt-delete-btn-container">
-                      <button
-                        className="routemgmt-action-btn routemgmt-delete-btn"
-                        onClick={() => handleDelete(route.id)}
-                        title="Xóa"
-                      >
-                        <img src="/icons/delete.png" alt="Delete" />
-                      </button>
+
+                    <div className="routemgmt-edit-delete-btn">
+                      <div className="routemgmt-edit-btn-container">
+                        <button
+                          className="routemgmt-action-btn routemgmt-edit-btn"
+                          onClick={() => handleEdit(currentRoute.id)}
+                          title="Chỉnh sửa"
+                        >
+                          <img src="/icons/edit.png" alt="Edit" />
+                        </button>
+                      </div>
+                      <div className="routemgmt-delete-btn-container">
+                        <button
+                          className="routemgmt-action-btn routemgmt-delete-btn"
+                          onClick={() => handleDelete(currentRoute.id)}
+                          title="Xóa"
+                        >
+                          <img src="/icons/delete.png" alt="Delete" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <button

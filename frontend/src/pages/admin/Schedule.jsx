@@ -151,6 +151,17 @@ export default function Schedule() {
     return `${hours}:${minutes}`;
   };
 
+  // Format time string (HH:MM:SS) to display (HH:MM)
+  const formatTimeString = (timeString) => {
+    if (!timeString) return "--:--";
+    // timeString format: "06:00:00"
+    const parts = timeString.split(":");
+    if (parts.length >= 2) {
+      return `${parts[0]}:${parts[1]}`;
+    }
+    return timeString;
+  };
+
   // Format date and time for history display
   const formatHistoryTime = (isoString) => {
     if (!isoString) return "--:-- --/--";
@@ -184,7 +195,7 @@ export default function Schedule() {
       // Check if this route is already scheduled for this date and shift
       const existingSchedule = schedules.find(
         (s) =>
-          s.route_id === parseInt(route.id.replace(/^0+/, "")) &&
+          s.route_id === parseInt(route.id) &&
           s.createDate === newSchedule.ngay_chay &&
           s.loai_tuyen === shiftType
       );
@@ -193,7 +204,10 @@ export default function Schedule() {
       return !existingSchedule;
     });
 
-    return filteredRoutes;
+    return filteredRoutes.map((route) => ({
+      ...route,
+      name: route.routeName, // Add name property for display
+    }));
   };
 
   // Get schedules for selected date only
@@ -353,11 +367,14 @@ export default function Schedule() {
       // Find route với loai_tuyen matching shift
       const selectedRoute = routes.find(
         (r) =>
-          r.id === newSchedule.route_id &&
+          parseInt(r.id) === parseInt(newSchedule.route_id) &&
           r.loai_tuyen === (newSchedule.shift === "di" ? "luot_di" : "luot_ve")
       );
 
       if (!selectedRoute) {
+        console.log("Debug - newSchedule.route_id:", newSchedule.route_id);
+        console.log("Debug - newSchedule.shift:", newSchedule.shift);
+        console.log("Debug - routes:", routes);
         alert("Không tìm thấy tuyến đường phù hợp với chuyến đã chọn!");
         return;
       }
@@ -376,7 +393,7 @@ export default function Schedule() {
 
       // Prepare payload for backend
       const payload = {
-        route_id: parseInt(selectedRoute.id.replace(/^0+/, "")), // Remove leading zeros
+        route_id: parseInt(selectedRoute.id),
         driver_id: actualDriverId ? parseInt(actualDriverId) : null,
         bus_id: newSchedule.bus_id ? parseInt(newSchedule.bus_id) : null,
         ngay_chay: newSchedule.ngay_chay,
@@ -676,7 +693,7 @@ export default function Schedule() {
                     <div className="col col-create-date">{item.createDate}</div>
                     <div className="col col-shift">{item.shift}</div>
                     <div className="col col-time">
-                      {formatCreatedTime(item.created_at)}
+                      {formatTimeString(item.start)}
                     </div>
                     <div className="col col-status">
                       <button
