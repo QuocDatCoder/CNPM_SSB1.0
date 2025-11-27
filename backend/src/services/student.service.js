@@ -94,9 +94,11 @@ const createStudentWithParent = async (data) => {
     let parent = null;
 
     // --- BƯỚC 1: XỬ LÝ PHỤ HUYNH ---
-    // Kiểm tra xem SĐT này đã có tài khoản chưa (tránh trùng lặp)
+    // Kiểm tra xem SĐT hoặc Email này đã có tài khoản chưa (tránh trùng lặp)
     const existingParent = await User.findOne({
-      where: { so_dien_thoai: data.sdt_ph },
+      where: {
+        [Op.or]: [{ so_dien_thoai: data.sdt_ph }, { email: data.email_ph }],
+      },
     });
 
     if (existingParent) {
