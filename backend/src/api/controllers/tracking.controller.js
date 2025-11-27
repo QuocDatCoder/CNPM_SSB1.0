@@ -1,28 +1,29 @@
-// Import service xử lý logic
-import trackingService from '../../services/tracking.service.js';
+const { errorHandler } = require('../../middlewares/auth.middleware.js');
+const trackingService = require('../../services/tracking.service');
 
-export const updateLocation = async (req, res) => {
+//API cap nhat vi tri cho xe
+async function updateLocation(req, res) {
   try {
     const { busId, lat, lng } = req.body;
-
-    // Gọi service để cập nhật vị trí
     await trackingService.updateLocation(busId, lat, lng);
-
-    res.status(200).json({ message: 'Vị trí xe đã được cập nhật' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json({message: 'Vị trí xe đã được cập nhật'});
+  } catch (err){
+    res.status(500).json( {message: 'Lỗi cập nhật vị trí', error: err.message });
   }
-};
+}
 
-export const updateStudentStatus = async (req, res) => {
+//API cap nhat trang thai hoc sinh
+async function updateStudentStatus(req, res) {
   try {
-    const { studentId, status } = req.body;
-
-    // Gọi service để cập nhật trạng thái học sinh
-    await trackingService.updateStudentStatus(studentId, status);
-
-    res.status(200).json({ message: 'Trạng thái học sinh đã được cập nhật' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    const { stundentId, status } = req.body;
+    await trackingService.updateStudentStatus(stundentId, status);
+    res.json( {message: 'Trạng thái học sinh đã được cập nhật', error: err.message});
+  } catch {
+    res.status(500).json( {message: 'Lỗi cập nhật trạng thái', error: err.message} );
   }
+}
+
+module.exports = {
+  updateLocation,
+  updateStudentStatus,
 };

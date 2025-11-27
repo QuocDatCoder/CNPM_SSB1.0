@@ -1,4 +1,4 @@
-export default (io, socket) => {
+module.exports = (io, socket) => {
   // Lắng nghe sự kiện từ tài xế gửi vị trí
   socket.on('driverLocationUpdate', (data) => {
     console.log('Driver location update:', data);
