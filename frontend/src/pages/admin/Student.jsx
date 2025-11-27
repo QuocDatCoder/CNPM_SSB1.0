@@ -63,6 +63,8 @@ export default function Student() {
         route_id: student.current_route_id,
         station: student.tram_don || "Chưa chọn trạm",
         stop_id: student.current_stop_id,
+        username: student.username,
+        password: student.password,
         parentName: student.ten_phu_huynh,
         contact: student.sdt_phu_huynh,
         parentEmail: student.email_phu_huynh,
@@ -167,8 +169,17 @@ export default function Student() {
       const payload = {
         studentName: editedStudent.fullname,
         class: editedStudent.class,
+        dob: editedStudent.dob,
+        gender: editedStudent.gender,
+        teacher: editedStudent.teacher,
         routeId: editedStudent.route_id,
         stopId: editedStudent.stop_id,
+        username: editedStudent.username,
+        password: editedStudent.password,
+        parentName: editedStudent.parentName,
+        parentPhone: editedStudent.contact,
+        parentEmail: editedStudent.parentEmail,
+        address: editedStudent.address,
       };
       await StudentService.updateStudent(editedStudent.id, payload);
       alert("Đã cập nhật thông tin học sinh!");

@@ -52,6 +52,7 @@
   min-width: 250px;
   flex: 1;
   max-width: 400px;
+  height: 20px;
 }
 
 .search-student-input::placeholder {
@@ -119,8 +120,8 @@
 
 /* Action Buttons */
 .student-info-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
   background-color: white;
   cursor: pointer;
@@ -132,8 +133,8 @@
 }
 
 .student-info-btn img {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
 }
 
@@ -142,8 +143,8 @@
 }
 
 .student-delete-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   border: none;
   background: radial-gradient(circle, #ff0000 36%, #ab0000 100%);
@@ -328,12 +329,14 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
-.student-info-field input {
-  padding: 10px 12px;
+.student-form-row input {
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.3s;
+  height: 36px;
+  box-sizing: border-box;
 }
 
 .student-info-field input:focus {
@@ -418,9 +421,9 @@
 }
 
 .pagination-btn {
-  min-width: 36px;
-  height: 36px;
-  padding: 8px 12px;
+  min-width: 32px;
+  height: 32px;
+  padding: 6px 10px;
   border: 2px solid #10b981;
   background-color: white;
   color: #10b981;
@@ -527,11 +530,13 @@
 }
 
 .student-form-row input {
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.3s;
+  height: 36px;
+  box-sizing: border-box;
 }
 
 .student-form-row input:focus {
@@ -541,12 +546,14 @@
 
 /* Styled Select Dropdown */
 .student-select-input {
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.3s;
   background-color: white;
+  height: 36px;
+  box-sizing: border-box;
   cursor: pointer;
   min-width: 200px;
 }

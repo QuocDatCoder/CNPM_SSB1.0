@@ -36,6 +36,8 @@ const StudentService = {
         sdt_phu_huynh: student.sdt_phu_huynh,
         email_phu_huynh: student.email_phu_huynh,
         dia_chi: student.dia_chi,
+        username: student.username_phu_huynh,
+        password: student.password_phu_huynh,
       }));
     } catch (error) {
       console.error("Error fetching students:", error);
@@ -57,7 +59,8 @@ const StudentService = {
         sdt_ph: studentData.parentPhone,
         email_ph: studentData.parentEmail,
         dia_chi: studentData.address,
-        password: studentData.password,
+        username_phu_huynh: studentData.username,
+        password_phu_huynh: studentData.password,
 
         // Thông tin học sinh
         ho_ten_hs: studentData.studentName,
@@ -89,11 +92,28 @@ const StudentService = {
     try {
       // Payload chỉ chứa các field cho phép update
       const payload = {
+        username_ph: studentData.username,
+        ho_ten_ph: studentData.parentName,
+        sdt_ph: studentData.parentPhone,
+        email_ph: studentData.parentEmail,
+        dia_chi: studentData.address,
+
+        // Thông tin học sinh
         ho_ten_hs: studentData.studentName,
         lop: studentData.class,
+        ngay_sinh: studentData.dob, // Format: YYYY-MM-DD
+        gioi_tinh: studentData.gender,
+        gvcn: studentData.teacher,
+
+        // Id tuyến và trạm
         route_id: studentData.routeId ? parseInt(studentData.routeId) : null,
         stop_id: studentData.stopId ? parseInt(studentData.stopId) : null,
       };
+
+      // Chỉ gửi password nếu có thay đổi
+      if (studentData.password && studentData.password.trim() !== "") {
+        payload.password = studentData.password;
+      }
 
       const response = await api.put(`/students/${id}`, payload);
       return response;
