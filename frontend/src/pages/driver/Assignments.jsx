@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import Header from "../../components/common/Header/header";
 import "./Assignments.css";
 
 export default function Assignments() {
@@ -160,9 +159,7 @@ export default function Assignments() {
 
   return (
     <div className="assignments-page">
-      <Header title="Lịch trình phân công" showSearch={false} />
-
-      <div className="assignments-container">
+      <div className="assignments-content">
         {/* <div className="assignments-header-section">
           <h1 className="assignments-title">Lịch trình của bạn</h1>
           <p className="assignments-subtitle">

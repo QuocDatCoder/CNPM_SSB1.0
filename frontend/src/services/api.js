@@ -33,7 +33,7 @@ class ApiClient {
       }
 
       const result = await response.json();
-      // Backend trả về {success, data}, chỉ lấy data
+      // Trả về data nếu có, nếu không trả về toàn bộ result
       return result.data !== undefined ? result.data : result;
     } catch (error) {
       console.error(`API Error [${endpoint}]:`, error);

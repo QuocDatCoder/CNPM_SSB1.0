@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import Header from "../../components/common/Header/header";
 import "./Students.css";
 import studentsData from "../../data/students";
 
 export default function Students() {
-    const [mode, setMode] = useState("go"); // 'go' = Đưa đi, 'back' = Đưa về
+  const [mode, setMode] = useState("go"); // 'go' = Đưa đi, 'back' = Đưa về
   const [students, setStudents] = useState(
     studentsData.map((s) => ({
       // keep original fields and add aliases expected by this component
@@ -32,8 +31,6 @@ export default function Students() {
 
   return (
     <div className="students-page">
-      <Header title="Danh sách Học sinh" showSearch={false} />
-
       <div className="students-content">
         <div className="students-header">
           <h3>Danh sách học sinh</h3>

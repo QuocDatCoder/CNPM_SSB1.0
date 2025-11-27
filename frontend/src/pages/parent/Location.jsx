@@ -7,7 +7,6 @@ import {
   Popup,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import Header from "../../components/common/Header/header";
 import "./Location.css";
 
 function Location() {
@@ -40,7 +39,6 @@ function Location() {
 
   return (
     <div className="parent-location-page">
-      <Header title="Vị trí" showSearch={false} />
       <div className="parent-location-container">
         {/* Left Panel - Student & Trip Info */}
         <div className="parent-location-sidebar">

@@ -8,7 +8,7 @@ INSERT INTO `Users`
 (`driver_code`, `parent_code`, `username`, `email`, `password_hash`, `ho_ten`, `ngay_sinh`, `gioi_tinh`, `so_dien_thoai`, `vai_tro`, `dia_chi`, `bang_lai`, `trang_thai_taixe`)
 VALUES
 -- Admin
-(NULL, NULL, 'admin', 'admin@sbms.com', '$2a$10$HasHeDPasswoRd...', 'Quản Trị Viên', NULL, NULL, '0909000001', 'admin', 'TP.HCM', NULL, NULL),
+(NULL, NULL, 'admin', 'admin@sbms.com', '123456', 'Quản Trị Viên', NULL, NULL, '0909000001', 'admin', 'TP.HCM', NULL, NULL),
 
 -- 5 Tài xế
 (1, NULL, 'taixe1', 'taixe1@sbms.com', '123456', 'Nguyễn Văn Bác', NULL, 'Nam', '0909000002', 'taixe', 'Q.1, TP.HCM', 'Hạng E', 'Đang hoạt động'),

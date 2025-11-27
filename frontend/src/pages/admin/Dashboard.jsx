@@ -10,6 +10,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./Dashboard.css";
 import RouteService from "../../services/route.service";
+import Header from "../../components/common/Header/header";
 
 // Fix leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -138,15 +139,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard">
-      <div className="header">
-        <div className="header-left">
-          <h1>Trang chủ</h1>
-        </div>
-        <div className="header-right">
-          <input type="text" placeholder="Tìm kiếm" className="search-input" />
-          <button className="login-btn">Đăng nhập</button>
-        </div>
-      </div>
+      <Header title="Trang chủ" showSearch={true} noImage={true} />
 
       <div className="banner">
         <button

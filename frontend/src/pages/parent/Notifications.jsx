@@ -1,5 +1,4 @@
 import React from "react";
-import Header from "../../components/common/Header/header";
 import "./Notifications.css";
 
 function Notifications() {
@@ -26,7 +25,6 @@ function Notifications() {
 
   return (
     <div className="parent-notifications-page">
-      <Header title="Thông báo" showSearch={false} />
       <div className="parent-notifications-content">
         <div className="parent-notifications-list">
           {notifications.map((notification) => (

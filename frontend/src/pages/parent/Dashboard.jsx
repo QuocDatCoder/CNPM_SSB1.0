@@ -82,7 +82,7 @@ function ParentDashboard() {
       case "Trang chủ":
         return (
           <div className="parent-dashboard-home">
-            <Header title="Trang chủ" showSearch={false} />
+            {/* <Header title="Trang chủ" showSearch={false} /> */}
             <div className="parent-dashboard-home-content">
               <div className="parent-dashboard-greeting">
                 <div className="parent-dashboard-user-card">
@@ -264,6 +264,7 @@ function ParentDashboard() {
         menuItems={parentMenuItems}
       />
       <div className="parent-dashboard-main">
+        <Header title="Phụ huynh" showSearch={false} />
         <div className="parent-dashboard-content">{renderContent()}</div>
       </div>
     </div>

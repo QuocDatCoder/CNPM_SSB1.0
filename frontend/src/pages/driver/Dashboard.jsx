@@ -260,8 +260,6 @@ function Home() {
 
   return (
     <div className="driver-home-page">
-      <Header title="Trang chủ" showSearch={false} />
-
       <div className="driver-home-content">
         {/* Greeting Header */}
         <div className="driver-greeting">
@@ -422,6 +420,7 @@ export default function DriverDashboard() {
         showAlertButton={true}
       />
       <div className="driver-page">
+        <Header title="Tài xế" showSearch={false} />
         <div className="driver-content">{renderContent()}</div>
       </div>
 

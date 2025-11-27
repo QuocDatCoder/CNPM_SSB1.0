@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import Header from "../../components/common/Header/header";
 import notifications from "../../data/notifications";
 import "./Notifications.css";
 
@@ -20,8 +19,6 @@ export default function Notifications() {
 
   return (
     <div className="notifications-page">
-      <Header title="Thông báo" showSearch={false} />
-
       <div className="notifications-content">
         <div className="notifications-header">
           <div className="tabs">

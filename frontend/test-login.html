@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Login API - SmartBus</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 900px;
+        width: 100%;
+        padding: 40px;
+      }
+
+      h1 {
+        color: #333;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      .subtitle {
+        color: #666;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .test-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+      }
+
+      .test-section h3 {
+        color: #667eea;
+        margin-bottom: 15px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        color: #333;
+        font-weight: 500;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+      }
+
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      button {
+        flex: 1;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .btn-primary {
+        background: #667eea;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn-secondary {
+        background: #10b981;
+        color: white;
+      }
+
+      .btn-secondary:hover {
+        background: #059669;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+      }
+
+      .btn-clear {
+        background: #ef4444;
+        color: white;
+      }
+
+      .btn-clear:hover {
+        background: #dc2626;
+      }
+
+      .result-box {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .result-box h4 {
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .log-entry {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+      }
+
+      .log-success {
+        background: #d1fae5;
+        border-left: 4px solid #10b981;
+      }
+
+      .log-error {
+        background: #fee2e2;
+        border-left: 4px solid #ef4444;
+      }
+
+      .log-info {
+        background: #dbeafe;
+        border-left: 4px solid #3b82f6;
+      }
+
+      .log-warning {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+      }
+
+      .quick-accounts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .account-btn {
+        padding: 15px;
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: left;
+      }
+
+      .account-btn:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .account-btn .role {
+        font-size: 12px;
+        color: #667eea;
+        font-weight: 600;
+        margin-bottom: 5px;
+      }
+
+      .account-btn .username {
+        font-size: 14px;
+        color: #333;
+        font-weight: 500;
+      }
+
+      .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+
+      .status-online {
+        background: #10b981;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+      }
+
+      .status-offline {
+        background: #ef4444;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🚌 Test Login API - SmartBus</h1>
+      <p class="subtitle">Công cụ test endpoint đăng nhập hệ thống</p>
+
+      <!-- Server Status -->
+      <div class="test-section">
+        <h3>
+          <span
+            id="statusIndicator"
+            class="status-indicator status-offline"
+          ></span
+          >Trạng thái Server
+        </h3>
+        <p id="serverStatus">Đang kiểm tra...</p>
+        <button
+          class="btn-secondary"
+          onclick="checkServerStatus()"
+          style="margin-top: 10px; width: auto"
+        >
+          🔄 Kiểm tra lại
+        </button>
+      </div>
+
+      <!-- Quick Login Accounts -->
+      <div class="test-section">
+        <h3>⚡ Đăng nhập nhanh</h3>
+        <div class="quick-accounts">
+          <div class="account-btn" onclick="quickLogin('admin', '123456')">
+            <div class="role">👨‍💼 ADMIN</div>
+            <div class="username">admin</div>
+          </div>
+          <div class="account-btn" onclick="quickLogin('taixe1', '123456')">
+            <div class="role">🚌 TÀI XẾ</div>
+            <div class="username">taixe1</div>
+          </div>
+          <div class="account-btn" onclick="quickLogin('ph1', '123456')">
+            <div class="role">👨‍👩‍👧 PHỤ HUYNH</div>
+            <div class="username">ph1</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual Login Form -->
+      <div class="test-section">
+        <h3>✏️ Đăng nhập thủ công</h3>
+        <div class="form-group">
+          <label for="username">Username hoặc Email:</label>
+          <input
+            type="text"
+            id="username"
+            placeholder="Nhập username hoặc email"
+            value="admin"
+          />
+        </div>
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input
+            type="password"
+            id="password"
+            placeholder="Nhập password"
+            value="123456"
+          />
+        </div>
+        <div class="btn-group">
+          <button class="btn-primary" onclick="testLogin()">
+            🔐 Đăng nhập
+          </button>
+          <button class="btn-secondary" onclick="runAllTests()">
+            🧪 Test tất cả
+          </button>
+          <button class="btn-clear" onclick="clearLogs()">🗑️ Xóa log</button>
+        </div>
+      </div>
+
+      <!-- Test Results -->
+      <div class="result-box">
+        <h4>📋 Kết quả Test</h4>
+        <div id="logContainer">
+          <div class="log-entry log-info">
+            Sẵn sàng để test. Click vào tài khoản hoặc nhập thông tin để bắt
+            đầu.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:8080/api/auth/login";
+
+      // Check server status on load
+      window.onload = function () {
+        checkServerStatus();
+      };
+
+      async function checkServerStatus() {
+        const statusEl = document.getElementById("serverStatus");
+        const indicatorEl = document.getElementById("statusIndicator");
+
+        statusEl.textContent = "Đang kiểm tra...";
+        indicatorEl.className = "status-indicator status-offline";
+
+        try {
+          const response = await fetch("http://localhost:8080/", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            statusEl.textContent = `✅ Server đang chạy: ${
+              data.message || "OK"
+            }`;
+            indicatorEl.className = "status-indicator status-online";
+            addLog("Server online tại http://localhost:8080", "success");
+          } else {
+            statusEl.textContent = "⚠️ Server phản hồi nhưng có lỗi";
+            indicatorEl.className = "status-indicator status-offline";
+            addLog("Server phản hồi với status: " + response.status, "warning");
+          }
+        } catch (error) {
+          statusEl.textContent =
+            "❌ Không kết nối được server! Hãy chạy: npm start";
+          indicatorEl.className = "status-indicator status-offline";
+          addLog("Lỗi kết nối: " + error.message, "error");
+        }
+      }
+
+      async function quickLogin(username, password) {
+        document.getElementById("username").value = username;
+        document.getElementById("password").value = password;
+        await testLogin();
+      }
+
+      async function testLogin() {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        if (!username || !password) {
+          addLog("⚠️ Vui lòng nhập username và password", "warning");
+          return;
+        }
+
+        addLog(`🔄 Đang test login với username: "${username}"...`, "info");
+
+        try {
+          const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username, password }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            addLog(`✅ ĐĂNG NHẬP THÀNH CÔNG!`, "success");
+            addLog(
+              `👤 User: ${data.data.user.ho_ten} (${data.data.user.email})`,
+              "success"
+            );
+            addLog(
+              `🎭 Vai trò: ${data.data.user.vai_tro.toUpperCase()}`,
+              "success"
+            );
+            addLog(`🔑 Token: ${data.data.token.substring(0, 30)}...`, "info");
+
+            // Store token
+            localStorage.setItem("test_token", data.data.token);
+            localStorage.setItem("test_user", JSON.stringify(data.data.user));
+            addLog("💾 Token đã được lưu vào localStorage", "info");
+          } else {
+            addLog(`❌ ĐĂNG NHẬP THẤT BẠI: ${data.message}`, "error");
+            addLog(`Status: ${response.status}`, "error");
+          }
+
+          // Show full response
+          addLog("📦 Response đầy đủ:", "info");
+          addLog(JSON.stringify(data, null, 2), "info");
+        } catch (error) {
+          addLog(`❌ LỖI: ${error.message}`, "error");
+          addLog("💡 Tip: Kiểm tra backend có đang chạy không?", "warning");
+        }
+      }
+
+      async function runAllTests() {
+        clearLogs();
+        addLog("🧪 Bắt đầu test tất cả tài khoản...", "info");
+
+        const accounts = [
+          { username: "admin", password: "123456", role: "Admin" },
+          { username: "taixe1", password: "123456", role: "Tài xế" },
+          { username: "ph1", password: "123456", role: "Phụ huynh" },
+          { username: "wronguser", password: "wrongpass", role: "Invalid" },
+        ];
+
+        for (const account of accounts) {
+          addLog(`\n--- Test ${account.role} ---`, "info");
+          document.getElementById("username").value = account.username;
+          document.getElementById("password").value = account.password;
+          await testLogin();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        addLog("\n✅ Hoàn thành tất cả test!", "success");
+      }
+
+      function addLog(message, type = "info") {
+        const container = document.getElementById("logContainer");
+        const entry = document.createElement("div");
+        entry.className = `log-entry log-${type}`;
+        entry.textContent = message;
+        container.appendChild(entry);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      function clearLogs() {
+        document.getElementById("logContainer").innerHTML = "";
+        addLog("🗑️ Log đã được xóa", "info");
+      }
+    </script>
+  </body>
+</html>
