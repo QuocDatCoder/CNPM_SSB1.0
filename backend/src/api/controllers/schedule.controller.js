@@ -7,12 +7,10 @@ const scheduleController = {
       const schedules = await scheduleService.getAllSchedules();
       res.status(200).json(schedules);
     } catch (error) {
-      res
-        .status(500)
-        .json({
-          message: "Lỗi lấy danh sách lịch trình",
-          error: error.message,
-        });
+      res.status(500).json({
+        message: "Lỗi lấy danh sách lịch trình",
+        error: error.message,
+      });
     }
   },
 
@@ -73,16 +71,16 @@ const scheduleController = {
   // 6. Lấy lịch làm việc (App Tài xế xem)
   getMySchedule: async (req, res) => {
     try {
-        const driverId = req.user.id; 
+      const driverId = req.user.id;
 
-        // Gọi Service với ID vừa lấy được
-        const data = await scheduleService.getMySchedule(driverId);
-        
-        res.status(200).json({ success: true, data });
+      // Gọi Service với ID vừa lấy được
+      const data = await scheduleService.getMySchedule(driverId);
+
+      res.status(200).json({ success: true, data });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+      res.status(500).json({ message: error.message });
     }
-},
+  },
 
   // 7. Lấy lịch sử phân công (History Logs)
   getAssignmentHistory: async (req, res) => {
@@ -95,41 +93,74 @@ const scheduleController = {
       const history = await scheduleService.getAssignmentHistory(filters);
       res.status(200).json({ success: true, data: history });
     } catch (error) {
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Lỗi lấy lịch sử",
-          error: error.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Lỗi lấy lịch sử",
+        error: error.message,
+      });
     }
   },
-getMyCurrentStudents: async (req, res) => {
+  getMyCurrentStudents: async (req, res) => {
     try {
-        // Lấy ID từ Token (Middleware đã verify)
-        const driverId = req.user.id;
+      // Lấy ID từ Token (Middleware đã verify)
+      const driverId = req.user.id;
+      // Lấy filter loai_tuyen từ query params (tùy chọn)
+      const loaiTuyen = req.query.loai_tuyen; // 'luot_di' hoặc 'luot_ve'
 
-        const result = await scheduleService.getStudentsForDriverCurrentTrip(driverId);
-        
-        res.status(200).json({ success: true, ...result });
+      const result = await scheduleService.getStudentsForDriverCurrentTrip(
+        driverId,
+        loaiTuyen
+      );
+
+      res.status(200).json({ success: true, ...result });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: error.message });
     }
   },
+
+  // Cập nhật trạng thái học sinh
+  updateStudentStatus: async (req, res) => {
+    try {
+      const { schedule_id, student_id, trang_thai } = req.body;
+
+      if (!schedule_id || !student_id || !trang_thai) {
+        return res.status(400).json({
+          success: false,
+          message: "Thiếu dữ liệu: schedule_id, student_id, trang_thai",
+        });
+      }
+
+      const result = await scheduleService.updateStudentStatus(
+        schedule_id,
+        student_id,
+        trang_thai
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Cập nhật trạng thái học sinh thành công",
+        data: result,
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  },
+
   getParentDashboard: async (req, res) => {
     try {
-        // Lấy ID phụ huynh từ Token
-        const parentId = req.user.id; 
+      // Lấy ID phụ huynh từ Token
+      const parentId = req.user.id;
 
-        const data = await scheduleService.getParentDashboardInfo(parentId);
-        
-        res.status(200).json({ success: true, data });
+      const data = await scheduleService.getParentDashboardInfo(parentId);
+
+      res.status(200).json({ success: true, data });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: error.message });
     }
-},
+  },
 };
-
-
 
 module.exports = scheduleController;

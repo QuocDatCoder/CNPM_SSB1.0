@@ -727,7 +727,7 @@ const getStudentsByScheduleId = async (scheduleId) => {
     throw error;
   }
 };
-const getStudentsForDriverCurrentTrip = async (driverId) => {
+const getStudentsForDriverCurrentTrip = async (driverId, loaiTuyen = null) => {
   try {
     const today = new Date(); // Lấy ngày giờ hiện tại
     const timeNow = today.toTimeString().split(" ")[0]; // "08:30:00"
@@ -748,23 +748,37 @@ const getStudentsForDriverCurrentTrip = async (driverId) => {
       return { message: "Hôm nay tài xế không có lịch chạy nào.", data: [] };
     }
 
+    // 1.5. Filter by loai_tuyen nếu được truyền
+    let filteredSchedules = schedules;
+    if (loaiTuyen) {
+      filteredSchedules = schedules.filter(
+        (s) => s.Route && s.Route.loai_tuyen === loaiTuyen
+      );
+      if (filteredSchedules.length === 0) {
+        return { message: "Không có lịch chạy loại " + loaiTuyen, data: [] };
+      }
+    }
+
     // 2. Thuật toán tìm "Chuyến gần nhất"
     let selectedSchedule = null;
 
     // Ưu tiên 1: Tìm chuyến đang chạy
-    const activeSchedule = schedules.find((s) => s.trang_thai === "dangchay");
+    const activeSchedule = filteredSchedules.find(
+      (s) => s.trang_thai === "dangchay"
+    );
 
     if (activeSchedule) {
       selectedSchedule = activeSchedule;
     } else {
       // Ưu tiên 2: Tìm chuyến sắp chạy (Chưa bắt đầu và Giờ chạy > Giờ hiện tại)
       // Hoặc nếu đã qua hết giờ thì lấy chuyến cuối cùng
-      const upcomingSchedule = schedules.find(
+      const upcomingSchedule = filteredSchedules.find(
         (s) => s.trang_thai === "chuabatdau" && s.gio_bat_dau >= timeNow
       );
 
       // Nếu có chuyến sắp tới thì lấy, không thì lấy chuyến cuối cùng trong ngày (để xem lại)
-      selectedSchedule = upcomingSchedule || schedules[schedules.length - 1];
+      selectedSchedule =
+        upcomingSchedule || filteredSchedules[filteredSchedules.length - 1];
     }
 
     if (!selectedSchedule) {
@@ -880,6 +894,51 @@ const getParentDashboardInfo = async (parentId) => {
     throw error;
   }
 };
+
+// --- HÀM UPDATE STUDENT STATUS ---
+const updateStudentStatus = async (scheduleId, studentId, newStatus) => {
+  try {
+    const scheduleStudent = await ScheduleStudent.findOne({
+      where: {
+        schedule_id: scheduleId,
+        student_id: studentId,
+      },
+    });
+
+    if (!scheduleStudent) {
+      throw new Error("Không tìm thấy học sinh trong chuyến này");
+    }
+
+    // Validate status
+    const validStatuses = ["choxacnhan", "dihoc", "vangmat", "daxuong"];
+    if (!validStatuses.includes(newStatus)) {
+      throw new Error(
+        `Trạng thái không hợp lệ. Phải là một trong: ${validStatuses.join(
+          ", "
+        )}`
+      );
+    }
+
+    await scheduleStudent.update({
+      trang_thai_don: newStatus,
+      thoi_gian_don_thuc_te: newStatus !== "choxacnhan" ? new Date() : null,
+    });
+
+    console.log(
+      `✅ Updated student ${studentId} status to ${newStatus} in schedule ${scheduleId}`
+    );
+
+    return {
+      schedule_id: scheduleId,
+      student_id: studentId,
+      trang_thai: newStatus,
+    };
+  } catch (error) {
+    console.error("Error updating student status:", error);
+    throw error;
+  }
+};
+
 module.exports = {
   createSchedule,
   getAllSchedules,
@@ -890,4 +949,5 @@ module.exports = {
   getMySchedule,
   getStudentsByScheduleId,
   getStudentsForDriverCurrentTrip,
+  updateStudentStatus,
 };

@@ -116,6 +116,62 @@ const StudentService = {
       throw error;
     }
   },
+
+  /**
+   * Lấy danh sách học sinh của lịch trình hiện tại của tài xế
+   * @param {string} loaiTuyen - Loại tuyến: 'luot_di' hoặc 'luot_ve' (tùy chọn)
+   * @returns {Promise<Object>} {current_schedule, students}
+   */
+  async getCurrentScheduleStudents(loaiTuyen = null) {
+    try {
+      // Gọi API từ schedule endpoint chứ không phải students
+      let url = "/schedules/driver/current-students";
+
+      // Thêm query param nếu có loai_tuyen
+      if (loaiTuyen) {
+        url += `?loai_tuyen=${loaiTuyen}`;
+      }
+
+      const response = await api.get(url);
+      console.log("📚 API Response - Current Schedule Students:", response);
+
+      // Response structure:
+      // {
+      //   current_schedule: { id, gio_bat_dau, trang_thai, loai_tuyen },
+      //   students: [ { schedule_id, student_id, trang_thai, ho_ten_hs, ... } ]
+      // }
+
+      return response;
+    } catch (error) {
+      console.error("Error fetching current schedule students:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cập nhật trạng thái học sinh trong lịch trình
+   * @param {number} scheduleId - ID lịch trình
+   * @param {number} studentId - ID học sinh
+   * @param {string} status - Trạng thái mới (choxacnhan, dihoc, vangmat, daxuong)
+   * @returns {Promise<Object>}
+   */
+  async updateStudentStatus(scheduleId, studentId, status) {
+    try {
+      const response = await api.put("/schedules/driver/student-status", {
+        schedule_id: scheduleId,
+        student_id: studentId,
+        trang_thai: status,
+      });
+      console.log(
+        `📝 Updated student ${studentId} status to ${status}:`,
+        response
+      );
+      return response;
+    } catch (error) {
+      console.error("Error updating student status:", error);
+      throw error;
+    }
+  },
 };
 
 export default StudentService;

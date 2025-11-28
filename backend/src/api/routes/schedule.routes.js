@@ -17,12 +17,20 @@ router.get(
   scheduleController.getMySchedule
 );
 
-// 3. Lấy học sinh của chuyến hiện tại
-// Endpoint: GET /api/schedules/driver/current-students
+// 3. Lấy học sinh của chuyến hiện tại (Support filter by loai_tuyen)
+// Endpoint: GET /api/schedules/driver/current-students?loai_tuyen=luot_di
 router.get(
   "/driver/current-students",
   [verifyToken, isDriver],
   scheduleController.getMyCurrentStudents
+);
+
+// 3.5. Cập nhật trạng thái học sinh trong chuyến
+// Endpoint: PUT /api/schedules/driver/student-status
+router.put(
+  "/driver/student-status",
+  [verifyToken, isDriver],
+  scheduleController.updateStudentStatus
 );
 
 // 4. Admin xem lịch tuần của 1 tài xế
@@ -46,12 +54,5 @@ router.put("/:id", scheduleController.updateSchedule);
 // 8. Xóa lịch (Theo ID)
 // Endpoint: DELETE /api/schedules/:id
 router.delete("/:id", scheduleController.deleteSchedule);
-
-// GET http://localhost:8080/api/schedules/driver/current-students
-router.get(
-  "/driver/current-students",
-  [verifyToken, isDriver],
-  scheduleController.getMyCurrentStudents
-);
 
 module.exports = router;
