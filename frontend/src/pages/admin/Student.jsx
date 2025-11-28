@@ -67,6 +67,7 @@ export default function Student() {
         contact: student.sdt_phu_huynh,
         parentEmail: student.email_phu_huynh,
         address: student.dia_chi,
+        username_phu_huynh: student.username_phu_huynh,
       }));
       setStudents(mappedStudents);
     } catch (error) {
@@ -976,22 +977,16 @@ export default function Student() {
                     {isEditMode ? (
                       <input
                         type="text"
-                        value={
-                          editedStudent.username ||
-                          "student" + editedStudent.code
-                        }
+                        value={editedStudent.username_phu_huynh || ""}
                         onChange={(e) =>
                           setEditedStudent({
                             ...editedStudent,
-                            username: e.target.value,
+                            username_phu_huynh: e.target.value,
                           })
                         }
                       />
                     ) : (
-                      <span>
-                        {selectedStudent.username ||
-                          "student" + selectedStudent.code}
-                      </span>
+                      <span>{selectedStudent.username_phu_huynh || "-"}</span>
                     )}
                   </div>
 

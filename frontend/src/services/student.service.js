@@ -36,6 +36,7 @@ const StudentService = {
         sdt_phu_huynh: student.sdt_phu_huynh,
         email_phu_huynh: student.email_phu_huynh,
         dia_chi: student.dia_chi,
+        username_phu_huynh: student.username_phu_huynh,
       }));
     } catch (error) {
       console.error("Error fetching students:", error);
