@@ -1,94 +1,174 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./Assignments.css";
+import ScheduleService from "../../services/schedule.service";
+import useDriverScheduleSocket from "../../hooks/useDriverScheduleSocket";
 
 export default function Assignments() {
   const [viewMode, setViewMode] = useState("day"); // "day" or "week"
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 9, 20)); // Thứ 2, 20/10/2025
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [scheduleData, setScheduleData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Sample schedule data
-  const scheduleData = {
-    "2025-10-20": [
-      {
-        id: 1,
-        type: "morning",
-        title: "Chuyến đi sáng",
-        time: "06:00",
-        route: "Số xe: 29B-12345",
-        startLocation: "KĐT Times City",
-        endLocation: "Trường Vinschool",
-      },
-      {
-        id: 2,
-        type: "afternoon",
-        title: "Chuyến về chiều",
-        time: "16:00",
-        route: "Số xe: 29B-12345",
-        startLocation: "Trường Vinschool",
-        endLocation: "KĐT Times City",
-      },
-    ],
-    "2025-10-21": [
-      {
-        id: 3,
-        type: "morning",
-        title: "Chuyến đi sáng",
-        time: "06:00",
-        route: "Số xe: 29B-12345",
-        startLocation: "KĐT Times City",
-        endLocation: "Trường Vinschool",
-      },
-      {
-        id: 4,
-        type: "afternoon",
-        title: "Chuyến về chiều",
-        time: "16:00",
-        route: "Số xe: 29B-12345",
-        startLocation: "Trường Vinschool",
-        endLocation: "KĐT Times City",
-      },
-    ],
-    "2025-10-22": [
-      {
-        id: 5,
-        type: "morning",
-        title: "Chuyến đi sáng",
-        time: "06:15",
-        route: "Số xe: 29H-67890",
-        startLocation: "KĐT Royal City",
-        endLocation: "Trường Vinschool",
-      },
-      {
-        id: 6,
-        type: "afternoon",
-        title: "Chuyến về chiều",
-        time: "16:00",
-        route: "Số xe: 29B-12345",
-        startLocation: "Trường Vinschool",
-        endLocation: "KĐT Times City",
-      },
-    ],
-    "2025-10-23": [], // Không có chuyến đi
-    "2025-10-24": [
-      {
-        id: 7,
-        type: "morning",
-        title: "Chuyến đi sáng",
-        time: "06:00",
-        route: "Số xe: 29B-12345",
-        startLocation: "KĐT Times City",
-        endLocation: "Trường Vinschool",
-      },
-      {
-        id: 8,
-        type: "afternoon",
-        title: "Chuyến về chiều",
-        time: "16:00",
-        route: "Số xe: 29B-12345",
-        startLocation: "Trường Vinschool",
-        endLocation: "KĐT Times City",
-      },
-    ],
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+
+  // Helper function to normalize date to YYYY-MM-DD format
+  const normalizeDate = (date) => {
+    if (typeof date === "string") {
+      return date.split("T")[0]; // Handle ISO datetime
+    }
+    if (date instanceof Date) {
+      return date.toISOString().split("T")[0];
+    }
+    return date; // Assume already formatted
   };
+
+  // Fetch schedule from backend on mount and when date changes
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      try {
+        setLoading(true);
+        const response = await ScheduleService.getMySchedule();
+        setScheduleData(response);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching schedule:", err);
+        setError("Không thể tải lịch trình");
+        setScheduleData({});
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSchedule();
+  }, []);
+
+  // WebSocket hook để nhận real-time schedule updates
+  useDriverScheduleSocket(
+    user.id,
+    (data) => {
+      // Khi có lịch mới được phân công: cập nhật real-time không cần reload
+      console.log("📢 New schedule assigned:", data);
+      console.log("📢 data.data:", data.data);
+      setScheduleData((prevData) => {
+        const newData = { ...prevData };
+        const schedule = data.data;
+        const dateKey = normalizeDate(schedule.date);
+
+        console.log("📢 dateKey:", dateKey);
+        console.log("📢 schedule:", schedule);
+
+        if (!newData[dateKey]) {
+          newData[dateKey] = [];
+        }
+
+        // Chuẩn hóa data để match với format hiện tại
+        const normalizedSchedule = {
+          id: schedule.id,
+          type: schedule.type === "luot_di" ? "morning" : "afternoon",
+          title:
+            schedule.title ||
+            (schedule.type === "luot_di" ? "Lượt đi" : "Lượt về"),
+          time: schedule.time?.substring(0, 5) || schedule.time,
+          route: schedule.route || "",
+          startLocation: schedule.startLocation || "",
+          endLocation: schedule.endLocation || "",
+          status: schedule.status || "chuabatdau",
+        };
+
+        console.log("📢 normalizedSchedule:", normalizedSchedule);
+
+        // Thêm lịch mới vào danh sách
+        newData[dateKey] = [...newData[dateKey], normalizedSchedule];
+
+        console.log("📢 Updated scheduleData:", newData);
+
+        return newData;
+      });
+    },
+    (data) => {
+      // Khi cập nhật lịch: cập nhật real-time không cần reload
+      console.log("📝 Schedule updated:", data);
+      console.log("📝 data.data:", data.data);
+
+      // Nếu không có data, refetch để đảm bảo UI cập nhật
+      if (!data.data) {
+        console.log("📝 No data received, refetching...");
+        ScheduleService.getMySchedule()
+          .then((response) => {
+            console.log("📝 Refetched schedule data:", response);
+            setScheduleData(response);
+          })
+          .catch((err) => {
+            console.error("❌ Error refetching schedule:", err);
+          });
+        return;
+      }
+
+      // Update state từ socket data
+      setScheduleData((prevData) => {
+        const newData = { ...prevData };
+        const updatedSchedule = data.data;
+        const dateKey = normalizeDate(updatedSchedule.date);
+
+        console.log("📝 dateKey:", dateKey);
+        console.log("📝 Updating schedule with id:", updatedSchedule.id);
+
+        // Chuẩn hóa data
+        const normalizedSchedule = {
+          id: updatedSchedule.id,
+          type: updatedSchedule.type === "luot_di" ? "morning" : "afternoon",
+          title:
+            updatedSchedule.title ||
+            (updatedSchedule.type === "luot_di" ? "Lượt đi" : "Lượt về"),
+          time: updatedSchedule.time?.substring(0, 5) || updatedSchedule.time,
+          route: updatedSchedule.route || "",
+          startLocation: updatedSchedule.startLocation || "",
+          endLocation: updatedSchedule.endLocation || "",
+          status: updatedSchedule.status || "chuabatdau",
+        };
+
+        // Tìm và xóa lịch từ tất cả các ngày (nếu ngày chạy thay đổi)
+        Object.keys(newData).forEach((key) => {
+          newData[key] = newData[key].filter(
+            (s) => s.id !== updatedSchedule.id
+          );
+        });
+
+        // Tạo ngày mới nếu chưa có
+        if (!newData[dateKey]) {
+          newData[dateKey] = [];
+        }
+
+        // Thêm lịch cập nhật vào ngày mới
+        newData[dateKey] = [...newData[dateKey], normalizedSchedule];
+
+        console.log("📝 Updated scheduleData:", newData);
+
+        return newData;
+      });
+    },
+    (data) => {
+      // Khi xóa lịch: cập nhật real-time không cần reload
+      console.log("🗑️ Schedule deleted:", data);
+      console.log("🗑️ scheduleId:", data.scheduleId);
+
+      // Cập nhật state real-time - xóa lịch khỏi tất cả các ngày
+      setScheduleData((prevData) => {
+        const newData = { ...prevData };
+        const scheduleId = data.scheduleId;
+
+        Object.keys(newData).forEach((dateKey) => {
+          newData[dateKey] = newData[dateKey].filter(
+            (schedule) => schedule.id !== scheduleId
+          );
+        });
+
+        console.log("🗑️ Updated scheduleData after deletion:", newData);
+        return newData;
+      });
+    }
+  );
 
   const getWeekDates = (date) => {
     const day = date.getDay();
@@ -223,8 +303,12 @@ export default function Assignments() {
 
           {viewMode === "day" ? (
             <div className="day-view">
-              {todaySchedule.length === 0 ? (
-                <div className="no-schedule">Không có chuyến đi</div>
+              {loading ? (
+                <div className="no-schedule">Đang tải lịch trình...</div>
+              ) : error ? (
+                <div className="no-schedule" style={{ color: "red" }}>
+                  {error}
+                </div>
               ) : (
                 todaySchedule.map((trip) => (
                   <div key={trip.id} className={`trip-card ${trip.type}`}>
@@ -341,59 +425,154 @@ export default function Assignments() {
             </div>
           ) : (
             <div className="week-view">
-              {weekDates.map((date, index) => {
-                const dateKey = formatDateKey(date);
-                const daySchedule = scheduleData[dateKey] || [];
-                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+              {loading ? (
+                <div style={{ textAlign: "center", padding: "40px" }}>
+                  Đang tải lịch trình...
+                </div>
+              ) : error ? (
+                <div
+                  style={{ textAlign: "center", padding: "40px", color: "red" }}
+                >
+                  {error}
+                </div>
+              ) : (
+                <>
+                  {weekDates.map((date, index) => {
+                    const dateKey = formatDateKey(date);
+                    let daySchedule = scheduleData[dateKey] || [];
+                    const isWeekend = date.getDay() === 0; // Chỉ Chủ nhật là ngày nghỉ
 
-                return (
-                  <div
-                    key={index}
-                    className={`week-day-card ${isWeekend ? "weekend" : ""}`}
-                  >
-                    <div className="week-day-header">
-                      <span className="day-name">
-                        {getDayName(date).replace("Thứ ", "Thứ ")}
-                      </span>
-                      <span className="day-date">{formatDate(date)}</span>
-                    </div>
+                    // Sort trips: morning (lượt đi) trước, afternoon (lượt về) sau
+                    daySchedule = daySchedule.sort((a, b) => {
+                      if (a.type === "morning" && b.type === "afternoon")
+                        return -1;
+                      if (a.type === "afternoon" && b.type === "morning")
+                        return 1;
+                      return 0;
+                    });
 
-                    <div className="week-day-content">
-                      {daySchedule.length === 0 ? (
-                        <div className="no-trips">
-                          {isWeekend ? "Ngày nghỉ" : "Không có chuyến đi"}
+                    return (
+                      <div
+                        key={index}
+                        className={`week-day-card ${
+                          isWeekend ? "weekend" : ""
+                        }`}
+                      >
+                        <div className="week-day-header">
+                          <span className="day-name">
+                            {getDayName(date).replace("Thứ ", "Thứ ")}
+                          </span>
+                          <span className="day-date">{formatDate(date)}</span>
                         </div>
-                      ) : (
-                        daySchedule.map((trip) => (
-                          <div
-                            key={trip.id}
-                            className={`week-trip ${trip.type}`}
-                          >
-                            <div className="week-trip-icon">
-                              {trip.type === "morning" ? "☀️" : "🌙"}
-                            </div>
-                            <div className="week-trip-info">
-                              <p className="week-trip-title">{trip.title}</p>
-                              <p className="week-trip-time">{trip.time}</p>
-                              <p className="week-trip-route">{trip.route}</p>
-                              <div className="week-trip-locations">
-                                <div className="week-location">
-                                  <span className="location-dot start-dot"></span>
-                                  <span>{trip.startLocation}</span>
-                                </div>
-                                <div className="week-location">
-                                  <span className="location-dot end-dot"></span>
-                                  <span>{trip.endLocation}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+
+                        <div className="week-day-content">
+                          {isWeekend ? (
+                            <div className="no-trips">Ngày nghỉ</div>
+                          ) : (
+                            <>
+                              {/* Slot cho lượt đi (morning) */}
+                              {(() => {
+                                const morningTrip = daySchedule.find(
+                                  (trip) => trip.type === "morning"
+                                );
+                                return morningTrip ? (
+                                  <div
+                                    key={morningTrip.id}
+                                    className={`week-trip morning`}
+                                  >
+                                    <div className="week-trip-icon">☀️</div>
+                                    <div className="week-trip-info">
+                                      <p className="week-trip-title">
+                                        {morningTrip.title}
+                                      </p>
+                                      <p className="week-trip-time">
+                                        {morningTrip.time}
+                                      </p>
+                                      <p className="week-trip-route">
+                                        {morningTrip.route}
+                                      </p>
+                                      <div className="week-trip-locations">
+                                        <div className="week-location">
+                                          <span className="location-dot start-dot"></span>
+                                          <span>
+                                            {morningTrip.startLocation}
+                                          </span>
+                                        </div>
+                                        <div className="week-location">
+                                          <span className="location-dot end-dot"></span>
+                                          <span>{morningTrip.endLocation}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="week-trip-placeholder">
+                                    <div className="week-trip-icon">☀️</div>
+                                    <div className="week-trip-info">
+                                      <p className="week-trip-title">
+                                        Chưa có lịch lượt đi
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Slot cho lượt về (afternoon) */}
+                              {(() => {
+                                const afternoonTrip = daySchedule.find(
+                                  (trip) => trip.type === "afternoon"
+                                );
+                                return afternoonTrip ? (
+                                  <div
+                                    key={afternoonTrip.id}
+                                    className={`week-trip afternoon`}
+                                  >
+                                    <div className="week-trip-icon">🌙</div>
+                                    <div className="week-trip-info">
+                                      <p className="week-trip-title">
+                                        {afternoonTrip.title}
+                                      </p>
+                                      <p className="week-trip-time">
+                                        {afternoonTrip.time}
+                                      </p>
+                                      <p className="week-trip-route">
+                                        {afternoonTrip.route}
+                                      </p>
+                                      <div className="week-trip-locations">
+                                        <div className="week-location">
+                                          <span className="location-dot start-dot"></span>
+                                          <span>
+                                            {afternoonTrip.startLocation}
+                                          </span>
+                                        </div>
+                                        <div className="week-location">
+                                          <span className="location-dot end-dot"></span>
+                                          <span>
+                                            {afternoonTrip.endLocation}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="week-trip-placeholder">
+                                    <div className="week-trip-icon">🌙</div>
+                                    <div className="week-trip-info">
+                                      <p className="week-trip-title">
+                                        Chưa có lịch lượt về
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
         </div>

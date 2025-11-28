@@ -173,6 +173,62 @@ const createSchedule = async (data) => {
     console.error("❌ Lỗi ghi log:", err);
   }
 
+  // E. Emit WebSocket event cho tài xế (real-time notification)
+  console.log(
+    `[DEBUG] Checking WebSocket emit: driver_id=${
+      newSchedule.driver_id
+    }, global.io=${!!global.io}`
+  );
+
+  if (newSchedule.driver_id && global.io) {
+    try {
+      // Prepare schedule data for driver
+      const scheduleWithDetails = await Schedule.findByPk(newSchedule.id, {
+        include: [
+          { model: Route, attributes: ["ten_tuyen", "loai_tuyen"] },
+          { model: Bus, attributes: ["bien_so_xe"] },
+        ],
+      });
+
+      const locations = await getStartEndLocation(newSchedule.route_id);
+
+      const scheduleHandler = require("../sockets/schedule.handler");
+      console.log(
+        `[DEBUG] About to call notifyDriverNewSchedule for driver ${newSchedule.driver_id}`
+      );
+
+      scheduleHandler.notifyDriverNewSchedule(
+        global.io,
+        newSchedule.driver_id,
+        {
+          id: newSchedule.id,
+          date: data.ngay_chay,
+          time: data.gio_bat_dau,
+          route: scheduleWithDetails.Route?.ten_tuyen,
+          type: scheduleWithDetails.Route?.loai_tuyen,
+          bus: scheduleWithDetails.Bus?.bien_so_xe,
+          startLocation: locations.start,
+          endLocation: locations.end,
+          title:
+            scheduleWithDetails.Route?.loai_tuyen === "luot_di"
+              ? "Lượt đi"
+              : "Lượt về",
+        }
+      );
+      console.log(
+        `📢 WebSocket notification sent to driver ${newSchedule.driver_id}`
+      );
+    } catch (err) {
+      console.error("❌ Lỗi emit WebSocket:", err);
+    }
+  } else {
+    console.log(
+      `[DEBUG] WebSocket emit skipped - driver_id: ${
+        newSchedule.driver_id
+      }, has io: ${!!global.io}`
+    );
+  }
+
   return newSchedule;
 };
 
@@ -260,6 +316,106 @@ const updateSchedule = async (id, data) => {
     console.error("❌ Lỗi ghi log update:", e);
   }
 
+  // Emit WebSocket event cho tài xế (real-time notification khi update)
+  // Cần emit cho cả tài xế cũ (delete lịch) và tài xế mới (thêm lịch)
+  const oldDriverId = schedule.driver_id; // Tài xế cũ
+  const newDriverId = data.driver_id || schedule.driver_id; // Tài xế mới (default là tài xế cũ)
+
+  console.log(
+    `[DEBUG] updateSchedule - oldDriverId: ${oldDriverId}, newDriverId: ${newDriverId}, global.io: ${!!global.io}`
+  );
+
+  if (global.io) {
+    try {
+      // Prepare updated schedule data for driver
+      const updatedSchedule = await Schedule.findByPk(id, {
+        include: [
+          { model: Route, attributes: ["ten_tuyen", "loai_tuyen"] },
+          { model: Bus, attributes: ["bien_so_xe"] },
+        ],
+      });
+
+      const locations = await getStartEndLocation(updatedSchedule.route_id);
+
+      const scheduleHandler = require("../sockets/schedule.handler");
+
+      // Normalize date: if it's already a string, use it; if it's a Date, convert to ISO
+      let dateStr = updatedSchedule.ngay_chay;
+      if (dateStr instanceof Date) {
+        dateStr = dateStr.toISOString().split("T")[0];
+      } else if (typeof dateStr === "string" && dateStr.includes("T")) {
+        dateStr = dateStr.split("T")[0];
+      }
+
+      const updateData = {
+        id: updatedSchedule.id,
+        date: dateStr, // Format YYYY-MM-DD
+        time: updatedSchedule.gio_bat_dau,
+        route: updatedSchedule.Route?.ten_tuyen,
+        type: updatedSchedule.Route?.loai_tuyen,
+        bus: updatedSchedule.Bus?.bien_so_xe,
+        startLocation: locations.start,
+        endLocation: locations.end,
+        title:
+          updatedSchedule.Route?.loai_tuyen === "luot_di"
+            ? "Lượt đi"
+            : "Lượt về",
+      };
+
+      // Nếu tài xế thay đổi, emit delete event cho tài xế cũ
+      if (oldDriverId && newDriverId && oldDriverId !== newDriverId) {
+        console.log(
+          `[DEBUG] Driver changed from ${oldDriverId} to ${newDriverId}`
+        );
+        scheduleHandler.notifyDriverScheduleDeleted(global.io, oldDriverId, id);
+        console.log(
+          `📢 WebSocket delete notification sent to old driver ${oldDriverId}`
+        );
+      }
+
+      // Emit update event cho tài xế mới (luôn emit)
+      if (newDriverId) {
+        console.log(
+          `[DEBUG] Calling notifyDriverScheduleUpdate with:`,
+          updateData
+        );
+        scheduleHandler.notifyDriverScheduleUpdate(
+          global.io,
+          newDriverId,
+          updateData
+        );
+        console.log(
+          `📢 WebSocket update notification sent to driver ${newDriverId}`
+        );
+      } else {
+        console.log(`[DEBUG] No newDriverId to emit update`);
+      }
+
+      // Broadcast update event cho admin dashboard
+      if (global.io) {
+        const room = global.io.sockets.adapter.rooms.get("admin-schedule");
+        const clientCount = room ? room.size : 0;
+        console.log(`[DEBUG] Broadcasting to admin-schedule - clients: ${clientCount}`);
+        global.io.to("admin-schedule").emit("schedule-updated", {
+          id,
+          route_id: data.route_id,
+          driver_id: newDriverId,
+          bus_id: data.bus_id,
+          createDate: normalizeDate(data.createDate),
+          shift: data.shift,
+          start: normalizeTime(data.start || schedule.gio_bat_dau),
+        });
+        console.log(`📢 Admin broadcast sent for schedule update ${id}`);
+      } else {
+        console.log("❌ global.io not available for admin broadcast");
+      }
+    } catch (err) {
+      console.error("❌ Lỗi emit WebSocket update:", err);
+    }
+  } else {
+    console.log(`[DEBUG] Skipping WebSocket update - has io: ${!!global.io}`);
+  }
+
   return schedule;
 };
 
@@ -270,6 +426,8 @@ const deleteSchedule = async (id) => {
 
   const route = await Route.findByPk(schedule.route_id);
   const ngayChay = schedule.ngay_chay;
+  const driverId = schedule.driver_id;
+
   await schedule.destroy();
 
   // Ghi log xóa
@@ -290,9 +448,45 @@ const deleteSchedule = async (id) => {
     console.error("❌ Lỗi ghi log xóa:", err);
   }
 
+  // Emit WebSocket event cho tài xế (real-time notification khi delete)
+  console.log(
+    `[DEBUG] deleteSchedule - driverId: ${driverId}, scheduleId: ${id}, global.io: ${!!global.io}`
+  );
+
+  if (driverId && global.io) {
+    try {
+      const scheduleHandler = require("../sockets/schedule.handler");
+      console.log(
+        `[DEBUG] Calling notifyDriverScheduleDeleted with driverId: ${driverId}, scheduleId: ${id}`
+      );
+      scheduleHandler.notifyDriverScheduleDeleted(global.io, driverId, id);
+      console.log(
+        `📢 WebSocket delete notification sent to driver ${driverId}`
+      );
+
+      // Broadcast delete event cho admin dashboard
+      if (global.io) {
+        const room = global.io.sockets.adapter.rooms.get("admin-schedule");
+        const clientCount = room ? room.size : 0;
+        console.log(`[DEBUG] Broadcasting to admin-schedule - clients: ${clientCount}`);
+        global.io.to("admin-schedule").emit("schedule-deleted", {
+          scheduleId: id,
+        });
+        console.log(`📢 Admin broadcast sent for schedule deletion ${id}`);
+      } else {
+        console.log("❌ global.io not available for admin broadcast");
+      }
+    } catch (err) {
+      console.error("❌ Lỗi emit WebSocket delete:", err);
+    }
+  } else {
+    console.log(
+      `[DEBUG] Skipping WebSocket delete - driverId: ${driverId}, has io: ${!!global.io}`
+    );
+  }
+
   return true;
 };
-
 
 const getDriverWeekSchedule = async (driverId) => {
   // 1. Xác định tuần hiện tại
@@ -431,155 +625,156 @@ const getAssignmentHistory = async (filters) => {
 };
 // 8. Lấy danh sách học sinh theo lịch trình (Cho Tài xế xem danh sách đón)
 const getStudentsByScheduleId = async (scheduleId) => {
-    try {
-        // 1. Lấy thông tin chuyến đi để biết nó thuộc Route nào
-        const schedule = await Schedule.findByPk(scheduleId);
-        if (!schedule) throw new Error("Chuyến đi không tồn tại");
+  try {
+    // 1. Lấy thông tin chuyến đi để biết nó thuộc Route nào
+    const schedule = await Schedule.findByPk(scheduleId);
+    if (!schedule) throw new Error("Chuyến đi không tồn tại");
 
-        // 2. Lấy thứ tự các trạm của Route đó (Để sắp xếp danh sách đón)
-        const routeStops = await RouteStop.findAll({
-            where: { route_id: schedule.route_id },
-            order: [['thu_tu', 'ASC']]
-        });
-        
-        // Tạo map để tra cứu thứ tự: { stop_id: thu_tu }
-        // Ví dụ: { 10: 1, 15: 2 } (Trạm ID 10 là trạm số 1...)
-        const stopOrderMap = {};
-        routeStops.forEach(rs => {
-            stopOrderMap[rs.stop_id] = rs.thu_tu;
-        });
+    // 2. Lấy thứ tự các trạm của Route đó (Để sắp xếp danh sách đón)
+    const routeStops = await RouteStop.findAll({
+      where: { route_id: schedule.route_id },
+      order: [["thu_tu", "ASC"]],
+    });
 
-        // 3. Lấy danh sách học sinh trong chuyến này
-        const scheduleStudents = await ScheduleStudent.findAll({
-            where: { schedule_id: scheduleId },
-            include: [
-                { 
-                    model: Student,
-                    attributes: ['id', 'ho_ten', 'lop', 'gioi_tinh', 'ngay_sinh'],
-                    include: [{ 
-                        model: User, as: 'parent', 
-                        attributes: ['ho_ten', 'so_dien_thoai'] // Lấy SĐT để tài xế gọi khi cần
-                    }]
-                },
-                {
-                    model: Stop,
-                    attributes: ['id', 'ten_diem', 'dia_chi', 'latitude', 'longitude']
-                },
-                {
-                  model: Schedule,
-                  include: [{ model: Route, 
-                    attributes: ['id', 'ten_tuyen', 'loai_tuyen']
-                  }]
-                }
-                
-            ]
-        });
+    // Tạo map để tra cứu thứ tự: { stop_id: thu_tu }
+    // Ví dụ: { 10: 1, 15: 2 } (Trạm ID 10 là trạm số 1...)
+    const stopOrderMap = {};
+    routeStops.forEach((rs) => {
+      stopOrderMap[rs.stop_id] = rs.thu_tu;
+    });
 
-        // 4. Format dữ liệu và Sắp xếp theo thứ tự trạm
-        const result = scheduleStudents.map(item => ({
-            // Thông tin điểm danh (để gọi API update status)
-            schedule_id: item.schedule_id,
-            student_id: item.student_id,
-            trang_thai: item.trang_thai_don, // 'choxacnhan', 'dihoc'...
+    // 3. Lấy danh sách học sinh trong chuyến này
+    const scheduleStudents = await ScheduleStudent.findAll({
+      where: { schedule_id: scheduleId },
+      include: [
+        {
+          model: Student,
+          attributes: ["id", "ho_ten", "lop", "gioi_tinh", "ngay_sinh"],
+          include: [
+            {
+              model: User,
+              as: "parent",
+              attributes: ["ho_ten", "so_dien_thoai"], // Lấy SĐT để tài xế gọi khi cần
+            },
+          ],
+        },
+        {
+          model: Stop,
+          attributes: ["id", "ten_diem", "dia_chi", "latitude", "longitude"],
+        },
+        {
+          model: Schedule,
+          include: [
+            { model: Route, attributes: ["id", "ten_tuyen", "loai_tuyen"] },
+          ],
+        },
+      ],
+    });
 
-            // Thông tin hiển thị
-            ho_ten_hs: item.Student.ho_ten,
-            lop: item.Student.lop,
-            gioi_tinh: item.Student.gioi_tinh,
-            
-            // Thông tin phụ huynh (để gọi điện)
-            phu_huynh: item.Student.parent ? item.Student.parent.ho_ten : "",
-            sdt_ph: item.Student.parent ? item.Student.parent.so_dien_thoai : "",
+    // 4. Format dữ liệu và Sắp xếp theo thứ tự trạm
+    const result = scheduleStudents.map((item) => ({
+      // Thông tin điểm danh (để gọi API update status)
+      schedule_id: item.schedule_id,
+      student_id: item.student_id,
+      trang_thai: item.trang_thai_don, // 'choxacnhan', 'dihoc'...
 
-            // Thông tin điểm đón
-            ten_tram: item.Stop.ten_diem,
-            dia_chi_tram: item.Stop.dia_chi,
-            toa_do: [parseFloat(item.Stop.latitude), parseFloat(item.Stop.longitude)],
-            diem_don: item.ten_diem,
-            
-            // Thứ tự đón (Dùng để sort)
-            thu_tu_don: stopOrderMap[item.stop_id] || 999
-        }));
+      // Thông tin hiển thị
+      ho_ten_hs: item.Student.ho_ten,
+      lop: item.Student.lop,
+      gioi_tinh: item.Student.gioi_tinh,
 
-        // Sắp xếp: Ai đón trạm đầu thì hiện lên trước
-        result.sort((a, b) => a.thu_tu_don - b.thu_tu_don);
+      // Thông tin phụ huynh (để gọi điện)
+      phu_huynh: item.Student.parent ? item.Student.parent.ho_ten : "",
+      sdt_ph: item.Student.parent ? item.Student.parent.so_dien_thoai : "",
 
-        return result;
+      // Thông tin điểm đón
+      ten_tram: item.Stop.ten_diem,
+      dia_chi_tram: item.Stop.dia_chi,
+      toa_do: [parseFloat(item.Stop.latitude), parseFloat(item.Stop.longitude)],
+      diem_don: item.ten_diem,
 
-    } catch (error) {
-        throw error;
-    }
+      // Thứ tự đón (Dùng để sort)
+      thu_tu_don: stopOrderMap[item.stop_id] || 999,
+    }));
+
+    // Sắp xếp: Ai đón trạm đầu thì hiện lên trước
+    result.sort((a, b) => a.thu_tu_don - b.thu_tu_don);
+
+    return result;
+  } catch (error) {
+    throw error;
+  }
 };
 const getStudentsForDriverCurrentTrip = async (driverId) => {
-    try {
-        const today = new Date(); // Lấy ngày giờ hiện tại
-        const timeNow = today.toTimeString().split(' ')[0]; // "08:30:00"
+  try {
+    const today = new Date(); // Lấy ngày giờ hiện tại
+    const timeNow = today.toTimeString().split(" ")[0]; // "08:30:00"
 
-        // 1. Tìm tất cả lịch hôm nay của tài xế
-        const schedules = await Schedule.findAll({
-            where: {
-                driver_id: driverId,
-                ngay_chay: today
-            },
-            include: [
-             { model: Route }  // thêm include Route để lấy loai_tuyen
-          ],
-            order: [['gio_bat_dau', 'ASC']]
-        });
+    // 1. Tìm tất cả lịch hôm nay của tài xế
+    const schedules = await Schedule.findAll({
+      where: {
+        driver_id: driverId,
+        ngay_chay: today,
+      },
+      include: [
+        { model: Route }, // thêm include Route để lấy loai_tuyen
+      ],
+      order: [["gio_bat_dau", "ASC"]],
+    });
 
-        if (!schedules || schedules.length === 0) {
-            return { message: "Hôm nay tài xế không có lịch chạy nào.", data: [] };
-        }
-
-        // 2. Thuật toán tìm "Chuyến gần nhất"
-        let selectedSchedule = null;
-
-        // Ưu tiên 1: Tìm chuyến đang chạy
-        const activeSchedule = schedules.find(s => s.trang_thai === 'dangchay');
-        
-        if (activeSchedule) {
-            selectedSchedule = activeSchedule;
-        } else {
-            // Ưu tiên 2: Tìm chuyến sắp chạy (Chưa bắt đầu và Giờ chạy > Giờ hiện tại)
-            // Hoặc nếu đã qua hết giờ thì lấy chuyến cuối cùng
-            const upcomingSchedule = schedules.find(s => 
-                s.trang_thai === 'chuabatdau' && s.gio_bat_dau >= timeNow
-            );
-            
-            // Nếu có chuyến sắp tới thì lấy, không thì lấy chuyến cuối cùng trong ngày (để xem lại)
-            selectedSchedule = upcomingSchedule || schedules[schedules.length - 1];
-        }
-
-        if (!selectedSchedule) {
-             return { message: "Không tìm thấy chuyến phù hợp.", data: [] };
-        }
-
-        // 3. Tái sử dụng hàm lấy học sinh cũ để lấy danh sách
-        const students = await getStudentsByScheduleId(selectedSchedule.id);
-
-        return {
-            current_schedule: {
-                id: selectedSchedule.id,
-                gio_bat_dau: selectedSchedule.gio_bat_dau,
-                trang_thai: selectedSchedule.trang_thai,
-                loai_tuyen: selectedSchedule.Route ? selectedSchedule.Route.loai_tuyen : null,
-
-            },
-            students: students
-        };
-
-    } catch (error) {
-        throw error;
+    if (!schedules || schedules.length === 0) {
+      return { message: "Hôm nay tài xế không có lịch chạy nào.", data: [] };
     }
+
+    // 2. Thuật toán tìm "Chuyến gần nhất"
+    let selectedSchedule = null;
+
+    // Ưu tiên 1: Tìm chuyến đang chạy
+    const activeSchedule = schedules.find((s) => s.trang_thai === "dangchay");
+
+    if (activeSchedule) {
+      selectedSchedule = activeSchedule;
+    } else {
+      // Ưu tiên 2: Tìm chuyến sắp chạy (Chưa bắt đầu và Giờ chạy > Giờ hiện tại)
+      // Hoặc nếu đã qua hết giờ thì lấy chuyến cuối cùng
+      const upcomingSchedule = schedules.find(
+        (s) => s.trang_thai === "chuabatdau" && s.gio_bat_dau >= timeNow
+      );
+
+      // Nếu có chuyến sắp tới thì lấy, không thì lấy chuyến cuối cùng trong ngày (để xem lại)
+      selectedSchedule = upcomingSchedule || schedules[schedules.length - 1];
+    }
+
+    if (!selectedSchedule) {
+      return { message: "Không tìm thấy chuyến phù hợp.", data: [] };
+    }
+
+    // 3. Tái sử dụng hàm lấy học sinh cũ để lấy danh sách
+    const students = await getStudentsByScheduleId(selectedSchedule.id);
+
+    return {
+      current_schedule: {
+        id: selectedSchedule.id,
+        gio_bat_dau: selectedSchedule.gio_bat_dau,
+        trang_thai: selectedSchedule.trang_thai,
+        loai_tuyen: selectedSchedule.Route
+          ? selectedSchedule.Route.loai_tuyen
+          : null,
+      },
+      students: students,
+    };
+  } catch (error) {
+    throw error;
+  }
 };
 module.exports = {
   createSchedule,
   getAllSchedules,
   updateSchedule,
   deleteSchedule,
-  getAssignmentHistory, 
-  getDriverWeekSchedule, 
-  getMySchedule, 
+  getAssignmentHistory,
+  getDriverWeekSchedule,
+  getMySchedule,
   getStudentsByScheduleId,
-  getStudentsForDriverCurrentTrip
+  getStudentsForDriverCurrentTrip,
 };

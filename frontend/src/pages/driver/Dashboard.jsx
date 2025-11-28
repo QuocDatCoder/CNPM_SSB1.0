@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -15,6 +15,8 @@ import Students from "./Students";
 import Notifications from "./Notifications";
 import "./Dashboard.css";
 import drivers from "../../data/drivers";
+import ScheduleService from "../../services/schedule.service";
+import useDriverScheduleSocket from "../../hooks/useDriverScheduleSocket";
 
 // Fix leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -38,85 +40,224 @@ function Home() {
   const [tripStarted, setTripStarted] = useState(false);
   const [activeTrip, setActiveTrip] = useState(null);
   const [selectedStation, setSelectedStation] = useState(0);
+  const [assignedRoutes, setAssignedRoutes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Current driver info (replace with real auth data)
+  // Get current driver info
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const driver = {
-    fullname: "Nguyễn Văn A",
-    date: "Thứ Hai, 28/10/2024",
+    fullname: user.ten_tai_xe || user.name || "Tài xế",
+    date: new Date().toLocaleDateString("vi-VN", {
+      weekday: "long",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }),
   };
 
-  // Sample assigned routes with map coordinates
-  const assignedRoutes = [
-    {
-      id: 1,
-      shift: "Sáng",
-      name: "Tuyến đi buổi sáng",
-      time: "07:00",
-      startTime: "Lộ trạm đầu tiên: 07:00",
-      school: "Trường ABC",
-      students: 30,
-      type: "morning",
-      coordinates: [
-        [10.762622, 106.660172],
-        [10.771513, 106.677887],
-        [10.773431, 106.688034],
-        [10.776889, 106.700928],
-      ],
-      stations: [
-        {
-          id: 1,
-          name: "Đại học Sài Gòn",
-          time: "6:30 - 6:45",
-          status: "completed",
-        },
-        { id: 2, name: "KTX Khu B", time: "07:00 - 07:45", status: "active" },
-        {
-          id: 3,
-          name: "Chợ Thủ Đức",
-          time: "Dự kiến đến: 4 học sinh",
-          status: "pending",
-        },
-        {
-          id: 4,
-          name: "Nơi từ Gò Dưa",
-          time: "Dự kiến đến: 4 học sinh",
-          status: "pending",
-        },
-      ],
+  // Fetch today's schedule from backend
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      try {
+        setLoading(true);
+        console.log("🔍 Fetching schedule for driver:", user);
+        console.log(
+          "🔍 Token in sessionStorage:",
+          sessionStorage.getItem("token")
+        );
+        const response = await ScheduleService.getMySchedule();
+
+        console.log("✅ Schedule response:", response);
+
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split("T")[0];
+        const todaySchedules = response[today] || [];
+
+        // Transform backend data to component format
+        const routes = todaySchedules.map((schedule) => ({
+          id: schedule.id,
+          shift: schedule.type === "morning" ? "Sáng" : "Chiều",
+          name:
+            schedule.title ||
+            (schedule.type === "morning"
+              ? "Lượt đi buổi sáng"
+              : "Lượt về buổi chiều"),
+          time: schedule.time,
+          startTime: `Lộ trạm đầu tiên: ${schedule.time}`,
+          school: schedule.endLocation || "Trường học",
+          students: 0, // Will be updated if we fetch student list
+          type: schedule.type,
+          route: schedule.route || "",
+          startLocation: schedule.startLocation || "",
+          endLocation: schedule.endLocation || "",
+          status: schedule.status || "chuabatdau",
+          coordinates: [
+            [10.762622, 106.660172],
+            [10.771513, 106.677887],
+            [10.773431, 106.688034],
+            [10.776889, 106.700928],
+          ],
+          stations: [
+            {
+              id: 1,
+              name: schedule.startLocation || "Điểm khởi hành",
+              time: `${schedule.time}`,
+              status: "pending",
+            },
+            {
+              id: 2,
+              name: schedule.endLocation || "Điểm kết thúc",
+              time: "Dự kiến đến",
+              status: "pending",
+            },
+          ],
+        }));
+
+        setAssignedRoutes(routes);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching schedule:", err);
+        setError("Không thể tải lịch trình. Vui lòng thử lại.");
+        // Set empty routes on error instead of showing hardcoded data
+        setAssignedRoutes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSchedule();
+  }, []);
+
+  // WebSocket hook để nhận real-time schedule updates
+  useDriverScheduleSocket(
+    user.id,
+    (data) => {
+      // Khi có lịch mới được phân công: cập nhật real-time không cần reload
+      console.log("📢 New schedule notification:", data);
+
+      const schedule = data.data;
+      const today = new Date().toISOString().split("T")[0];
+
+      if (schedule.date === today) {
+        // Cập nhật state routes với lịch mới mà không reload
+        setAssignedRoutes((prevRoutes) => [
+          ...prevRoutes,
+          {
+            id: schedule.id,
+            shift: schedule.type === "luot_di" ? "Sáng" : "Chiều",
+            name:
+              schedule.title ||
+              (schedule.type === "luot_di"
+                ? "Lượt đi buổi sáng"
+                : "Lượt về buổi chiều"),
+            time: schedule.time?.substring(0, 5) || schedule.time,
+            startTime: `Lộ trạm đầu tiên: ${
+              schedule.time?.substring(0, 5) || schedule.time
+            }`,
+            school: schedule.endLocation || "Trường học",
+            students: 0,
+            type: schedule.type === "luot_di" ? "morning" : "afternoon",
+            route: schedule.route || "",
+            startLocation: schedule.startLocation || "",
+            endLocation: schedule.endLocation || "",
+            status: schedule.status || "chuabatdau",
+            coordinates: [
+              [10.762622, 106.660172],
+              [10.771513, 106.677887],
+              [10.773431, 106.688034],
+              [10.776889, 106.700928],
+            ],
+            stations: [
+              {
+                id: 1,
+                name: schedule.startLocation || "Điểm khởi hành",
+                time: `${schedule.time?.substring(0, 5) || schedule.time}`,
+                status: "pending",
+              },
+              {
+                id: 2,
+                name: schedule.endLocation || "Điểm kết thúc",
+                time: "Dự kiến đến",
+                status: "pending",
+              },
+            ],
+          },
+        ]);
+      }
     },
-    {
-      id: 2,
-      shift: "Chiều",
-      name: "Tuyến về buổi chiều",
-      time: "16:30",
-      startTime: "Lộ trạm đầu tiên: 16:30",
-      school: "Trường ABC",
-      students: 30,
-      type: "afternoon",
-      coordinates: [
-        [10.776889, 106.700928],
-        [10.773431, 106.688034],
-        [10.771513, 106.677887],
-        [10.762622, 106.660172],
-      ],
-      stations: [
-        { id: 1, name: "Trường ABC", time: "16:30 - 16:45", status: "pending" },
-        {
-          id: 2,
-          name: "Chợ Thủ Đức",
-          time: "16:50 - 17:00",
-          status: "pending",
-        },
-        { id: 3, name: "KTX Khu B", time: "17:05 - 17:15", status: "pending" },
-        {
-          id: 4,
-          name: "Đại học Sài Gòn",
-          time: "17:20 - 17:30",
-          status: "pending",
-        },
-      ],
+    (data) => {
+      // Khi lịch được cập nhật: cập nhật real-time không cần reload
+      console.log("📝 Schedule update notification:", data);
+
+      const schedule = data.data;
+      const today = new Date().toISOString().split("T")[0];
+
+      if (schedule.date === today) {
+        // Nếu là hôm nay thì update trực tiếp
+        setAssignedRoutes((prevRoutes) => {
+          // Xóa lịch cũ ra khỏi danh sách
+          const filtered = prevRoutes.filter(
+            (route) => route.id !== schedule.id
+          );
+
+          // Thêm lịch cập nhật vào
+          return [
+            ...filtered,
+            {
+              id: schedule.id,
+              shift: schedule.type === "luot_di" ? "Sáng" : "Chiều",
+              name:
+                schedule.title ||
+                (schedule.type === "luot_di"
+                  ? "Lượt đi buổi sáng"
+                  : "Lượt về buổi chiều"),
+              time: schedule.time?.substring(0, 5) || schedule.time,
+              startTime: `Lộ trạm đầu tiên: ${
+                schedule.time?.substring(0, 5) || schedule.time
+              }`,
+              school: schedule.endLocation || "Trường học",
+              students: 0,
+              type: schedule.type === "luot_di" ? "morning" : "afternoon",
+              route: schedule.route || "",
+              startLocation: schedule.startLocation || "",
+              endLocation: schedule.endLocation || "",
+              status: schedule.status || "chuabatdau",
+              coordinates: [
+                [10.762622, 106.660172],
+                [10.771513, 106.677887],
+                [10.773431, 106.688034],
+                [10.776889, 106.700928],
+              ],
+              stations: [
+                {
+                  id: 1,
+                  name: schedule.startLocation || "Điểm khởi hành",
+                  time: `${schedule.time?.substring(0, 5) || schedule.time}`,
+                  status: "pending",
+                },
+                {
+                  id: 2,
+                  name: schedule.endLocation || "Điểm kết thúc",
+                  time: "Dự kiến đến",
+                  status: "pending",
+                },
+              ],
+            },
+          ];
+        });
+      }
     },
-  ];
+    (data) => {
+      // Khi lịch bị xóa: cập nhật real-time không cần reload
+      console.log("🗑️ Schedule delete notification:", data);
+
+      const scheduleId = data.scheduleId;
+      setAssignedRoutes((prevRoutes) =>
+        prevRoutes.filter((route) => route.id !== scheduleId)
+      );
+    }
+  );
 
   const handleStartTrip = (route) => {
     setActiveTrip(route);
@@ -273,36 +414,59 @@ function Home() {
           <div className="assigned-routes-section-driver">
             <h3>Các chuyến đi được phân công hôm nay</h3>
 
-            <div className="routes-cards-driver">
-              {assignedRoutes.map((route) => (
-                <div key={route.id} className="route-card-driver">
-                  <div className="status-routes-cards-driver">Sắp tới</div>
-                  <div className="route-card-header-driver">
-                    <span className={`shift-badge-driver ${route.type}`}>
-                      {route.shift}
-                    </span>
-                    <h4>{route.name}</h4>
-                  </div>
+            {loading ? (
+              <div
+                className="loading-container"
+                style={{ padding: "40px", textAlign: "center" }}
+              >
+                <p>Đang tải lịch trình...</p>
+              </div>
+            ) : error ? (
+              <div
+                className="error-container"
+                style={{ padding: "20px", color: "red", textAlign: "center" }}
+              >
+                <p>{error}</p>
+              </div>
+            ) : assignedRoutes.length === 0 ? (
+              <div
+                className="no-data-container"
+                style={{ padding: "40px", textAlign: "center", color: "#999" }}
+              >
+                <p>Hôm nay không có chuyến đi được phân công</p>
+              </div>
+            ) : (
+              <div className="routes-cards-driver">
+                {assignedRoutes.map((route) => (
+                  <div key={route.id} className="route-card-driver">
+                    <div className="status-routes-cards-driver">Sắp tới</div>
+                    <div className="route-card-header-driver">
+                      <span className={`shift-badge-driver ${route.type}`}>
+                        {route.shift}
+                      </span>
+                      <h4>{route.name}</h4>
+                    </div>
 
-                  <div className="route-card-body-driver">
-                    <p className="route-info-driver">
-                      <strong>Thời gian đầu tiên:</strong> {route.startTime}. Lộ
-                      trạm: đến xe ⇨ {route.school}
-                    </p>
-                    <p className="route-info-driver">
-                      Số học sinh trên chuyến: {route.students}
-                    </p>
-                  </div>
+                    <div className="route-card-body-driver">
+                      <p className="route-info-driver">
+                        <strong>Thời gian đầu tiên:</strong> {route.startTime}.
+                        Lộ trạm: đến xe ⇨ {route.school}
+                      </p>
+                      <p className="route-info-driver">
+                        Số học sinh trên chuyến: {route.students}
+                      </p>
+                    </div>
 
-                  <button
-                    className="btn-start-route-driver"
-                    onClick={() => handleStartTrip(route)}
-                  >
-                    Bắt đầu chuyến đi
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <button
+                      className="btn-start-route-driver"
+                      onClick={() => handleStartTrip(route)}
+                    >
+                      Bắt đầu chuyến đi
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right: Route Overview Map */}

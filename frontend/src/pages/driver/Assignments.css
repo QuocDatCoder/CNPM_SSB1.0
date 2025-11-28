@@ -361,6 +361,24 @@
   background: #f5f3ff;
 }
 
+.week-trip-placeholder {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 12px;
+  border-left: 3px solid #d1d5db;
+  opacity: 0.6;
+  height: 152.4px;
+}
+
+.week-trip-placeholder .week-trip-icon {
+  opacity: 0.4;
+}
+
+.week-trip-placeholder .week-trip-title {
+  color: #9ca3af;
+  font-style: italic;
+}
+
 .week-trip-icon {
   font-size: 20px;
   margin-bottom: 8px;

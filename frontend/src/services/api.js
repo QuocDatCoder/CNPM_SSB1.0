@@ -9,11 +9,19 @@ class ApiClient {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+
+    // Auto attach token if exists
+    const token = sessionStorage.getItem("token");
+    const headers = {
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const config = {
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
@@ -41,10 +49,10 @@ class ApiClient {
     }
   }
 
-  get(endpoint, params = {}) {
+  get(endpoint, params = {}, options = {}) {
     const queryString = new URLSearchParams(params).toString();
     const url = queryString ? `${endpoint}?${queryString}` : endpoint;
-    return this.request(url, { method: "GET" });
+    return this.request(url, { method: "GET", ...options });
   }
 
   post(endpoint, data) {

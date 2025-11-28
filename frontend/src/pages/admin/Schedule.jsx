@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Header from "../../components/common/Header/header";
 import "./Schedule.css";
 import RouteService from "../../services/route.service";
 import DriverService from "../../services/driver.service";
 import BusService from "../../services/bus.service";
 import ScheduleService from "../../services/schedule.service";
+import io from "socket.io-client";
 
 // Generate real calendar for any month/year
 const generateCalendar = (year, month) => {
@@ -30,6 +31,7 @@ const monthNames = [
 
 export default function Schedule() {
   const today = new Date();
+  const socketRef = useRef(null); // Socket ref to prevent double connection
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState(today.getDate()); // Auto-select today's date
@@ -67,6 +69,51 @@ export default function Schedule() {
 
   useEffect(() => {
     loadAllData();
+
+    // Setup Socket.io for real-time schedule updates (only once)
+    if (!socketRef.current) {
+      const socket = io("http://localhost:8080");
+      socketRef.current = socket;
+
+      socket.on("connect", () => {
+        console.log("✅ Admin connected to socket");
+        // Join admin room to receive schedule update broadcasts
+        socket.emit("join-admin-room");
+      });
+
+      // Listen for schedule updates from other admins (not needed for self-delete)
+      // Just keep history in sync
+      socket.on("schedule-updated", (data) => {
+        console.log(
+          "📢 Admin received schedule-updated from another admin:",
+          data
+        );
+        // Only update if not already updated locally
+        // (local updates are instant via state, no need to re-update from socket)
+      });
+
+      // Listen for schedule deletions from other admins
+      socket.on("schedule-deleted", (data) => {
+        console.log(
+          "📢 Admin received schedule-deleted from another admin:",
+          data
+        );
+        // Only update if not already deleted locally
+        // (local deletes are instant via state, no need to re-update from socket)
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("❌ Socket connection error:", err);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("❌ Admin socket disconnected");
+      });
+    }
+
+    return () => {
+      // Cleanup on unmount (không disconnect, giữ connection)
+    };
   }, []);
 
   useEffect(() => {
@@ -435,13 +482,22 @@ export default function Schedule() {
   };
 
   const handleDeleteSchedule = async (id) => {
+    console.log("🗑️ handleDeleteSchedule called with id:", id);
     if (window.confirm("Bạn có chắc chắn muốn xóa lịch trình này?")) {
       try {
+        console.log("Calling ScheduleService.deleteSchedule...");
         await ScheduleService.deleteSchedule(id);
-        await loadAllData();
+
+        // Cập nhật state trực tiếp (real-time, không refetch)
+        setSchedules((prevSchedules) =>
+          prevSchedules.filter((s) => s.id !== id)
+        );
+
+        // Cập nhật history nếu có
         if (selectedDate) {
           await loadAssignmentHistory();
         }
+
         alert("Đã xóa lịch trình!");
       } catch (error) {
         console.error("Error deleting schedule:", error);
@@ -504,8 +560,24 @@ export default function Schedule() {
       // Call backend API
       await ScheduleService.updateSchedule(editSchedule.id, payload);
 
-      // Reload data
-      await loadAllData();
+      // Cập nhật state trực tiếp (real-time, không refetch)
+      setSchedules((prevSchedules) =>
+        prevSchedules.map((s) =>
+          s.id === editSchedule.id
+            ? {
+                ...s,
+                route_id: payload.route_id,
+                driver_id: actualDriverId,
+                bus_id: payload.bus_id,
+                createDate: payload.ngay_chay,
+                shift: payload.gio_bat_dau,
+                start: payload.gio_bat_dau,
+              }
+            : s
+        )
+      );
+
+      // Cập nhật history nếu có
       if (selectedDate) {
         await loadAssignmentHistory();
       }

@@ -1,42 +1,50 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const scheduleController = require('../controllers/schedule.controller');
-const { verifyToken, isDriver } = require('../../middlewares/auth.middleware');
+const scheduleController = require("../controllers/schedule.controller");
+const { verifyToken, isDriver } = require("../../middlewares/auth.middleware");
 
 // --- NHÓM API ĐẶC BIỆT (Đặt lên đầu) ---
 
 // 1. Lấy lịch sử logs
 // Endpoint: GET /api/schedules/history/logs
-router.get('/history/logs', scheduleController.getAssignmentHistory);
+router.get("/history/logs", scheduleController.getAssignmentHistory);
 
-// 2. Admin xem lịch tuần của 1 tài xế
+// 2. App Tài xế xem lịch của mình (TRƯỚC routes khác /driver)
+// Endpoint: GET /api/schedules/driver/my-schedule
+router.get(
+  "/driver/my-schedule",
+  verifyToken,
+  scheduleController.getMySchedule
+);
+
+// 3. Lấy học sinh của chuyến hiện tại
+// Endpoint: GET /api/schedules/driver/current-students
+router.get(
+  "/driver/current-students",
+  [verifyToken, isDriver],
+  scheduleController.getMyCurrentStudents
+);
+
+// 4. Admin xem lịch tuần của 1 tài xế
 // Endpoint: GET /api/schedules/admin/driver/:driverId
-router.get('/admin/driver/:driverId', scheduleController.getDriverWeekSchedule);
-
-// 3. App Tài xế xem lịch của mình
-// Endpoint: GET /api/schedules/driver/my-schedule/:driverId
-router.get('/my-schedule', verifyToken, scheduleController.getMySchedule);
-
+router.get("/admin/driver/:driverId", scheduleController.getDriverWeekSchedule);
 
 // --- NHÓM API CRUD CƠ BẢN ---
 
-// 4. Lấy danh sách tất cả (Dashboard)
+// 5. Lấy danh sách tất cả (Dashboard)
 // Endpoint: GET /api/schedules
-router.get('/', scheduleController.getAllSchedules);
+router.get("/", scheduleController.getAllSchedules);
 
-// 5. Tạo lịch mới
+// 6. Tạo lịch mới
 // Endpoint: POST /api/schedules
-router.post('/', scheduleController.createSchedule);
+router.post("/", scheduleController.createSchedule);
 
-// 6. Cập nhật lịch (Theo ID)
+// 7. Cập nhật lịch (Theo ID)
 // Endpoint: PUT /api/schedules/:id
-router.put('/:id', scheduleController.updateSchedule);
+router.put("/:id", scheduleController.updateSchedule);
 
-// 7. Xóa lịch (Theo ID)
+// 8. Xóa lịch (Theo ID)
 // Endpoint: DELETE /api/schedules/:id
-router.delete('/:id', scheduleController.deleteSchedule);
-
-// GET http://localhost:8080/api/schedules/driver/current-students
-router.get('/driver/current-students', [verifyToken, isDriver], scheduleController.getMyCurrentStudents);
+router.delete("/:id", scheduleController.deleteSchedule);
 
 module.exports = router;

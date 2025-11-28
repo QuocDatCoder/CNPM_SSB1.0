@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test Driver Schedule API</title>
+  </head>
+  <body>
+    <h1>Test Driver Schedule API</h1>
+
+    <div>
+      <h2>Token từ sessionStorage:</h2>
+      <div
+        id="token"
+        style="background: #f0f0f0; padding: 10px; margin: 10px 0"
+      ></div>
+    </div>
+
+    <div>
+      <h2>API Response:</h2>
+      <button onclick="testAPI()">
+        Call /api/schedules/driver/my-schedule
+      </button>
+      <div
+        id="response"
+        style="
+          background: #f0f0f0;
+          padding: 10px;
+          margin: 10px 0;
+          white-space: pre-wrap;
+        "
+      ></div>
+    </div>
+
+    <div>
+      <h2>User Data từ sessionStorage:</h2>
+      <div
+        id="user"
+        style="
+          background: #f0f0f0;
+          padding: 10px;
+          margin: 10px 0;
+          white-space: pre-wrap;
+        "
+      ></div>
+    </div>
+
+    <script>
+      // Display stored data
+      const token = sessionStorage.getItem("token");
+      const user = sessionStorage.getItem("user");
+
+      document.getElementById("token").innerText = token
+        ? token.substring(0, 50) + "..."
+        : "NO TOKEN";
+      document.getElementById("user").innerText = user || "NO USER";
+
+      async function testAPI() {
+        const token = sessionStorage.getItem("token");
+        const responseDiv = document.getElementById("response");
+
+        if (!token) {
+          responseDiv.innerText =
+            "❌ No token in sessionStorage!\nVui lòng login trước.";
+          return;
+        }
+
+        try {
+          responseDiv.innerText = "⏳ Loading...";
+
+          const response = await fetch(
+            "http://localhost:8080/api/schedules/driver/my-schedule",
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.innerText =
+              "✅ SUCCESS!\n" + JSON.stringify(data, null, 2);
+          } else {
+            responseDiv.innerText =
+              `❌ ERROR ${response.status}\n` + JSON.stringify(data, null, 2);
+          }
+        } catch (error) {
+          responseDiv.innerText = `❌ ERROR: ${error.message}`;
+        }
+      }
+    </script>
+  </body>
+</html>

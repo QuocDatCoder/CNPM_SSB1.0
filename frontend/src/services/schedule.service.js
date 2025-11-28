@@ -126,19 +126,17 @@ const ScheduleService = {
 
   /**
    * Lấy lịch làm việc của tài xế (Driver view - danh sách ngày)
-   * @param {string} driverId - ID tài xế
-   * @returns {Promise<Array>}
+   * @returns {Promise<Object>}
    */
   async getMySchedule() {
     try {
       const response = await api.get("/schedules/driver/my-schedule");
-      return response.data; // data là mảng lịch trình
+      return response;
     } catch (error) {
       console.error("Error fetching my schedule:", error);
       throw error;
     }
   },
-
 
   /**
    * Lấy lịch sử phân công
