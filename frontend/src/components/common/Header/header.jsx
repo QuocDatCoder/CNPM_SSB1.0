@@ -24,8 +24,22 @@ export default function Header({ title, showSearch = true, noImage = false }) {
 
   // Tạo avatar từ tên user
   const getAvatarText = (username) => {
-    if (!username) return "U";
-    return username.charAt(0).toUpperCase();
+    if (!username) {
+      return <div className="avatar-default">U</div>;
+    }
+
+    return (
+      <img
+        src="/image/avata.png"
+        alt={username}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          borderRadius: "50%",
+        }}
+      />
+    );
   };
 
   return (
