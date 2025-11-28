@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
   Polyline,
   Marker,
   Popup,
+  useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import "leaflet-routing-machine";
+// Import routing machine CSS using direct path for Vite compatibility
+import "../../../node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css";
 import Header from "../../components/common/Header/header";
 import Sidebar from "../../components/common/Sidebar/Sidebar";
 import Assignments from "./Assignments";
@@ -28,6 +32,90 @@ L.Icon.Default.mergeOptions({
   shadowUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
+
+// Component để vẽ routing thực tế giữa các điểm
+const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
+  const map = useMap();
+  const routingControlRef = useRef(null);
+  const fallbackPolylineRef = useRef(null);
+
+  useEffect(() => {
+    if (!map || !waypoints || waypoints.length < 2) return;
+
+    // Làm sạch trước khi tạo mới
+    if (routingControlRef.current && map.hasLayer(routingControlRef.current)) {
+      map.removeControl(routingControlRef.current);
+      routingControlRef.current = null;
+    }
+    if (
+      fallbackPolylineRef.current &&
+      map.hasLayer(fallbackPolylineRef.current)
+    ) {
+      map.removeLayer(fallbackPolylineRef.current);
+      fallbackPolylineRef.current = null;
+    }
+
+    try {
+      // Tạo routing control mới
+      routingControlRef.current = L.Routing.control({
+        waypoints: waypoints.map((coord) => L.latLng(coord[0], coord[1])),
+        lineOptions: {
+          styles: [
+            {
+              color: color,
+              opacity: 0.8,
+              weight: 5,
+              lineCap: "round",
+              lineJoin: "round",
+            },
+          ],
+        },
+        show: false, // Hide turn-by-turn instructions
+        addWaypoints: false,
+        draggableWaypoints: false,
+        fitSelectedRoutes: true,
+        router: L.Routing.osrmv1({
+          serviceUrl: "https://router.project-osrm.org/route/v1",
+        }),
+      });
+
+      routingControlRef.current.addTo(map);
+    } catch (err) {
+      console.warn("Routing error, using fallback polyline:", err);
+      // Fallback: vẽ polyline thẳng
+      if (map) {
+        fallbackPolylineRef.current = L.polyline(waypoints, {
+          color: color,
+          opacity: 0.8,
+          weight: 5,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(map);
+      }
+    }
+
+    return () => {
+      if (
+        routingControlRef.current &&
+        map.hasLayer(routingControlRef.current)
+      ) {
+        try {
+          map.removeControl(routingControlRef.current);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
+      if (
+        fallbackPolylineRef.current &&
+        map.hasLayer(fallbackPolylineRef.current)
+      ) {
+        map.removeLayer(fallbackPolylineRef.current);
+      }
+    };
+  }, [waypoints, map, color]);
+
+  return null;
+};
 
 const driverMenu = [
   { icon: "/icons/home.png", label: "Trang chủ" },
@@ -103,35 +191,52 @@ function Home() {
 
         // Transform backend data to component format
         const routes = todaySchedules.map((schedule) => {
-          // Convert stops array to stations format
+          // Convert stops array to stations format and extract coordinates
           let stations = [];
+          let coordinates = [];
+
           if (schedule.stops && Array.isArray(schedule.stops)) {
+            // Backend trả về stops có cấu trúc: { id, ten_diem, dia_chi, latitude, longitude }
             stations = schedule.stops.map((stop, index) => ({
-              id: index + 1,
-              name: stop,
+              id: stop.id || index + 1,
+              name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
+              address: stop.dia_chi || "",
               time:
                 index === 0
                   ? schedule.time
                   : index === schedule.stops.length - 1
                   ? "Dự kiến đến"
                   : "",
-              status: index === 0 ? "pending" : "pending",
+              status: "pending",
             }));
+
+            // Extract coordinates từ stops
+            coordinates = schedule.stops.map((stop) => [
+              parseFloat(stop.latitude),
+              parseFloat(stop.longitude),
+            ]);
           } else {
             // Fallback if no stops provided
             stations = [
               {
                 id: 1,
                 name: schedule.startLocation || "Điểm khởi hành",
+                address: "",
                 time: schedule.time,
                 status: "pending",
               },
               {
                 id: 2,
                 name: schedule.endLocation || "Điểm kết thúc",
+                address: "",
                 time: "Dự kiến đến",
                 status: "pending",
               },
+            ];
+            // Default coordinates if no stops
+            coordinates = [
+              [10.762622, 106.660172],
+              [10.776889, 106.700928],
             ];
           }
 
@@ -153,12 +258,7 @@ function Home() {
             endLocation: schedule.endLocation || "",
             status: schedule.status || "chuabatdau",
             stops: schedule.stops || [],
-            coordinates: [
-              [10.762622, 106.660172],
-              [10.771513, 106.677887],
-              [10.773431, 106.688034],
-              [10.776889, 106.700928],
-            ],
+            coordinates: coordinates,
             stations: stations,
           };
         });
@@ -189,12 +289,15 @@ function Home() {
       const today = new Date().toISOString().split("T")[0];
 
       if (schedule.date === today) {
-        // Convert stops array to stations format
+        // Convert stops array to stations format and extract coordinates
         let stations = [];
+        let coordinates = [];
+
         if (schedule.stops && Array.isArray(schedule.stops)) {
           stations = schedule.stops.map((stop, index) => ({
-            id: index + 1,
-            name: stop,
+            id: stop.id || index + 1,
+            name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
+            address: stop.dia_chi || "",
             time:
               index === 0
                 ? schedule.time
@@ -203,20 +306,31 @@ function Home() {
                 : "",
             status: "pending",
           }));
+
+          coordinates = schedule.stops.map((stop) => [
+            parseFloat(stop.latitude),
+            parseFloat(stop.longitude),
+          ]);
         } else {
           stations = [
             {
               id: 1,
               name: schedule.startLocation || "Điểm khởi hành",
+              address: "",
               time: `${schedule.time?.substring(0, 5) || schedule.time}`,
               status: "pending",
             },
             {
               id: 2,
               name: schedule.endLocation || "Điểm kết thúc",
+              address: "",
               time: "Dự kiến đến",
               status: "pending",
             },
+          ];
+          coordinates = [
+            [10.762622, 106.660172],
+            [10.776889, 106.700928],
           ];
         }
 
@@ -243,12 +357,7 @@ function Home() {
             endLocation: schedule.endLocation || "",
             status: schedule.status || "chuabatdau",
             stops: schedule.stops || [],
-            coordinates: [
-              [10.762622, 106.660172],
-              [10.771513, 106.677887],
-              [10.773431, 106.688034],
-              [10.776889, 106.700928],
-            ],
+            coordinates: coordinates,
             stations: stations,
           },
         ]);
@@ -268,6 +377,51 @@ function Home() {
           const filtered = prevRoutes.filter(
             (route) => route.id !== schedule.id
           );
+
+          // Convert stops array to stations format and extract coordinates
+          let stations = [];
+          let coordinates = [];
+
+          if (schedule.stops && Array.isArray(schedule.stops)) {
+            stations = schedule.stops.map((stop, index) => ({
+              id: stop.id || index + 1,
+              name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
+              address: stop.dia_chi || "",
+              time:
+                index === 0
+                  ? schedule.time
+                  : index === schedule.stops.length - 1
+                  ? "Dự kiến đến"
+                  : "",
+              status: "pending",
+            }));
+
+            coordinates = schedule.stops.map((stop) => [
+              parseFloat(stop.latitude),
+              parseFloat(stop.longitude),
+            ]);
+          } else {
+            stations = [
+              {
+                id: 1,
+                name: schedule.startLocation || "Điểm khởi hành",
+                address: "",
+                time: `${schedule.time?.substring(0, 5) || schedule.time}`,
+                status: "pending",
+              },
+              {
+                id: 2,
+                name: schedule.endLocation || "Điểm kết thúc",
+                address: "",
+                time: "Dự kiến đến",
+                status: "pending",
+              },
+            ];
+            coordinates = [
+              [10.762622, 106.660172],
+              [10.776889, 106.700928],
+            ];
+          }
 
           // Thêm lịch cập nhật vào
           return [
@@ -291,26 +445,9 @@ function Home() {
               startLocation: schedule.startLocation || "",
               endLocation: schedule.endLocation || "",
               status: schedule.status || "chuabatdau",
-              coordinates: [
-                [10.762622, 106.660172],
-                [10.771513, 106.677887],
-                [10.773431, 106.688034],
-                [10.776889, 106.700928],
-              ],
-              stations: [
-                {
-                  id: 1,
-                  name: schedule.startLocation || "Điểm khởi hành",
-                  time: `${schedule.time?.substring(0, 5) || schedule.time}`,
-                  status: "pending",
-                },
-                {
-                  id: 2,
-                  name: schedule.endLocation || "Điểm kết thúc",
-                  time: "Dự kiến đến",
-                  status: "pending",
-                },
-              ],
+              stops: schedule.stops || [],
+              coordinates: coordinates,
+              stations: stations,
             },
           ];
         });
@@ -388,20 +525,63 @@ function Home() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
 
-                <Polyline
-                  positions={activeTrip.coordinates}
+                {/* Draw actual road routing connecting all stops */}
+                <RoutingPolyline
+                  waypoints={activeTrip.coordinates}
                   color="#3b82f6"
-                  weight={5}
-                  opacity={0.8}
                 />
 
-                {activeTrip.coordinates.map((coord, index) => (
-                  <Marker key={index} position={coord}>
-                    <Popup>
-                      {activeTrip.stations[index]?.name || `Trạm ${index + 1}`}
-                    </Popup>
-                  </Marker>
-                ))}
+                {/* Draw markers for all stops with info */}
+                {activeTrip.coordinates.map((coord, index) => {
+                  const station = activeTrip.stations[index];
+                  const isStart = index === 0;
+                  const isEnd = index === activeTrip.stations.length - 1;
+                  const color = isStart
+                    ? "#10b981"
+                    : isEnd
+                    ? "#ef4444"
+                    : "#f59e0b";
+
+                  return (
+                    <Marker key={index} position={coord} title={station?.name}>
+                      <Popup>
+                        <div>
+                          <strong>
+                            {station?.name || `Trạm ${index + 1}`}
+                          </strong>
+                          <br />
+                          {station?.address && (
+                            <>
+                              <span style={{ fontSize: "12px" }}>
+                                {station.address}
+                              </span>
+                              <br />
+                            </>
+                          )}
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              color: color,
+                            }}
+                          >
+                            {isStart
+                              ? "🟢 Điểm đầu"
+                              : isEnd
+                              ? "🔴 Điểm cuối"
+                              : "🟡 Trạm dừng"}
+                          </span>
+                          <br />
+                          {station?.time && (
+                            <span style={{ fontSize: "12px" }}>
+                              {station.time}
+                            </span>
+                          )}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  );
+                })}
               </MapContainer>
             </div>
           </div>
@@ -565,34 +745,61 @@ function Home() {
                 {/* Draw routes on map */}
                 {assignedRoutes.map((route) => (
                   <React.Fragment key={route.id}>
-                    <Polyline
-                      positions={route.coordinates}
+                    {/* Draw actual road routing connecting all stops */}
+                    <RoutingPolyline
+                      waypoints={route.coordinates}
                       color={route.type === "morning" ? "#3b82f6" : "#f59e0b"}
-                      weight={4}
-                      opacity={0.7}
                     />
 
-                    {/* Start marker */}
-                    <Marker position={route.coordinates[0]}>
-                      <Popup>
-                        <strong>{route.name}</strong>
-                        <br />
-                        Điểm đầu
-                        <br />
-                        {route.startTime}
-                      </Popup>
-                    </Marker>
+                    {/* Draw markers for all stops */}
+                    {route.stations &&
+                      route.stations.map((station, index) => {
+                        const isStart = index === 0;
+                        const isEnd = index === route.stations.length - 1;
+                        const color = isStart
+                          ? "#10b981"
+                          : isEnd
+                          ? "#ef4444"
+                          : "#f59e0b";
 
-                    {/* End marker */}
-                    <Marker
-                      position={route.coordinates[route.coordinates.length - 1]}
-                    >
-                      <Popup>
-                        <strong>{route.name}</strong>
-                        <br />
-                        Điểm cuối - {route.school}
-                      </Popup>
-                    </Marker>
+                        return (
+                          <Marker
+                            key={station.id}
+                            position={route.coordinates[index]}
+                            title={station.name}
+                          >
+                            <Popup>
+                              <div>
+                                <strong>{station.name}</strong>
+                                <br />
+                                <span style={{ fontSize: "12px" }}>
+                                  {station.address}
+                                </span>
+                                <br />
+                                <span
+                                  style={{
+                                    fontSize: "12px",
+                                    fontWeight: "bold",
+                                    color: color,
+                                  }}
+                                >
+                                  {isStart
+                                    ? "🟢 Điểm đầu"
+                                    : isEnd
+                                    ? "🔴 Điểm cuối"
+                                    : "🟡 Trạm dừng"}
+                                </span>
+                                <br />
+                                {station.time && (
+                                  <span style={{ fontSize: "12px" }}>
+                                    {station.time}
+                                  </span>
+                                )}
+                              </div>
+                            </Popup>
+                          </Marker>
+                        );
+                      })}
                   </React.Fragment>
                 ))}
               </MapContainer>
