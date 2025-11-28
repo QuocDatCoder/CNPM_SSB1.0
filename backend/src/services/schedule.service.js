@@ -41,6 +41,23 @@ const getStartEndLocation = async (routeId) => {
     end: routeStops[routeStops.length - 1].Stop.ten_diem,
   };
 };
+const getAllStops = async (routeId) => {
+  try {
+    const routeStops = await RouteStop.findAll({
+      where: { route_id: routeId },
+      include: [{ model: Stop, attributes: ["ten_diem"] }],
+      order: [["thu_tu", "ASC"]],
+    });
+
+    if (!routeStops || routeStops.length === 0) return [];
+
+    // Lấy danh sách tên trạm
+    return routeStops.map(rs => rs.Stop.ten_diem);
+  } catch (error) {
+    console.error("Error in getAllStops:", error);
+    return [];
+  }
+};
 
 // --- MAIN FUNCTIONS (API LOGIC) ---
 
@@ -359,7 +376,11 @@ const getMySchedule = async (driverId) => {
   try {
     const schedules = await Schedule.findAll({
       where: { driver_id: driverId },
-      include: [{ model: Route }, { model: Bus, attributes: ["bien_so_xe"] }],
+      include: [
+        { model: Route }, 
+        { model: Bus, attributes: ["bien_so_xe"]  }
+        
+      ],
       order: [
         ["ngay_chay", "ASC"],
         ["gio_bat_dau", "ASC"],
@@ -384,6 +405,7 @@ const getMySchedule = async (driverId) => {
           route: `Xe: ${s.Bus ? s.Bus.bien_so_xe : "N/A"} - ${
             s.Route.ten_tuyen
           }`,
+          stops: await getAllStops(s.route_id),
           startLocation: locations.start,
           endLocation: locations.end,
           status: s.trang_thai,
