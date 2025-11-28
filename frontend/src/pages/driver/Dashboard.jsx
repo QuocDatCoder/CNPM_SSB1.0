@@ -20,6 +20,7 @@ import Notifications from "./Notifications";
 import "./Dashboard.css";
 import drivers from "../../data/drivers";
 import ScheduleService from "../../services/schedule.service";
+import TrackingService from "../../services/tracking.service";
 import useDriverScheduleSocket from "../../hooks/useDriverScheduleSocket";
 
 // Fix leaflet default icon issue
@@ -31,6 +32,13 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
   shadowUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+});
+
+// 🚌 Icon xe bus động
+const busIcon = L.icon({
+  iconUrl: "/icons/busmap.png",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
 
 // Component để vẽ routing thực tế giữa các điểm
@@ -147,6 +155,14 @@ function Home() {
   const [assignedRoutes, setAssignedRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [busLocation, setBusLocation] = useState(null);
+  const [tripProgress, setTripProgress] = useState({
+    percentage: 0,
+    distanceCovered: 0,
+    currentStop: null,
+  });
+  const [routePath, setRoutePath] = useState([]); // 🚌 Lưu đường đi thực tế
+  const [busPos, setBusPos] = useState(null); // 🚌 Vị trí hiện tại của xe
 
   const driver = {
     fullname: user.ho_ten || user.ten_tai_xe || user.name || "Tài xế",
@@ -464,21 +480,216 @@ function Home() {
     }
   );
 
-  const handleStartTrip = (route) => {
-    setActiveTrip(route);
-    setTripStarted(true);
-    setSelectedStation(0);
+  // Join tracking room and listen for real-time bus location updates
+  useEffect(() => {
+    const driverId = user.id || user.driver_code;
+    if (!driverId) return;
+
+    // Initialize socket and join tracking room
+    TrackingService.initSocket();
+    TrackingService.joinTrackingRoom("driver", driverId);
+
+    // Listen for bus location updates
+    TrackingService.onBusLocationUpdate((data) => {
+      console.log("📍 Bus location update:", data);
+      setBusLocation(data.location);
+      setTripProgress({
+        percentage: data.progressPercentage || 0,
+        distanceCovered: data.distanceCovered || 0,
+        currentStop: data.currentStop || null,
+      });
+    });
+
+    // Listen for trip completion
+    TrackingService.onRouteCompleted((data) => {
+      console.log("✅ Route completed:", data);
+      // Auto-end trip when route completes
+      handleEndTrip();
+    });
+
+    // Cleanup on unmount
+    return () => {
+      TrackingService.leaveTrackingRoom("driver", driverId);
+    };
+  }, [user.id, user.driver_code]);
+
+  const handleStartTrip = async (route) => {
+    try {
+      // Call tracking API to start trip and simulator
+      await TrackingService.startTrip(route.id);
+
+      // 🚌 Fetch route đi qua TẤT CẢ các trạm (waypoints)
+      const path = await fetchRouteFromOSRM(route.coordinates);
+      setRoutePath(path);
+      if (path.length > 0) {
+        setBusPos(path[0]);
+      }
+
+      // Update local state
+      setActiveTrip(route);
+      setTripStarted(true);
+      setSelectedStation(0);
+    } catch (error) {
+      console.error("Error starting trip:", error);
+      alert("Không thể bắt đầu chuyến đi. Vui lòng thử lại.");
+    }
   };
 
-  const handleEndTrip = () => {
-    setTripStarted(false);
-    setActiveTrip(null);
-    setSelectedStation(0);
-    // Clear trip state from sessionStorage
-    sessionStorage.removeItem("tripStarted");
-    sessionStorage.removeItem("activeTrip");
-    sessionStorage.removeItem("selectedStation");
+  /**
+   * 🚌 Fetch route từ OSRM đi qua TẤT CẢ các trạm (waypoints)
+   * @param {Array} coordinates - Array tất cả tọa độ: [[lat, lng], [lat, lng], ...]
+   * @returns {Array} Route coordinates từ OSRM
+   */
+  const fetchRouteFromOSRM = async (coordinates) => {
+    if (!coordinates || coordinates.length < 2) {
+      console.warn("Invalid coordinates for OSRM");
+      return [];
+    }
+
+    // Tạo URL với tất cả waypoints
+    // Format: /driving/lng,lat;lng,lat;lng,lat?overview=full&geometries=geojson
+    const waypointsStr = coordinates
+      .map((coord) => `${coord[1]},${coord[0]}`) // [lat,lng] → lng,lat
+      .join(";");
+
+    const url = `https://router.project-osrm.org/route/v1/driving/${waypointsStr}?overview=full&geometries=geojson`;
+
+    console.log("📍 Fetching OSRM route with waypoints:", coordinates.length);
+
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+
+      if (!json.routes) {
+        console.warn("No route found from OSRM");
+        return [];
+      }
+
+      const coords = json.routes[0].geometry.coordinates.map((c) => [
+        c[1],
+        c[0],
+      ]);
+
+      console.log("✅ OSRM route fetched:", coords.length, "coordinates");
+      return coords;
+    } catch (error) {
+      console.error("Error fetching OSRM route:", error);
+      return [];
+    }
   };
+
+  const handleEndTrip = async () => {
+    try {
+      // Call tracking API to end trip
+      if (activeTrip) {
+        await TrackingService.endTrip(activeTrip.id);
+      }
+
+      // Update local state
+      setTripStarted(false);
+      setActiveTrip(null);
+      setSelectedStation(0);
+      // Clear trip state from sessionStorage
+      sessionStorage.removeItem("tripStarted");
+      sessionStorage.removeItem("activeTrip");
+      sessionStorage.removeItem("selectedStation");
+    } catch (error) {
+      console.error("Error ending trip:", error);
+      alert("Không thể kết thúc chuyến đi. Vui lòng thử lại.");
+    }
+  };
+
+  /**
+   * ⚡ Gửi vị trí xe bus từ dashboard tài xế tới backend
+   * - Gửi qua WebSocket (real-time cho phụ huynh)
+   * - Lưu vào Backend API (lưu vào database)
+   */
+  useEffect(() => {
+    if (!tripStarted || !busLocation || !activeTrip) return;
+
+    // Tính tiến độ dựa trên vị trí hiện tại
+    let progressPercentage = tripProgress.percentage;
+    let distanceCovered = tripProgress.distanceCovered;
+
+    // 🚨 Gửi vị trí tới backend mỗi 200ms (khớp với animation tốc độ)
+    // để parent nhận được update mượt mà, không bị "giật"
+    const sendInterval = setInterval(() => {
+      if (busLocation) {
+        const locationData = {
+          latitude: busLocation.latitude,
+          longitude: busLocation.longitude,
+          scheduleId: activeTrip.id,
+          driverId: user.id || user.driver_code,
+          progressPercentage,
+          distanceCovered,
+        };
+
+        // 1️⃣ Gửi qua WebSocket (real-time cho phụ huynh)
+        TrackingService.sendBusLocation(locationData);
+
+        // 2️⃣ Lưu vào Backend API (lưu vào database) - mỗi 2 giây (10 frames)
+        // để không quá tải database
+        if (Math.floor(Date.now() / 2000) % 10 === 0) {
+          TrackingService.saveDriverLocationToBackend(locationData);
+        }
+
+        console.log("📤 Sent bus location (WebSocket):", {
+          latitude: busLocation.latitude,
+          longitude: busLocation.longitude,
+        });
+      }
+    }, 200); // Gửi mỗi 200ms - khớp với animation frame rate
+
+    return () => clearInterval(sendInterval);
+  }, [
+    tripStarted,
+    busLocation,
+    activeTrip,
+    tripProgress,
+    user.id,
+    user.driver_code,
+  ]);
+
+  /**
+   * 🚌 Animation: Xe bus chạy dọc theo route (giống admin dashboard)
+   */
+  useEffect(() => {
+    if (!tripStarted || routePath.length === 0) return;
+
+    let index = 0;
+
+    const interval = setInterval(() => {
+      index++;
+      if (index >= routePath.length) index = 0;
+
+      const currentPos = routePath[index];
+      setBusPos(currentPos);
+
+      // Cập nhật busLocation để gửi tới backend
+      setBusLocation({
+        latitude: currentPos[0],
+        longitude: currentPos[1],
+      });
+
+      // Tính tiến độ dựa trên index
+      const percentage = (index / Math.max(routePath.length - 1, 1)) * 100;
+      const distance = index * 0.1; // Ước tính khoảng cách
+
+      setTripProgress({
+        percentage,
+        distanceCovered: distance,
+        currentStop: null,
+      });
+
+      console.log("🚌 Bus moving:", {
+        position: currentPos,
+        progress: percentage.toFixed(1) + "%",
+        index,
+      });
+    }, 200); // Mỗi 200ms - tốc độ animation
+
+    return () => clearInterval(interval);
+  }, [tripStarted, routePath]);
 
   // If trip is started, show active trip view
   if (tripStarted && activeTrip) {
@@ -503,6 +714,18 @@ function Home() {
                 {activeTrip.startLocation} ➜ {activeTrip.endLocation}
               </h4>
               <p className="trip-time">Bắt đầu: {activeTrip.time}</p>
+            </div>
+          </div>
+
+          {/* Trip Progress Card */}
+          <div className="trip-info-card">
+            <div className="card-icon-trip">📊</div>
+            <div className="card-content">
+              <h4>Tiến độ chuyến đi</h4>
+              <p className="trip-progress">
+                {tripProgress.percentage.toFixed(1)}% •{" "}
+                {tripProgress.distanceCovered?.toFixed(2) || 0} km
+              </p>
             </div>
           </div>
         </div>
@@ -582,6 +805,33 @@ function Home() {
                     </Marker>
                   );
                 })}
+
+                {/* Current bus location marker - với icon xe bus */}
+                {busPos && (
+                  <Marker
+                    position={busPos}
+                    icon={busIcon}
+                    title="Vị trí xe bus hiện tại"
+                  >
+                    <Popup>
+                      <div style={{ textAlign: "center" }}>
+                        <strong>🚌 Vị trí xe bus</strong>
+                        <br />
+                        <span style={{ fontSize: "12px" }}>
+                          Lat: {busPos[0].toFixed(6)}
+                        </span>
+                        <br />
+                        <span style={{ fontSize: "12px" }}>
+                          Lon: {busPos[1].toFixed(6)}
+                        </span>
+                        <br />
+                        <span style={{ fontSize: "12px", color: "#3b82f6" }}>
+                          📊 Tiến độ: {tripProgress.percentage.toFixed(1)}%
+                        </span>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
               </MapContainer>
             </div>
           </div>
@@ -604,11 +854,30 @@ function Home() {
                   user.name ||
                   "Không xác định"}
               </button>
-              <span className="search-label">
-                Trạm hiện tại:
-                <br />
-                {activeTrip.stations[selectedStation]?.name || "..."}
-              </span>
+              <div style={{ marginTop: "12px" }}>
+                <span className="search-label">
+                  Trạm hiện tại:
+                  <br />
+                  {activeTrip.stations[selectedStation]?.name || "..."}
+                </span>
+                {busLocation && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      fontSize: "13px",
+                      color: "#3b82f6",
+                    }}
+                  >
+                    <strong>
+                      📊 Tiến độ: {tripProgress.percentage.toFixed(1)}%
+                    </strong>
+                    <br />
+                    <span>
+                      Đã đi: {tripProgress.distanceCovered?.toFixed(2) || 0} km
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <h3 className="station-list-title">Danh sách trạm dừng</h3>

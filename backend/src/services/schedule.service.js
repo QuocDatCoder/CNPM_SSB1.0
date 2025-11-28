@@ -868,6 +868,7 @@ const getParentDashboardInfo = async (parentId) => {
         const s = ss.Schedule;
         return {
           schedule_id: s.id,
+          route_id: s.route_id, // ✅ Thêm route_id để lấy thông tin tuyến hoàn chỉnh
           loai_chuyen:
             s.Route.loai_tuyen === "luot_di"
               ? "Lượt đi (Đón)"

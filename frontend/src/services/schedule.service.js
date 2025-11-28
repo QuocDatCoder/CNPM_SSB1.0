@@ -166,6 +166,21 @@ const ScheduleService = {
       throw error;
     }
   },
+
+  /**
+   * Lấy danh sách stops của một tuyến
+   * @param {number} routeId - ID của tuyến
+   * @returns {Promise<Array>}
+   */
+  async getRouteStops(routeId) {
+    try {
+      const response = await api.get(`/routes/${routeId}/stops`);
+      return response;
+    } catch (error) {
+      console.error("Error fetching route stops:", error);
+      throw error;
+    }
+  },
 };
 
 export default ScheduleService;

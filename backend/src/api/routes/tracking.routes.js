@@ -1,7 +1,12 @@
 const express = require("express");
 const {
-  updateLocation,
-  updateStudentStatus,
+  startTrip,
+  endTrip,
+  getCurrentLocation,
+  getLocationHistory,
+  getActiveTrips,
+  getTripStatus,
+  saveDriverLocation,
 } = require("../controllers/tracking.controller.js");
 const {
   verifyToken,
@@ -10,10 +15,25 @@ const {
 
 const router = express.Router();
 
-// Endpoint cập nhật vị trí xe (chỉ tài xế được phép)
-router.post("/location", verifyToken, isDriver, updateLocation);
+// Start trip - khởi động simulator
+router.put("/start-trip/:scheduleId", verifyToken, isDriver, startTrip);
 
-// Endpoint cập nhật trạng thái học sinh (chỉ tài xế được phép)
-router.post("/student-status", verifyToken, isDriver, updateStudentStatus);
+// End trip - dừng simulator
+router.put("/end-trip/:scheduleId", verifyToken, isDriver, endTrip);
+
+// 🚌 Save driver location (từ FE tài xế gửi)
+router.post("/save-location", verifyToken, isDriver, saveDriverLocation);
+
+// Get current bus location
+router.get("/current-location/:scheduleId", verifyToken, getCurrentLocation);
+
+// Get location history for polyline
+router.get("/location-history/:scheduleId", verifyToken, getLocationHistory);
+
+// Get all active trips (for admin)
+router.get("/active-trips", verifyToken, getActiveTrips);
+
+// Get specific trip status
+router.get("/trip-status/:scheduleId", verifyToken, getTripStatus);
 
 module.exports = router;

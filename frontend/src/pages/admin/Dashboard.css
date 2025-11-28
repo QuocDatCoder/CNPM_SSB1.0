@@ -189,6 +189,7 @@
 .dashboard-route-street {
   font-size: 12px;
   margin: 8px 0;
+  margin-right: 15px;
   /* align-items: left; */
   margin-bottom: 0px;
   opacity: 0.9;

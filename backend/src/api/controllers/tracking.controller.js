@@ -1,29 +1,310 @@
-const { errorHandler } = require('../../middlewares/auth.middleware.js');
-const trackingService = require('../../services/tracking.service');
+const { errorHandler } = require("../../middlewares/auth.middleware.js");
+const {
+  startBusSimulator,
+  stopBusSimulator,
+  getActiveSimulators,
+  getSimulatorStatus,
+} = require("../../services/bus-simulator.service");
+const { Schedule, Bus, User, LocationHistory } = require("../../data/models");
 
-//API cap nhat vi tri cho xe
-async function updateLocation(req, res) {
+/**
+ * Start trip - khởi động simulator và cập nhật trạng thái
+ */
+async function startTrip(req, res) {
   try {
-    const { busId, lat, lng } = req.body;
-    await trackingService.updateLocation(busId, lat, lng);
-    res.json({message: 'Vị trí xe đã được cập nhật'});
-  } catch (err){
-    res.status(500).json( {message: 'Lỗi cập nhật vị trí', error: err.message });
+    const { scheduleId } = req.params;
+
+    if (!scheduleId) {
+      return res.status(400).json({ message: "Schedule ID is required" });
+    }
+
+    // Lấy schedule
+    const schedule = await Schedule.findByPk(scheduleId, {
+      include: [
+        { model: Bus, attributes: ["id", "bien_so_xe", "trang_thai"] },
+        { model: User, as: "driver", attributes: ["id", "trang_thai_taixe"] },
+      ],
+    });
+
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+
+    // Cập nhật trạng thái
+    await schedule.update({ trang_thai: "dangchay" });
+    await schedule.Bus.update({ trang_thai: "Đang hoạt động" });
+    if (schedule.driver) {
+      await schedule.driver.update({ trang_thai_taixe: "hoatdong" });
+    }
+
+    // Khởi động simulator (sử dụng global.io)
+    await startBusSimulator(scheduleId, global.io);
+
+    res.json({
+      message: "Trip started successfully",
+      schedule: {
+        id: schedule.id,
+        status: "dangchay",
+        bus: { bien_so_xe: schedule.Bus?.bien_so_xe },
+        driver: { id: schedule.driver?.id },
+      },
+    });
+  } catch (error) {
+    console.error("Error starting trip:", error);
+    res
+      .status(500)
+      .json({ message: "Error starting trip", error: error.message });
   }
 }
 
-//API cap nhat trang thai hoc sinh
-async function updateStudentStatus(req, res) {
+/**
+ * End trip - dừng simulator và revert trạng thái
+ */
+async function endTrip(req, res) {
   try {
-    const { stundentId, status } = req.body;
-    await trackingService.updateStudentStatus(stundentId, status);
-    res.json( {message: 'Trạng thái học sinh đã được cập nhật', error: err.message});
-  } catch {
-    res.status(500).json( {message: 'Lỗi cập nhật trạng thái', error: err.message} );
+    const { scheduleId } = req.params;
+
+    if (!scheduleId) {
+      return res.status(400).json({ message: "Schedule ID is required" });
+    }
+
+    // Lấy schedule
+    const schedule = await Schedule.findByPk(scheduleId, {
+      include: [
+        { model: Bus, attributes: ["id", "bien_so_xe", "trang_thai"] },
+        { model: User, as: "driver", attributes: ["id", "trang_thai_taixe"] },
+      ],
+    });
+
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+
+    // Dừng simulator
+    await stopBusSimulator(scheduleId);
+
+    // Revert trạng thái
+    await schedule.update({ trang_thai: "hoanthanh" });
+    await schedule.Bus.update({ trang_thai: "Ngừng" });
+    if (schedule.driver) {
+      await schedule.driver.update({ trang_thai_taixe: "tamdung" });
+    }
+
+    res.json({
+      message: "Trip ended successfully",
+      schedule: {
+        id: schedule.id,
+        status: "hoanthanh",
+      },
+    });
+  } catch (error) {
+    console.error("Error ending trip:", error);
+    res
+      .status(500)
+      .json({ message: "Error ending trip", error: error.message });
+  }
+}
+
+/**
+ * Get current location of bus
+ */
+async function getCurrentLocation(req, res) {
+  try {
+    const { scheduleId } = req.params;
+
+    if (!scheduleId) {
+      return res.status(400).json({ message: "Schedule ID is required" });
+    }
+
+    const latestLocation = await LocationHistory.findOne({
+      where: { schedule_id: scheduleId },
+      order: [["createdAt", "DESC"]],
+      limit: 1,
+    });
+
+    if (!latestLocation) {
+      return res
+        .status(404)
+        .json({ message: "No location found for this schedule" });
+    }
+
+    res.json({
+      location: {
+        latitude: latestLocation.latitude,
+        longitude: latestLocation.longitude,
+        timestamp: latestLocation.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting current location:", error);
+    res.status(500).json({
+      message: "Error getting current location",
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Get location history for polyline
+ */
+async function getLocationHistory(req, res) {
+  try {
+    const { scheduleId } = req.params;
+    const limit = parseInt(req.query.limit) || 100;
+
+    if (!scheduleId) {
+      return res.status(400).json({ message: "Schedule ID is required" });
+    }
+
+    const locations = await LocationHistory.findAll({
+      where: { schedule_id: scheduleId },
+      order: [["createdAt", "ASC"]],
+      limit: limit,
+      attributes: ["latitude", "longitude", "createdAt"],
+    });
+
+    const polyline = locations.map((loc) => [loc.latitude, loc.longitude]);
+
+    res.json({
+      polyline: polyline,
+      count: locations.length,
+    });
+  } catch (error) {
+    console.error("Error getting location history:", error);
+    res.status(500).json({
+      message: "Error getting location history",
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Get all active trips
+ */
+async function getActiveTrips(req, res) {
+  try {
+    const activeSimulators = getActiveSimulators();
+
+    const trips = await Promise.all(
+      activeSimulators.map(async (simulator) => {
+        const schedule = await Schedule.findByPk(simulator.scheduleId, {
+          include: [{ model: Bus, attributes: ["bien_so_xe"] }],
+        });
+
+        return {
+          scheduleId: simulator.scheduleId,
+          busNumber: schedule?.Bus?.bien_so_xe || "N/A",
+          status: simulator.isRunning ? "Đang chạy" : "Tạm dừng",
+          progress: {
+            percentage: simulator.progressPercentage || 0,
+            distanceCovered: simulator.distanceCovered || 0,
+          },
+        };
+      })
+    );
+
+    res.json({ activeTrips: trips, count: trips.length });
+  } catch (error) {
+    console.error("Error getting active trips:", error);
+    res
+      .status(500)
+      .json({ message: "Error getting active trips", error: error.message });
+  }
+}
+
+/**
+ * Get trip status
+ */
+async function getTripStatus(req, res) {
+  try {
+    const { scheduleId } = req.params;
+
+    if (!scheduleId) {
+      return res.status(400).json({ message: "Schedule ID is required" });
+    }
+
+    const status = getSimulatorStatus(scheduleId);
+
+    if (!status) {
+      return res.status(404).json({ message: "Trip not found or not running" });
+    }
+
+    res.json({
+      scheduleId: scheduleId,
+      status: status,
+    });
+  } catch (error) {
+    console.error("Error getting trip status:", error);
+    res
+      .status(500)
+      .json({ message: "Error getting trip status", error: error.message });
+  }
+}
+
+/**
+ * 🚌 Lưu vị trí xe bus được tài xế gửi từ FE
+ * POST /api/tracking/save-location
+ * Body: { latitude, longitude, scheduleId, driverId, progressPercentage, distanceCovered }
+ */
+async function saveDriverLocation(req, res) {
+  try {
+    const {
+      latitude,
+      longitude,
+      scheduleId,
+      driverId,
+      progressPercentage,
+      distanceCovered,
+    } = req.body;
+
+    // Validate
+    if (!latitude || !longitude || !scheduleId) {
+      return res.status(400).json({
+        message: "Missing required fields: latitude, longitude, scheduleId",
+      });
+    }
+
+    // Lưu vào LocationHistory database
+    const locationRecord = await LocationHistory.create({
+      schedule_id: scheduleId,
+      driver_id: driverId,
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
+      progress_percentage: progressPercentage || 0,
+      distance_covered: distanceCovered || 0,
+    });
+
+    console.log("✅ Driver location saved:", {
+      scheduleId,
+      latitude,
+      longitude,
+      progressPercentage,
+    });
+
+    res.json({
+      message: "Location saved successfully",
+      location: {
+        id: locationRecord.id,
+        latitude: locationRecord.latitude,
+        longitude: locationRecord.longitude,
+        timestamp: locationRecord.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error saving driver location:", error);
+    res.status(500).json({
+      message: "Error saving location",
+      error: error.message,
+    });
   }
 }
 
 module.exports = {
-  updateLocation,
-  updateStudentStatus,
+  startTrip,
+  endTrip,
+  getCurrentLocation,
+  getLocationHistory,
+  getActiveTrips,
+  getTripStatus,
+  saveDriverLocation,
 };
