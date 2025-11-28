@@ -7,6 +7,7 @@ const {
   RouteStop,
   Stop,
   ScheduleStudent,
+  Student,
 } = require("../data/models");
 const { Op } = require("sequelize");
 
@@ -292,7 +293,7 @@ const deleteSchedule = async (id) => {
   return true;
 };
 
-// 5. [FE gọi: getDriverWeekSchedule] Lấy lịch làm việc 1 tuần CỦA 1 TÀI XẾ
+
 const getDriverWeekSchedule = async (driverId) => {
   // 1. Xác định tuần hiện tại
   const curr = new Date();
@@ -463,7 +464,14 @@ const getStudentsByScheduleId = async (scheduleId) => {
                 {
                     model: Stop,
                     attributes: ['id', 'ten_diem', 'dia_chi', 'latitude', 'longitude']
+                },
+                {
+                  model: Schedule,
+                  include: [{ model: Route, 
+                    attributes: ['id', 'ten_tuyen', 'loai_tuyen']
+                  }]
                 }
+                
             ]
         });
 
@@ -487,6 +495,7 @@ const getStudentsByScheduleId = async (scheduleId) => {
             ten_tram: item.Stop.ten_diem,
             dia_chi_tram: item.Stop.dia_chi,
             toa_do: [parseFloat(item.Stop.latitude), parseFloat(item.Stop.longitude)],
+            diem_don: item.ten_diem,
             
             // Thứ tự đón (Dùng để sort)
             thu_tu_don: stopOrderMap[item.stop_id] || 999
@@ -512,6 +521,9 @@ const getStudentsForDriverCurrentTrip = async (driverId) => {
                 driver_id: driverId,
                 ngay_chay: today
             },
+            include: [
+             { model: Route }  // thêm include Route để lấy loai_tuyen
+          ],
             order: [['gio_bat_dau', 'ASC']]
         });
 
@@ -549,7 +561,9 @@ const getStudentsForDriverCurrentTrip = async (driverId) => {
             current_schedule: {
                 id: selectedSchedule.id,
                 gio_bat_dau: selectedSchedule.gio_bat_dau,
-                trang_thai: selectedSchedule.trang_thai
+                trang_thai: selectedSchedule.trang_thai,
+                loai_tuyen: selectedSchedule.Route ? selectedSchedule.Route.loai_tuyen : null,
+
             },
             students: students
         };
