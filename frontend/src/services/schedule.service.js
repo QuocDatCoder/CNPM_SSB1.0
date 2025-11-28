@@ -152,6 +152,20 @@ const ScheduleService = {
       throw error;
     }
   },
+
+  /**
+   * Lấy thông tin chuyến đi của các con (Parent view)
+   * @returns {Promise<Array>}
+   */
+  async getMyKidsTrips() {
+    try {
+      const response = await api.get("/schedules/parent/my-kids-trip");
+      return response;
+    } catch (error) {
+      console.error("Error fetching kid trips:", error);
+      throw error;
+    }
+  },
 };
 
 export default ScheduleService;

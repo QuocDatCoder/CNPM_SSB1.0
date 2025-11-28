@@ -65,7 +65,6 @@ const getAllStops = async (routeId) => {
   }
 };
 
-
 // --- MAIN FUNCTIONS (API LOGIC) ---
 
 // 1. Lấy danh sách lịch trình (Cho Admin Dashboard - Table View)
@@ -604,7 +603,7 @@ const getMySchedule = async (driverId) => {
           title: s.Route.loai_tuyen === "luot_di" ? "Lượt đi" : "Lượt về",
           time: s.gio_bat_dau.substring(0, 5),
           route: `Xe: ${s.Bus ? s.Bus.bien_so_xe : "N/A"} - ${
-          s.Route.ten_tuyen
+            s.Route.ten_tuyen
           }`,
           stops: await getAllStops(s.route_id),
           startLocation: locations.start,
@@ -830,12 +829,17 @@ const getParentDashboardInfo = async (parentId) => {
           include: [
             {
               model: Schedule,
-              required: true,
+              required: false, // Cho phép lấy con dù không có schedule hôm nay
               where: { ngay_chay: today }, // Chỉ lấy lịch hôm nay
               include: [
                 {
                   model: Route,
-                  attributes: ["ten_tuyen", "mo_ta", "khoang_cach"],
+                  attributes: [
+                    "ten_tuyen",
+                    "mo_ta",
+                    "khoang_cach",
+                    "loai_tuyen",
+                  ],
                 },
                 { model: Bus, attributes: ["bien_so_xe", "hang_xe"] },
                 {
@@ -956,5 +960,6 @@ module.exports = {
   getMySchedule,
   getStudentsByScheduleId,
   getStudentsForDriverCurrentTrip,
+  getParentDashboardInfo,
   updateStudentStatus,
 };

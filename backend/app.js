@@ -8,7 +8,7 @@ const { sequelize } = require("./src/data/models");
 
 // Đồng bộ database
 sequelize
-  .sync({ alter: true })
+  .sync({ alter: false })
   .then(() => {
     console.log("✅ Database & tables synced! (Đã đồng bộ xong)");
   })

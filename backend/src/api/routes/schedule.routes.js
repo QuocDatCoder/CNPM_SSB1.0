@@ -25,25 +25,33 @@ router.get(
   scheduleController.getMyCurrentStudents
 );
 
-// 4. Admin xem lịch tuần của 1 tài xế
+// 4. Phụ huynh xem lịch đi học của con
+// Endpoint: GET /api/schedules/parent/my-kids-trip
+router.get(
+  "/parent/my-kids-trip",
+  verifyToken,
+  scheduleController.getParentDashboard
+);
+
+// 5. Admin xem lịch tuần của 1 tài xế
 // Endpoint: GET /api/schedules/admin/driver/:driverId
 router.get("/admin/driver/:driverId", scheduleController.getDriverWeekSchedule);
 
 // --- NHÓM API CRUD CƠ BẢN ---
 
-// 5. Lấy danh sách tất cả (Dashboard)
+// 6. Lấy danh sách tất cả (Dashboard)
 // Endpoint: GET /api/schedules
 router.get("/", scheduleController.getAllSchedules);
 
-// 6. Tạo lịch mới
+// 7. Tạo lịch mới
 // Endpoint: POST /api/schedules
 router.post("/", scheduleController.createSchedule);
 
-// 7. Cập nhật lịch (Theo ID)
+// 8. Cập nhật lịch (Theo ID)
 // Endpoint: PUT /api/schedules/:id
 router.put("/:id", scheduleController.updateSchedule);
 
-// 8. Xóa lịch (Theo ID)
+// 9. Xóa lịch (Theo ID)
 // Endpoint: DELETE /api/schedules/:id
 router.delete("/:id", scheduleController.deleteSchedule);
 
