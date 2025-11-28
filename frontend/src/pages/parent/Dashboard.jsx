@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
   Polyline,
   Marker,
   Popup,
+  useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import "leaflet-routing-machine";
+import "../../../node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css";
 import Sidebar from "../../components/common/Sidebar/Sidebar";
 import Header from "../../components/common/Header/header";
 import Location from "./Location";
@@ -23,14 +26,142 @@ L.Icon.Default.mergeOptions({
   iconUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
   shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
 });
 
+// Custom icons cho map
+const startIcon = L.icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+});
+
+const endIcon = L.icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+});
+
+const stopIcon = L.icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+});
+
+// Component để vẽ routing
+const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
+  const map = useMap();
+  const routingControlRef = useRef(null);
+  const fallbackPolylineRef = useRef(null);
+
+  useEffect(() => {
+    if (!map || !waypoints || waypoints.length < 2) return;
+
+    if (routingControlRef.current && map.hasLayer(routingControlRef.current)) {
+      map.removeControl(routingControlRef.current);
+      routingControlRef.current = null;
+    }
+    if (
+      fallbackPolylineRef.current &&
+      map.hasLayer(fallbackPolylineRef.current)
+    ) {
+      map.removeLayer(fallbackPolylineRef.current);
+      fallbackPolylineRef.current = null;
+    }
+
+    try {
+      routingControlRef.current = L.Routing.control({
+        waypoints: waypoints.map((coord) => L.latLng(coord[0], coord[1])),
+        lineOptions: {
+          styles: [
+            {
+              color: color,
+              opacity: 0.8,
+              weight: 5,
+              lineCap: "round",
+              lineJoin: "round",
+            },
+          ],
+        },
+        show: false,
+        addWaypoints: false,
+        draggableWaypoints: false,
+        fitSelectedRoutes: true,
+        router: L.Routing.osrmv1({
+          serviceUrl: "https://router.project-osrm.org/route/v1",
+        }),
+      });
+
+      routingControlRef.current.addTo(map);
+    } catch (err) {
+      console.warn("Routing error, using fallback polyline:", err);
+      if (map) {
+        fallbackPolylineRef.current = L.polyline(waypoints, {
+          color: color,
+          opacity: 0.8,
+          weight: 5,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(map);
+      }
+    }
+
+    return () => {
+      if (
+        routingControlRef.current &&
+        map.hasLayer(routingControlRef.current)
+      ) {
+        try {
+          map.removeControl(routingControlRef.current);
+        } catch (e) {}
+      }
+      if (
+        fallbackPolylineRef.current &&
+        map.hasLayer(fallbackPolylineRef.current)
+      ) {
+        map.removeLayer(fallbackPolylineRef.current);
+      }
+    };
+  }, [waypoints, map, color]);
+
+  return null;
+};
+
+// Component để fit bounds
+function MapController({ mapRefCallback, bounds }) {
+  const map = useMap();
+
+  useEffect(() => {
+    mapRefCallback.current = map;
+    if (bounds && bounds.length > 0) {
+      const latLngs = L.latLngBounds(bounds);
+      map.fitBounds(latLngs, { padding: [50, 50], maxZoom: 14 });
+    }
+  }, [map, mapRefCallback, bounds]);
+
+  return null;
+}
+
 function ParentDashboard() {
+  const mapRef = useRef(null);
   const [activePage, setActivePage] = useState("Trang chủ");
   const [kids, setKids] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [routePath, setRoutePath] = useState([]);
+  const [stations, setStations] = useState([]);
 
   // Menu items for parent
   const parentMenuItems = [
@@ -47,6 +178,66 @@ function ParentDashboard() {
         const response = await ScheduleService.getMyKidsTrips();
         setKids(response || []);
         setError(null);
+
+        // Fetch route stops từ trip đầu tiên
+        if (response && response.length > 0) {
+          const kid = response[0];
+          if (
+            kid.danh_sach_chuyen &&
+            Array.isArray(kid.danh_sach_chuyen) &&
+            kid.danh_sach_chuyen.length > 0
+          ) {
+            const trip = kid.danh_sach_chuyen[0];
+            console.log("📍 Trip data:", trip);
+
+            // Fetch actual route stops
+            let stops = [];
+            if (trip.route_id) {
+              try {
+                console.log(`🔍 Fetching stops for route ${trip.route_id}...`);
+                stops = await ScheduleService.getRouteStops(trip.route_id);
+                console.log("✅ Route stops fetched:", stops);
+              } catch (err) {
+                console.warn("⚠️ Could not fetch route stops:", err);
+              }
+            }
+
+            // If no stops, use dummy stops
+            if (!stops || stops.length === 0) {
+              console.log("📌 Using dummy stops as fallback");
+              stops = [
+                {
+                  id: 1,
+                  ten_diem: "Điểm khởi hành",
+                  dia_chi: trip.diem_dung || "Chờ thông tin",
+                  latitude: 10.7769,
+                  longitude: 106.6869,
+                },
+                {
+                  id: 2,
+                  ten_diem: "Trạm trung gian",
+                  dia_chi: "Đường Võ Văn Kiệt",
+                  latitude: 10.758,
+                  longitude: 106.6966,
+                },
+                {
+                  id: 3,
+                  ten_diem: "Trường học",
+                  dia_chi: "Vinschool",
+                  latitude: 10.7438,
+                  longitude: 106.7295,
+                },
+              ];
+            }
+
+            const coordinates = stops.map((stop) => [
+              parseFloat(stop.latitude),
+              parseFloat(stop.longitude),
+            ]);
+            setRoutePath(coordinates);
+            setStations(stops);
+          }
+        }
       } catch (err) {
         console.error("Error fetching kids trips:", err);
         setError("Không thể tải thông tin chuyến đi");
@@ -113,16 +304,9 @@ function ParentDashboard() {
     }))
   );
 
-  // Route coordinates for the map (default)
-  const routeCoordinates = [
-    [21.0285, 105.8542],
-    [21.0375, 105.8342],
-    [21.0465, 105.8242],
-    [21.0555, 105.8142],
-    [21.0645, 105.8042],
-    [21.0735, 105.7942],
-    [21.0825, 105.7842],
-  ];
+  // Default center nếu không có dữ liệu route
+  const defaultCenter =
+    routePath.length > 0 ? routePath[0] : [10.7769, 106.6869];
 
   const renderContent = () => {
     switch (activePage) {
@@ -329,32 +513,65 @@ function ParentDashboard() {
                 <div className="parent-dashboard-map-section">
                   <div className="parent-dashboard-map-container">
                     <MapContainer
-                      center={[21.0555, 105.8142]}
-                      zoom={12}
+                      center={defaultCenter}
+                      zoom={13}
                       style={{
                         height: "100%",
                         width: "100%",
                         borderRadius: "12px",
                       }}
+                      zoomControl={false}
                     >
+                      <MapController
+                        mapRefCallback={mapRef}
+                        bounds={routePath}
+                      />
+
                       <TileLayer
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       />
-                      <Polyline
-                        positions={routeCoordinates}
-                        color="#3b82f6"
-                        weight={4}
-                        opacity={0.8}
-                      />
-                      <Marker position={routeCoordinates[0]}>
-                        <Popup>Điểm bắt đầu</Popup>
-                      </Marker>
-                      <Marker
-                        position={routeCoordinates[routeCoordinates.length - 1]}
-                      >
-                        <Popup>Trường Vinschool</Popup>
-                      </Marker>
+
+                      {routePath.length > 1 && (
+                        <RoutingPolyline
+                          waypoints={routePath}
+                          color="#3b82f6"
+                        />
+                      )}
+
+                      {stations.map((station, index) => {
+                        let icon = stopIcon;
+                        let label = `Trạm ${index + 1}`;
+
+                        if (index === 0) {
+                          icon = startIcon;
+                          label = "Điểm khởi hành";
+                        } else if (index === stations.length - 1) {
+                          icon = endIcon;
+                          label = "Trường học";
+                        }
+
+                        return (
+                          <Marker
+                            key={station.id}
+                            position={[
+                              parseFloat(station.latitude),
+                              parseFloat(station.longitude),
+                            ]}
+                            icon={icon}
+                          >
+                            <Popup>
+                              <div>
+                                <strong>{label}</strong>
+                                <br />
+                                {station.ten_diem}
+                                <br />
+                                <small>{station.dia_chi}</small>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        );
+                      })}
                     </MapContainer>
                   </div>
                 </div>
