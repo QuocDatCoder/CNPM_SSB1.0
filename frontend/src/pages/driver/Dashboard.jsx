@@ -37,17 +37,31 @@ const driverMenu = [
 ];
 
 function Home() {
-  const [tripStarted, setTripStarted] = useState(false);
-  const [activeTrip, setActiveTrip] = useState(null);
-  const [selectedStation, setSelectedStation] = useState(0);
+  // Get current driver info
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+
+  // Initialize state from sessionStorage to persist trip state across page navigations
+  const [tripStarted, setTripStarted] = useState(() => {
+    const saved = sessionStorage.getItem("tripStarted");
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  const [activeTrip, setActiveTrip] = useState(() => {
+    const saved = sessionStorage.getItem("activeTrip");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [selectedStation, setSelectedStation] = useState(() => {
+    const saved = sessionStorage.getItem("selectedStation");
+    return saved ? JSON.parse(saved) : 0;
+  });
+
   const [assignedRoutes, setAssignedRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Get current driver info
-  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const driver = {
-    fullname: user.ten_tai_xe || user.name || "Tài xế",
+    fullname: user.ho_ten || user.ten_tai_xe || user.name || "Tài xế",
     date: new Date().toLocaleDateString("vi-VN", {
       weekday: "long",
       year: "numeric",
@@ -55,6 +69,19 @@ function Home() {
       day: "2-digit",
     }),
   };
+
+  // Save trip state to sessionStorage whenever it changes
+  useEffect(() => {
+    sessionStorage.setItem("tripStarted", JSON.stringify(tripStarted));
+  }, [tripStarted]);
+
+  useEffect(() => {
+    sessionStorage.setItem("activeTrip", JSON.stringify(activeTrip));
+  }, [activeTrip]);
+
+  useEffect(() => {
+    sessionStorage.setItem("selectedStation", JSON.stringify(selectedStation));
+  }, [selectedStation]);
 
   // Fetch today's schedule from backend
   useEffect(() => {
@@ -75,44 +102,66 @@ function Home() {
         const todaySchedules = response[today] || [];
 
         // Transform backend data to component format
-        const routes = todaySchedules.map((schedule) => ({
-          id: schedule.id,
-          shift: schedule.type === "morning" ? "Sáng" : "Chiều",
-          name:
-            schedule.title ||
-            (schedule.type === "morning"
-              ? "Lượt đi buổi sáng"
-              : "Lượt về buổi chiều"),
-          time: schedule.time,
-          startTime: `Lộ trạm đầu tiên: ${schedule.time}`,
-          school: schedule.endLocation || "Trường học",
-          students: 0, // Will be updated if we fetch student list
-          type: schedule.type,
-          route: schedule.route || "",
-          startLocation: schedule.startLocation || "",
-          endLocation: schedule.endLocation || "",
-          status: schedule.status || "chuabatdau",
-          coordinates: [
-            [10.762622, 106.660172],
-            [10.771513, 106.677887],
-            [10.773431, 106.688034],
-            [10.776889, 106.700928],
-          ],
-          stations: [
-            {
-              id: 1,
-              name: schedule.startLocation || "Điểm khởi hành",
-              time: `${schedule.time}`,
-              status: "pending",
-            },
-            {
-              id: 2,
-              name: schedule.endLocation || "Điểm kết thúc",
-              time: "Dự kiến đến",
-              status: "pending",
-            },
-          ],
-        }));
+        const routes = todaySchedules.map((schedule) => {
+          // Convert stops array to stations format
+          let stations = [];
+          if (schedule.stops && Array.isArray(schedule.stops)) {
+            stations = schedule.stops.map((stop, index) => ({
+              id: index + 1,
+              name: stop,
+              time:
+                index === 0
+                  ? schedule.time
+                  : index === schedule.stops.length - 1
+                  ? "Dự kiến đến"
+                  : "",
+              status: index === 0 ? "pending" : "pending",
+            }));
+          } else {
+            // Fallback if no stops provided
+            stations = [
+              {
+                id: 1,
+                name: schedule.startLocation || "Điểm khởi hành",
+                time: schedule.time,
+                status: "pending",
+              },
+              {
+                id: 2,
+                name: schedule.endLocation || "Điểm kết thúc",
+                time: "Dự kiến đến",
+                status: "pending",
+              },
+            ];
+          }
+
+          return {
+            id: schedule.id,
+            shift: schedule.type === "morning" ? "Sáng" : "Chiều",
+            name:
+              schedule.title ||
+              (schedule.type === "morning"
+                ? "Lượt đi buổi sáng"
+                : "Lượt về buổi chiều"),
+            time: schedule.time,
+            startTime: `Lộ trạm đầu tiên: ${schedule.time}`,
+            school: schedule.endLocation || "Trường học",
+            students: 0, // Will be updated if we fetch student list
+            type: schedule.type,
+            route: schedule.route || "",
+            startLocation: schedule.startLocation || "",
+            endLocation: schedule.endLocation || "",
+            status: schedule.status || "chuabatdau",
+            stops: schedule.stops || [],
+            coordinates: [
+              [10.762622, 106.660172],
+              [10.771513, 106.677887],
+              [10.773431, 106.688034],
+              [10.776889, 106.700928],
+            ],
+            stations: stations,
+          };
+        });
 
         setAssignedRoutes(routes);
         setError(null);
@@ -140,6 +189,37 @@ function Home() {
       const today = new Date().toISOString().split("T")[0];
 
       if (schedule.date === today) {
+        // Convert stops array to stations format
+        let stations = [];
+        if (schedule.stops && Array.isArray(schedule.stops)) {
+          stations = schedule.stops.map((stop, index) => ({
+            id: index + 1,
+            name: stop,
+            time:
+              index === 0
+                ? schedule.time
+                : index === schedule.stops.length - 1
+                ? "Dự kiến đến"
+                : "",
+            status: "pending",
+          }));
+        } else {
+          stations = [
+            {
+              id: 1,
+              name: schedule.startLocation || "Điểm khởi hành",
+              time: `${schedule.time?.substring(0, 5) || schedule.time}`,
+              status: "pending",
+            },
+            {
+              id: 2,
+              name: schedule.endLocation || "Điểm kết thúc",
+              time: "Dự kiến đến",
+              status: "pending",
+            },
+          ];
+        }
+
         // Cập nhật state routes với lịch mới mà không reload
         setAssignedRoutes((prevRoutes) => [
           ...prevRoutes,
@@ -162,26 +242,14 @@ function Home() {
             startLocation: schedule.startLocation || "",
             endLocation: schedule.endLocation || "",
             status: schedule.status || "chuabatdau",
+            stops: schedule.stops || [],
             coordinates: [
               [10.762622, 106.660172],
               [10.771513, 106.677887],
               [10.773431, 106.688034],
               [10.776889, 106.700928],
             ],
-            stations: [
-              {
-                id: 1,
-                name: schedule.startLocation || "Điểm khởi hành",
-                time: `${schedule.time?.substring(0, 5) || schedule.time}`,
-                status: "pending",
-              },
-              {
-                id: 2,
-                name: schedule.endLocation || "Điểm kết thúc",
-                time: "Dự kiến đến",
-                status: "pending",
-              },
-            ],
+            stations: stations,
           },
         ]);
       }
@@ -269,6 +337,10 @@ function Home() {
     setTripStarted(false);
     setActiveTrip(null);
     setSelectedStation(0);
+    // Clear trip state from sessionStorage
+    sessionStorage.removeItem("tripStarted");
+    sessionStorage.removeItem("activeTrip");
+    sessionStorage.removeItem("selectedStation");
   };
 
   // If trip is started, show active trip view
@@ -282,7 +354,7 @@ function Home() {
               <img src="./icons/bus.png" alt="BusDriver" />
             </div>
             <div className="card-content">
-              <h4>Tuyến đi buổi sáng</h4>
+              <h4>{activeTrip.name}</h4>
               <p className="trip-status-badge active">Đang đi chuyến</p>
             </div>
           </div>
@@ -290,8 +362,10 @@ function Home() {
           <div className="trip-info-card">
             <div className="card-icon-trip">📍</div>
             <div className="card-content">
-              <h4>Bến xe ➜ Trường ABC</h4>
-              <p className="trip-time">07:00 - 07:45</p>
+              <h4>
+                {activeTrip.startLocation} ➜ {activeTrip.endLocation}
+              </h4>
+              <p className="trip-time">Bắt đầu: {activeTrip.time}</p>
             </div>
           </div>
         </div>
@@ -344,12 +418,16 @@ function Home() {
                 >
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                 </svg>
-                Tài xế
+                Tài xế:{" "}
+                {user.ho_ten ||
+                  user.ten_tai_xe ||
+                  user.name ||
+                  "Không xác định"}
               </button>
               <span className="search-label">
-                Xem sau
+                Trạm hiện tại:
                 <br />
-                Bà Hạc
+                {activeTrip.stations[selectedStation]?.name || "..."}
               </span>
             </div>
 

@@ -78,8 +78,20 @@ export default function Assignments() {
 
         console.log("📢 normalizedSchedule:", normalizedSchedule);
 
-        // Thêm lịch mới vào danh sách
-        newData[dateKey] = [...newData[dateKey], normalizedSchedule];
+        // Kiểm tra xem lịch này đã tồn tại chưa trước khi thêm
+        const scheduleExists = newData[dateKey].some(
+          (s) => s.id === normalizedSchedule.id
+        );
+
+        if (!scheduleExists) {
+          // Thêm lịch mới vào danh sách nếu chưa tồn tại
+          newData[dateKey] = [...newData[dateKey], normalizedSchedule];
+        } else {
+          console.log(
+            "⚠️ Schedule already exists, skipping duplicate:",
+            normalizedSchedule.id
+          );
+        }
 
         console.log("📢 Updated scheduleData:", newData);
 
