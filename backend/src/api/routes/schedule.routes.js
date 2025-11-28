@@ -38,5 +38,7 @@ router.delete('/:id', scheduleController.deleteSchedule);
 
 // GET http://localhost:8080/api/schedules/driver/current-students
 router.get('/driver/current-students', [verifyToken, isDriver], scheduleController.getMyCurrentStudents);
+// GET http://localhost:8080/api/schedules/parent/my-kids-trip
+router.get('/parent/my-kids-trip', verifyToken, scheduleController.getParentDashboard);
 
 module.exports = router;

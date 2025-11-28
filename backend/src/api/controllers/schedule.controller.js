@@ -115,7 +115,21 @@ getMyCurrentStudents: async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-}};
+  },
+  getParentDashboard: async (req, res) => {
+    try {
+        // Lấy ID phụ huynh từ Token
+        const parentId = req.user.id; 
+
+        const data = await scheduleService.getParentDashboardInfo(parentId);
+        
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+},
+};
+
 
 
 module.exports = scheduleController;
