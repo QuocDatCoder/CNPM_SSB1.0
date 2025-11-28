@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
   Polyline,
   Marker,
   Popup,
+  useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet-routing-machine";
+import "../../../node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css";
 import Header from "../../components/common/Header/header";
 import "./Bus.css";
 import BusService from "../../services/bus.service";
 import RouteService from "../../services/route.service";
+import ParentTrackingService from "../../services/parent-tracking.service";
 
 // Fix leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -31,28 +35,135 @@ const busIcon = L.icon({
   iconAnchor: [16, 16],
 });
 
-// Icon điểm bắt đầu
+// Icon start/end/stop
 const startIcon = L.icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
 });
 
-// Icon điểm kết thúc
 const endIcon = L.icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/149/149060.png",
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
 });
 
-// Icon trạm dừng
 const stopIcon = L.icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/3448/3448636.png",
-  iconSize: [28, 28],
-  iconAnchor: [14, 28],
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
 });
+
+// Component để vẽ routing
+const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
+  const map = useMap();
+  const routingControlRef = useRef(null);
+  const fallbackPolylineRef = useRef(null);
+
+  useEffect(() => {
+    if (!map || !waypoints || waypoints.length < 2) return;
+
+    if (routingControlRef.current && map.hasLayer(routingControlRef.current)) {
+      map.removeControl(routingControlRef.current);
+      routingControlRef.current = null;
+    }
+    if (
+      fallbackPolylineRef.current &&
+      map.hasLayer(fallbackPolylineRef.current)
+    ) {
+      map.removeLayer(fallbackPolylineRef.current);
+      fallbackPolylineRef.current = null;
+    }
+
+    try {
+      routingControlRef.current = L.Routing.control({
+        waypoints: waypoints.map((coord) => L.latLng(coord[0], coord[1])),
+        lineOptions: {
+          styles: [
+            {
+              color: color,
+              opacity: 0.8,
+              weight: 5,
+              lineCap: "round",
+              lineJoin: "round",
+            },
+          ],
+        },
+        show: false,
+        addWaypoints: false,
+        draggableWaypoints: false,
+        fitSelectedRoutes: true,
+        router: L.Routing.osrmv1({
+          serviceUrl: "https://router.project-osrm.org/route/v1",
+        }),
+      });
+
+      routingControlRef.current.addTo(map);
+    } catch (err) {
+      console.warn("Routing error, using fallback polyline:", err);
+      if (map) {
+        fallbackPolylineRef.current = L.polyline(waypoints, {
+          color: color,
+          opacity: 0.8,
+          weight: 5,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(map);
+      }
+    }
+
+    return () => {
+      if (
+        routingControlRef.current &&
+        map.hasLayer(routingControlRef.current)
+      ) {
+        try {
+          map.removeControl(routingControlRef.current);
+        } catch (e) {}
+      }
+      if (
+        fallbackPolylineRef.current &&
+        map.hasLayer(fallbackPolylineRef.current)
+      ) {
+        map.removeLayer(fallbackPolylineRef.current);
+      }
+    };
+  }, [waypoints, map, color]);
+
+  return null;
+};
+
+// Component để fit bounds
+function MapController({ mapRefCallback, bounds }) {
+  const map = useMap();
+
+  useEffect(() => {
+    mapRefCallback.current = map;
+    if (bounds && bounds.length > 0) {
+      const latLngs = L.latLngBounds(bounds);
+      map.fitBounds(latLngs, { padding: [50, 50], maxZoom: 14 });
+    }
+  }, [map, mapRefCallback, bounds]);
+
+  return null;
+}
 
 export default function Bus() {
+  const mapRef = useRef(null);
+  const lastLocationRef = useRef(null);
+
   const [buses, setBuses] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +176,7 @@ export default function Bus() {
   const [editFormData, setEditFormData] = useState({});
   const [routePath, setRoutePath] = useState([]);
   const [busPos, setBusPos] = useState(null);
+  const [stations, setStations] = useState([]);
   const [newBusData, setNewBusData] = useState({
     licensePlate: "",
     manufacturer: "",
@@ -109,11 +221,13 @@ export default function Bus() {
     }
 
     setSelectedBus(bus);
+    setRoutePath([]);
+    setStations([]);
+    setBusPos(null);
+    lastLocationRef.current = null;
 
-    // Tìm route tương ứng với xe - so sánh tên tuyến
+    // Tìm route tương ứng với xe
     const busRoute = routes.find((route) => {
-      // bus.route là tên tuyến từ DB (VD: "Tuyến 1: Q1 - Q5")
-      // route.name là tên từ getAllRoutesWithStops (VD: "Tuyến 1: Q1 - Q5")
       return bus.route && route.name && bus.route.trim() === route.name.trim();
     });
 
@@ -131,12 +245,38 @@ export default function Bus() {
       return;
     }
 
-    // Fetch route từ OSRM
-    const path = await fetchRoute(busRoute.start, busRoute.end);
-    setRoutePath(path);
+    // Setup route path with OSRM routing
+    try {
+      const path = await fetchRoute(busRoute.start, busRoute.end);
+      setRoutePath(path);
 
-    if (path.length > 0) {
-      setBusPos(path[0]);
+      // Use dummy stops as placeholders
+      const dummyStops = [
+        {
+          id: 1,
+          ten_diem: "Điểm khởi hành",
+          dia_chi: "Chờ thông tin",
+          latitude: busRoute.start[0],
+          longitude: busRoute.start[1],
+        },
+        {
+          id: 2,
+          ten_diem: "Trạm trung gian",
+          dia_chi: "Đường Võ Văn Kiệt",
+          latitude: (busRoute.start[0] + busRoute.end[0]) / 2,
+          longitude: (busRoute.start[1] + busRoute.end[1]) / 2,
+        },
+        {
+          id: 3,
+          ten_diem: "Trường học",
+          dia_chi: "Vinschool",
+          latitude: busRoute.end[0],
+          longitude: busRoute.end[1],
+        },
+      ];
+      setStations(dummyStops);
+    } catch (err) {
+      console.error("Error setting up route:", err);
     }
 
     setShowLocationModal(true);
@@ -163,21 +303,66 @@ export default function Bus() {
     }
   }
 
-  // Animation di chuyển xe
+  // Listen for real-time bus locations from drivers
   useEffect(() => {
-    if (routePath.length === 0 || !showLocationModal) return;
+    if (!showLocationModal || !selectedBus) return;
 
-    let index = 0;
+    console.log("📡 Setting up real-time location listener for bus");
 
-    const interval = setInterval(() => {
-      index++;
-      if (index >= routePath.length) index = 0;
+    ParentTrackingService.initSocket();
+    ParentTrackingService.joinParentTracking();
 
-      setBusPos(routePath[index]);
-    }, 200);
+    // Remove old listener
+    ParentTrackingService.socket?.off("bus-location-update");
 
-    return () => clearInterval(interval);
-  }, [routePath, showLocationModal]);
+    const handleBusLocationUpdate = (data) => {
+      console.log("🚌 Bus received location update:", data);
+
+      // Only accept driver-sourced data
+      if (!data.driverId) {
+        console.log("⏭️ Skipping non-driver location update");
+        return;
+      }
+
+      // Update location if location changed
+      if (data.location) {
+        const newLat = data.location.latitude;
+        const newLng = data.location.longitude;
+
+        if (
+          !lastLocationRef.current ||
+          lastLocationRef.current.latitude !== newLat ||
+          lastLocationRef.current.longitude !== newLng
+        ) {
+          lastLocationRef.current = { latitude: newLat, longitude: newLng };
+          setBusPos({ latitude: newLat, longitude: newLng });
+          console.log(`📍 Bus position updated: ${newLat}, ${newLng}`);
+        }
+      }
+    };
+
+    ParentTrackingService.socket?.on(
+      "bus-location-update",
+      handleBusLocationUpdate
+    );
+    console.log("👂 Listening to real-time bus location updates");
+
+    return () => {
+      ParentTrackingService.socket?.off(
+        "bus-location-update",
+        handleBusLocationUpdate
+      );
+      console.log("🛑 Stopped listening to bus location updates");
+    };
+  }, [showLocationModal, selectedBus]);
+
+  // Auto-fit map when routePath changes
+  useEffect(() => {
+    if (routePath.length > 0 && mapRef.current) {
+      const bounds = L.latLngBounds(routePath);
+      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    }
+  }, [routePath]);
 
   const handleEdit = (e, bus) => {
     e.stopPropagation();
@@ -773,36 +958,69 @@ export default function Bus() {
                       borderRadius: "8px",
                     }}
                   >
+                    <MapController mapRefCallback={mapRef} bounds={routePath} />
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-                    {/* Vẽ tuyến đường */}
-                    <Polyline
-                      positions={routePath}
-                      color="#3b82f6"
-                      weight={5}
-                      opacity={0.8}
-                    />
+                    {/* Route polyline */}
+                    {routePath.length > 1 && (
+                      <Polyline
+                        positions={routePath}
+                        color="#3b82f6"
+                        weight={5}
+                        opacity={0.8}
+                      />
+                    )}
 
                     {/* Marker điểm bắt đầu */}
-                    <Marker position={routePath[0]} icon={startIcon}>
-                      <Popup>Điểm bắt đầu</Popup>
-                    </Marker>
+                    {stations.length > 0 && (
+                      <Marker
+                        position={[stations[0].latitude, stations[0].longitude]}
+                        icon={startIcon}
+                      >
+                        <Popup>
+                          <div>
+                            <strong>Điểm khởi hành</strong>
+                            <br />
+                            {stations[0].ten_diem}
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
 
                     {/* Marker điểm kết thúc */}
-                    <Marker
-                      position={routePath[routePath.length - 1]}
-                      icon={endIcon}
-                    >
-                      <Popup>Điểm kết thúc</Popup>
-                    </Marker>
-
-                    {/* Marker xe di chuyển */}
-                    {busPos && (
-                      <Marker position={busPos} icon={busIcon}>
+                    {stations.length > 0 && (
+                      <Marker
+                        position={[
+                          stations[stations.length - 1].latitude,
+                          stations[stations.length - 1].longitude,
+                        ]}
+                        icon={endIcon}
+                      >
                         <Popup>
-                          <strong>{selectedBus.licensePlate}</strong>
-                          <br />
-                          {selectedBus.route}
+                          <div>
+                            <strong>Trường học</strong>
+                            <br />
+                            {stations[stations.length - 1].ten_diem}
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+
+                    {/* Real-time bus location marker */}
+                    {busPos && (
+                      <Marker
+                        position={[busPos.latitude, busPos.longitude]}
+                        icon={busIcon}
+                      >
+                        <Popup>
+                          <div style={{ textAlign: "center" }}>
+                            <strong>🚌 Xe: {selectedBus.licensePlate}</strong>
+                            <br />
+                            <small>
+                              {busPos.latitude.toFixed(5)},{" "}
+                              {busPos.longitude.toFixed(5)}
+                            </small>
+                          </div>
                         </Popup>
                       </Marker>
                     )}

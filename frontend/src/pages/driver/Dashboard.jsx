@@ -200,12 +200,14 @@ function Home() {
         const response = await ScheduleService.getMySchedule();
 
         console.log("✅ Schedule response:", response);
+        console.log("✅ Full response keys:", Object.keys(response));
 
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split("T")[0];
+        // Get today's date in YYYY-MM-DD format (local time, not UTC)
+        const today = new Date().toLocaleDateString("en-CA"); // Format: YYYY-MM-DD in local time
+        console.log("🔍 Today's date (local):", today);
+
         const todaySchedules = response[today] || [];
-
-        // Transform backend data to component format
+        console.log("🔍 Today's schedules found:", todaySchedules.length); // Transform backend data to component format
         const routes = todaySchedules.map((schedule) => {
           // Convert stops array to stations format and extract coordinates
           let stations = [];
@@ -256,19 +258,25 @@ function Home() {
             ];
           }
 
+          // Normalize type: backend can return "luot_di"/"luot_ve" or "morning"/"afternoon"
+          const scheduleType =
+            schedule.type === "luot_di" || schedule.type === "morning"
+              ? "morning"
+              : "afternoon";
+
           return {
             id: schedule.id,
-            shift: schedule.type === "morning" ? "Sáng" : "Chiều",
+            shift: scheduleType === "morning" ? "Sáng" : "Chiều",
             name:
               schedule.title ||
-              (schedule.type === "morning"
+              (scheduleType === "morning"
                 ? "Lượt đi buổi sáng"
                 : "Lượt về buổi chiều"),
             time: schedule.time,
             startTime: `Lộ trạm đầu tiên: ${schedule.time}`,
             school: schedule.endLocation || "Trường học",
             students: 0, // Will be updated if we fetch student list
-            type: schedule.type,
+            type: scheduleType,
             route: schedule.route || "",
             startLocation: schedule.startLocation || "",
             endLocation: schedule.endLocation || "",
