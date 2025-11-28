@@ -37,6 +37,7 @@ const StudentService = {
         email_phu_huynh: student.email_phu_huynh,
         dia_chi: student.dia_chi,
         username_phu_huynh: student.username_phu_huynh,
+        password_phu_huynh: student.password_phu_huynh,
       }));
     } catch (error) {
       console.error("Error fetching students:", error);
@@ -58,7 +59,8 @@ const StudentService = {
         sdt_ph: studentData.parentPhone,
         email_ph: studentData.parentEmail,
         dia_chi: studentData.address,
-        password: studentData.password,
+        username_phu_huynh: studentData.username || "",
+        password_phu_huynh: studentData.password,
 
         // Thông tin học sinh
         ho_ten_hs: studentData.studentName,
@@ -81,19 +83,31 @@ const StudentService = {
   },
 
   /**
-   * Cập nhật thông tin học sinh
+   * Cập nhật thông tin học sinh và phụ huynh
    * @param {string|number} id - ID học sinh
    * @param {Object} studentData - Dữ liệu cần sửa
    * @returns {Promise<Object>}
    */
   async updateStudent(id, studentData) {
     try {
-      // Payload chỉ chứa các field cho phép update
+      // Payload chứa toàn bộ thông tin học sinh và phụ huynh
       const payload = {
-        ho_ten_hs: studentData.studentName,
+        // Thông tin học sinh
+        ho_ten_hs: studentData.fullname,
         lop: studentData.class,
-        route_id: studentData.routeId ? parseInt(studentData.routeId) : null,
-        stop_id: studentData.stopId ? parseInt(studentData.stopId) : null,
+        ngay_sinh: studentData.dob,
+        gioi_tinh: studentData.gender,
+        gvcn: studentData.teacher,
+        route_id: studentData.route_id ? parseInt(studentData.route_id) : null,
+        stop_id: studentData.stop_id ? parseInt(studentData.stop_id) : null,
+
+        // Thông tin phụ huynh
+        ho_ten_ph: studentData.parentName,
+        sdt_ph: studentData.contact,
+        email_ph: studentData.parentEmail,
+        dia_chi: studentData.address,
+        username_phu_huynh: studentData.username_phu_huynh,
+        password_phu_huynh: studentData.password_phu_huynh,
       };
 
       const response = await api.put(`/students/${id}`, payload);

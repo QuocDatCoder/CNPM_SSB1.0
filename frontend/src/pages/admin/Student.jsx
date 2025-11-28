@@ -68,6 +68,7 @@ export default function Student() {
         parentEmail: student.email_phu_huynh,
         address: student.dia_chi,
         username_phu_huynh: student.username_phu_huynh,
+        password_phu_huynh: student.password_phu_huynh,
       }));
       setStudents(mappedStudents);
     } catch (error) {
@@ -166,10 +167,19 @@ export default function Student() {
   const handleSaveEdit = async () => {
     try {
       const payload = {
-        studentName: editedStudent.fullname,
+        fullname: editedStudent.fullname,
+        dob: editedStudent.dob,
+        gender: editedStudent.gender,
         class: editedStudent.class,
-        routeId: editedStudent.route_id,
-        stopId: editedStudent.stop_id,
+        teacher: editedStudent.teacher,
+        route_id: editedStudent.route_id,
+        stop_id: editedStudent.stop_id,
+        parentName: editedStudent.parentName,
+        contact: editedStudent.contact,
+        parentEmail: editedStudent.parentEmail,
+        address: editedStudent.address,
+        username_phu_huynh: editedStudent.username_phu_huynh,
+        password_phu_huynh: editedStudent.password_phu_huynh,
       };
       await StudentService.updateStudent(editedStudent.id, payload);
       alert("Đã cập nhật thông tin học sinh!");
@@ -1002,11 +1012,11 @@ export default function Student() {
                       {isEditMode ? (
                         <input
                           type={showPassword ? "text" : "password"}
-                          value={editedStudent.password || ""}
+                          value={editedStudent.password_phu_huynh || ""}
                           onChange={(e) =>
                             setEditedStudent({
                               ...editedStudent,
-                              password: e.target.value,
+                              password_phu_huynh: e.target.value,
                             })
                           }
                           style={{ flex: 1 }}
@@ -1014,7 +1024,7 @@ export default function Student() {
                       ) : (
                         <span style={{ flex: 1 }}>
                           {showPassword
-                            ? selectedStudent.password || "123456"
+                            ? selectedStudent.password_phu_huynh || "••••••••"
                             : "••••••••"}
                         </span>
                       )}
