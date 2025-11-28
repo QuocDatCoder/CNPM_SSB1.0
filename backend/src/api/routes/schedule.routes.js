@@ -47,4 +47,11 @@ router.put("/:id", scheduleController.updateSchedule);
 // Endpoint: DELETE /api/schedules/:id
 router.delete("/:id", scheduleController.deleteSchedule);
 
+// GET http://localhost:8080/api/schedules/driver/current-students
+router.get(
+  "/driver/current-students",
+  [verifyToken, isDriver],
+  scheduleController.getMyCurrentStudents
+);
+
 module.exports = router;

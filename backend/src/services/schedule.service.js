@@ -41,6 +41,23 @@ const getStartEndLocation = async (routeId) => {
     end: routeStops[routeStops.length - 1].Stop.ten_diem,
   };
 };
+const getAllStops = async (routeId) => {
+  try {
+    const routeStops = await RouteStop.findAll({
+      where: { route_id: routeId },
+      include: [{ model: Stop, attributes: ["ten_diem"] }],
+      order: [["thu_tu", "ASC"]],
+    });
+
+    if (!routeStops || routeStops.length === 0) return [];
+
+    // Lấy danh sách tên trạm
+    return routeStops.map((rs) => rs.Stop.ten_diem);
+  } catch (error) {
+    console.error("Error in getAllStops:", error);
+    return [];
+  }
+};
 
 // --- MAIN FUNCTIONS (API LOGIC) ---
 
@@ -395,7 +412,9 @@ const updateSchedule = async (id, data) => {
       if (global.io) {
         const room = global.io.sockets.adapter.rooms.get("admin-schedule");
         const clientCount = room ? room.size : 0;
-        console.log(`[DEBUG] Broadcasting to admin-schedule - clients: ${clientCount}`);
+        console.log(
+          `[DEBUG] Broadcasting to admin-schedule - clients: ${clientCount}`
+        );
         global.io.to("admin-schedule").emit("schedule-updated", {
           id,
           route_id: data.route_id,
@@ -468,7 +487,9 @@ const deleteSchedule = async (id) => {
       if (global.io) {
         const room = global.io.sockets.adapter.rooms.get("admin-schedule");
         const clientCount = room ? room.size : 0;
-        console.log(`[DEBUG] Broadcasting to admin-schedule - clients: ${clientCount}`);
+        console.log(
+          `[DEBUG] Broadcasting to admin-schedule - clients: ${clientCount}`
+        );
         global.io.to("admin-schedule").emit("schedule-deleted", {
           scheduleId: id,
         });
@@ -578,6 +599,7 @@ const getMySchedule = async (driverId) => {
           route: `Xe: ${s.Bus ? s.Bus.bien_so_xe : "N/A"} - ${
             s.Route.ten_tuyen
           }`,
+          stops: await getAllStops(s.route_id),
           startLocation: locations.start,
           endLocation: locations.end,
           status: s.trang_thai,
@@ -763,6 +785,97 @@ const getStudentsForDriverCurrentTrip = async (driverId) => {
       },
       students: students,
     };
+  } catch (error) {
+    throw error;
+  }
+};
+// --- HÀM MỚI: Lấy thông tin đưa đón cho Phụ huynh ---
+const getParentDashboardInfo = async (parentId) => {
+  try {
+    console.log("parentId =", parentId);
+
+    const today = new Date().toISOString().slice(0, 10);
+    console.log("Today's date:", today);
+    // Nếu muốn test ngày khác thì hardcode ngày vào đây, ví dụ: '2025-12-25'
+
+    // 1. Tìm tất cả con của phụ huynh này
+    const students = await Student.findAll({
+      where: { parent_id: parentId },
+      include: [
+        {
+          // 2. Tìm lịch trình CỦA NGÀY HÔM NAY mà con được gán
+          model: ScheduleStudent,
+          required: false, // Vẫn lấy thông tin con dù hôm nay không có lịch
+          include: [
+            {
+              model: Schedule,
+              required: true,
+              where: { ngay_chay: today }, // Chỉ lấy lịch hôm nay
+              include: [
+                {
+                  model: Route,
+                  attributes: ["ten_tuyen", "mo_ta", "khoang_cach"],
+                },
+                { model: Bus, attributes: ["bien_so_xe", "hang_xe"] },
+                {
+                  model: User,
+                  as: "driver",
+                  attributes: ["ho_ten", "so_dien_thoai"],
+                },
+              ],
+            },
+            {
+              model: Stop, // Lấy điểm đón/trả
+              attributes: ["ten_diem", "dia_chi"],
+            },
+          ],
+        },
+      ],
+    });
+    console.log(`👉 Tìm thấy ${students.length} học sinh.`);
+    students.forEach((s) => {
+      console.log(`- Bé ${s.ho_ten}: ${s.ScheduleStudents.length} chuyến.`);
+    });
+    // 3. Format dữ liệu gọn gàng cho App Phụ huynh
+    return students.map((child) => {
+      // Lấy danh sách các chuyến đi trong ngày (có thể có Sáng & Chiều)
+      const trips = child.ScheduleStudents.map((ss) => {
+        const s = ss.Schedule;
+        return {
+          schedule_id: s.id,
+          loai_chuyen:
+            s.Route.loai_tuyen === "luot_di"
+              ? "Lượt đi (Đón)"
+              : "Lượt về (Trả)",
+          gio_du_kien: s.gio_bat_dau,
+          trang_thai_chuyen: s.trang_thai, // chuabatdau, dangchay...
+
+          // Thông tin Tuyến
+          ten_tuyen: s.Route.ten_tuyen,
+          khoang_cach: s.Route.khoang_cach,
+          // Thông tin Xe
+          bien_so_xe: s.Bus.bien_so_xe,
+          hang_xe: s.Bus.hang_xe,
+
+          // Thông tin Tài xế (Quan trọng để PH liên lạc)
+          tai_xe: s.driver ? s.driver.ho_ten : "Chưa phân công",
+          sdt_tai_xe: s.driver ? s.driver.so_dien_thoai : "",
+
+          // Trạng thái con mình (Đã lên xe chưa)
+          trang_thai_con: ss.trang_thai_don, // choxacnhan, dihoc, daxuong
+
+          // Điểm đón/trả cụ thể của con
+          diem_dung: ss.Stop ? ss.Stop.ten_diem : "",
+        };
+      });
+
+      return {
+        student_id: child.id,
+        ten_con: child.ho_ten,
+        lop: child.lop,
+        danh_sach_chuyen: trips, // Mảng các chuyến xe hôm nay của bé
+      };
+    });
   } catch (error) {
     throw error;
   }
