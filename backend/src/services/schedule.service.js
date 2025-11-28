@@ -45,19 +45,26 @@ const getAllStops = async (routeId) => {
   try {
     const routeStops = await RouteStop.findAll({
       where: { route_id: routeId },
-      include: [{ model: Stop, attributes: ["ten_diem"] }],
+      include: [{ model: Stop }], // lấy toàn bộ thông tin Stop
       order: [["thu_tu", "ASC"]],
     });
 
     if (!routeStops || routeStops.length === 0) return [];
 
-    // Lấy danh sách tên trạm
-    return routeStops.map((rs) => rs.Stop.ten_diem);
+    // Trả về toàn bộ thông tin Stop
+    return routeStops.map((rs) => ({
+      id: rs.Stop.id,
+      ten_diem: rs.Stop.ten_diem,
+      dia_chi: rs.Stop.dia_chi,
+      latitude: rs.Stop.latitude,
+      longitude: rs.Stop.longitude,
+    }));
   } catch (error) {
     console.error("Error in getAllStops:", error);
     return [];
   }
 };
+
 
 // --- MAIN FUNCTIONS (API LOGIC) ---
 
@@ -597,7 +604,7 @@ const getMySchedule = async (driverId) => {
           title: s.Route.loai_tuyen === "luot_di" ? "Lượt đi" : "Lượt về",
           time: s.gio_bat_dau.substring(0, 5),
           route: `Xe: ${s.Bus ? s.Bus.bien_so_xe : "N/A"} - ${
-            s.Route.ten_tuyen
+          s.Route.ten_tuyen
           }`,
           stops: await getAllStops(s.route_id),
           startLocation: locations.start,

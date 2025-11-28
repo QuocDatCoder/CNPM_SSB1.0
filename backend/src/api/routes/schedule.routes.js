@@ -9,22 +9,13 @@ const { verifyToken, isDriver } = require("../../middlewares/auth.middleware");
 // Endpoint: GET /api/schedules/history/logs
 router.get("/history/logs", scheduleController.getAssignmentHistory);
 
-// 2. App Tài xế xem lịch của mình (TRƯỚC routes khác /driver)
+// 2. Lấy lịch trình của 1 tài xế trong ngày
 // Endpoint: GET /api/schedules/driver/my-schedule
 router.get(
   "/driver/my-schedule",
   verifyToken,
   scheduleController.getMySchedule
 );
-
-// 3. Lấy học sinh của chuyến hiện tại
-// Endpoint: GET /api/schedules/driver/current-students
-router.get(
-  "/driver/current-students",
-  [verifyToken, isDriver],
-  scheduleController.getMyCurrentStudents
-);
-
 // 4. Admin xem lịch tuần của 1 tài xế
 // Endpoint: GET /api/schedules/admin/driver/:driverId
 router.get("/admin/driver/:driverId", scheduleController.getDriverWeekSchedule);
