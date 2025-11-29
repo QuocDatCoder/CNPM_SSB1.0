@@ -22,6 +22,9 @@ import drivers from "../../data/drivers";
 import ScheduleService from "../../services/schedule.service";
 import TrackingService from "../../services/tracking.service";
 import useDriverScheduleSocket from "../../hooks/useDriverScheduleSocket";
+import NotificationService from "../../services/notification.service";
+import RouteService from "../../services/route.service";
+import StudentService from "../../services/student.service";
 
 // Fix leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -1098,6 +1101,68 @@ export default function DriverDashboard() {
   const [sendToAdmin, setSendToAdmin] = useState(true);
   const [alertType, setAlertType] = useState("");
 
+  const [availableRoutes, setAvailableRoutes] = useState([]); // List danh sách tuyến
+  const [selectedRouteId, setSelectedRouteId] = useState("");
+  const [allStudents, setAllStudents] = useState([]);
+
+  // Dashboard.jsx - Bên trong component DriverDashboard
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        console.log("🔄 Bắt đầu tải dữ liệu (Rút gọn)...");
+
+        // 1. Gọi song song: Lấy tất cả tuyến (để lấy tên) + Lấy lịch của tôi (để lấy ID)
+        const [allRoutesData, myScheduleData] = await Promise.all([
+          RouteService.getAllRoutesWithStops(), // Lấy danh sách gốc để có tên tuyến đầy đủ
+          ScheduleService.getMySchedule()       // Lấy lịch cá nhân
+        ]);
+
+        // 2. Trích xuất ID các tuyến mà tài xế này chạy
+        // API getMySchedule trả về dạng: { "2024-01-01": [...], "2024-01-02": [...] }
+        // Chúng ta gộp tất cả các ngày lại để lấy hết các tuyến tài xế từng chạy/sắp chạy
+        const myRouteIds = new Set();
+        
+        if (myScheduleData) {
+            // Object.values lấy ra mảng các mảng lịch trình -> .flat() làm phẳng thành 1 mảng duy nhất
+            const allSchedules = Object.values(myScheduleData).flat();
+            
+            allSchedules.forEach(schedule => {
+                // Lấy ID từ schedule (backend của bạn có thể trả về route_id hoặc object route)
+                const rId = schedule.route_id || (schedule.route && schedule.route.id);
+                if (rId) myRouteIds.add(String(rId));
+            });
+        }
+        
+        console.log("🎯 ID các tuyến của tài xế:", [...myRouteIds]);
+
+        // 3. Lọc danh sách gốc: Chỉ giữ lại những tuyến có trong lịch trình
+        const filteredRoutes = allRoutesData
+            .filter(route => myRouteIds.has(String(route.id)))
+            .map((route) => {
+                // Format tên cho đẹp: "Tuyến 1 (Đi)"
+                const suffix = route.loai_tuyen === 'luot_di' ? '(Đi)' : (route.loai_tuyen === 'luot_ve' ? '(Về)' : '');
+                return {
+                    id: route.id, 
+                    name: `${route.name} ${suffix}`.trim(), 
+                };
+            });
+            
+        // 4. Cập nhật State
+        setAvailableRoutes(filteredRoutes);
+        
+        // Load thêm học sinh để phục vụ gửi tin nhắn (nếu cần)
+        const studentsData = await StudentService.getAllStudents();
+        setAllStudents(studentsData);
+
+      } catch (error) {
+        console.error("❌ Lỗi tải dữ liệu:", error);
+      }
+    };
+
+    loadData();
+  }, []);
+  
   function renderContent() {
     switch (page) {
       case "Xem lịch trình phân công":
@@ -1120,22 +1185,105 @@ export default function DriverDashboard() {
     setPage(label);
   }
 
-  function sendAlert() {
-    const payload = {
-      type: alertType,
+// Dashboard.jsx
+
+// Dashboard.jsx
+
+ // Dashboard.jsx
+
+async function sendAlert() {
+  // 1. Validate dữ liệu đầu vào
+  if (!alertMessage.trim()) return alert("Vui lòng nhập nội dung cảnh báo!");
+  if (!alertType) return alert("Vui lòng chọn loại cảnh báo!");
+  if (!sendToParents && !sendToAdmin) return alert("Vui lòng chọn người nhận!");
+
+  // ---------------------------------------------------------
+  // LUỒNG 1: GỬI ALERT CHO ADMIN (Luôn chạy nếu có tick Admin hoặc tick Parents)
+  // Logic: Admin luôn cần nhận thông báo hệ thống (chuông đỏ)
+  // ---------------------------------------------------------
+  try {
+    const adminPayload = {
+      alertType,
       message: alertMessage,
-      toParents: sendToParents,
-      toAdmin: sendToAdmin || sendToParents,
+      toParents: false, // QUAN TRỌNG: Backend không cần gửi cho PH ở luồng này nữa
+      toAdmin: true,    // Chỉ đích danh Admin
+      routeId: selectedRouteId ? parseInt(selectedRouteId) : null,
+      parentIds: []     // Không cần list parents ở đây
     };
-    console.log("Sending alert:", payload);
-    // TODO: call backend API to send alert
-    // close modal after send
-    setShowAlertModal(false);
-    setAlertMessage("");
-    setSendToParents(false);
-    setSendToAdmin(true);
-    setAlertType("");
+
+    // Gọi API Alert riêng cho Admin
+    await NotificationService.sendAlert(adminPayload);
+    console.log("✅ Đã gửi Alert cho Admin");
+
+  } catch (error) {
+    console.error("Lỗi gửi Alert Admin:", error);
+    return alert("Lỗi khi gửi báo cáo cho Admin!");
   }
+
+  // ---------------------------------------------------------
+  // LUỒNG 2: GỬI MESSAGE CHO PHỤ HUYNH (Nếu có tick Parents)
+  // Logic: Gửi tin nhắn vào hộp thư, tiêu đề có chữ "CẢNH BÁO"
+  // ---------------------------------------------------------
+  if (sendToParents) {
+    if (!selectedRouteId) return alert("Vui lòng chọn phạm vi (Tuyến hoặc Tất cả)!");
+
+    let targetParentIds = [];
+
+    // A. Nếu chọn 'Tất cả' -> Lấy toàn bộ phụ huynh
+    if (selectedRouteId === 'all') {
+        targetParentIds = [...new Set(allStudents.map(s => s.parent_id).filter(id => id))];
+    } 
+    // B. Nếu chọn Tuyến cụ thể -> Lọc theo tuyến
+    else {
+        const studentsInRoute = allStudents.filter(student => 
+            student.current_route_id == selectedRouteId 
+        );
+        targetParentIds = [...new Set(studentsInRoute.map(s => s.parent_id).filter(id => id))];
+    }
+
+    if (targetParentIds.length === 0) {
+      alert("Đã gửi cho Admin, nhưng không tìm thấy phụ huynh nào để gửi tin nhắn.");
+    } else {
+      try {
+        // Tạo tiêu đề cảnh báo
+        const typeMap = {
+           'su-co-xe': 'Sự cố xe',
+           'su-co-giao-thong': 'Tắc đường/Giao thông',
+           'su-co-y-te': 'Sự cố y tế',
+           'khac': 'Thông báo'
+        };
+        const titleLabel = typeMap[alertType] || 'Cảnh báo';
+
+        // Gọi API Message riêng cho Phụ huynh
+        const messagePayload = {
+          recipient_ids: targetParentIds,
+          subject: `⚠️ CẢNH BÁO: ${titleLabel}`, // Tiêu đề nhấn mạnh
+          content: alertMessage,
+          schedule_time: null,
+          type: 'canhbaophuhuynh' // Backend sẽ lưu loại này để hiển thị icon khác biệt (nếu cần)
+        };
+
+        await NotificationService.sendMessage(messagePayload);
+        console.log(`✅ Đã gửi Message cho ${targetParentIds.length} phụ huynh`);
+
+      } catch (error) {
+        console.error("Lỗi gửi Message Phụ huynh:", error);
+        alert("Đã gửi cho Admin, nhưng lỗi khi gửi tin nhắn cho phụ huynh.");
+        return; // Dừng lại nếu lỗi gửi tin nhắn
+      }
+    }
+  }
+
+  // 3. THÔNG BÁO HOÀN TẤT VÀ RESET FORM
+  alert("Đã xử lý xong!");
+  
+  setShowAlertModal(false);
+  setAlertMessage("");
+  setAlertType("");
+  setSendToParents(false);
+  setSendToAdmin(true);
+  setSelectedRouteId(""); 
+}
 
   return (
     <div className="driver-app-container">
@@ -1168,7 +1316,6 @@ export default function DriverDashboard() {
             aria-modal="true"
           >
             <h3>Gửi cảnh báo</h3>
-
             <textarea
               className="alert-textarea"
               placeholder="Nhập nội dung cảnh báo..."
@@ -1223,30 +1370,59 @@ export default function DriverDashboard() {
               </label>
             </div>
 
-            <div className="alert-options">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={sendToParents}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setSendToParents(v);
-                    if (v) setSendToAdmin(true);
-                  }}
-                />{" "}
-                Gửi cho phụ huynh (kèm Admin)
-              </label>
+                <div className="alert-options">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={sendToParents}
+                      onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setSendToParents(isChecked);
+                          
+                          // Nếu chọn gửi Phụ huynh -> Tự động bật gửi Admin
+                          if (isChecked) {
+                              setSendToAdmin(true);
+                          }
+                          // Nếu bỏ chọn gửi Phụ huynh -> Reset chọn tuyến
+                          else {
+                              setSelectedRouteId(""); 
+                          }
+                      }}
+                    />{" "}
+                    Gửi cho phụ huynh (kèm Admin)
+                  </label>
 
-              <label>
-                <input
-                  type="checkbox"
-                  checked={sendToAdmin}
-                  disabled={sendToParents}
-                  onChange={(e) => setSendToAdmin(e.target.checked)}
-                />{" "}
-                Gửi cho Admin
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={sendToAdmin}
+                      disabled={sendToParents}
+                      onChange={(e) => setSendToAdmin(e.target.checked)}
+                    />{" "}
+                    Gửi cho Admin
+                  </label>
+                </div>
+                {sendToParents && (
+            <div style={{ marginTop: 10, padding: 10, background: '#f5f5f5', borderRadius: 5 }}>
+              <label style={{ display: 'block', marginBottom: 5, fontWeight: 'bold', fontSize: '0.9rem' }}>
+                Chọn tuyến bị ảnh hưởng:
               </label>
+              <select 
+                  value={selectedRouteId} 
+                  onChange={(e) => setSelectedRouteId(e.target.value)}
+                  className="alert-route-select" // Bạn có thể thêm class CSS
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+              >
+                  <option value="">-- Chọn tuyến đường --</option>
+                  {availableRoutes.map((route) => (
+                      <option key={route.id} value={route.id}>{route.name}</option>
+                  ))}
+              </select>
+              <p style={{fontSize: '0.8rem', color: '#666', marginTop: 5}}>
+                *Hệ thống sẽ gửi thông báo đến tất cả phụ huynh có con trong tuyến này.
+              </p>
             </div>
+          )}
 
             <div className="alert-actions">
               <button

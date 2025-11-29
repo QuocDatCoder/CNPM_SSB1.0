@@ -49,6 +49,10 @@ const authRoutes = require("./src/api/routes/auth.routes");
 app.use("/api/auth", authRoutes);
 console.log("✅ Auth routes loaded at /api/auth");
 
+const notificationRoutes = require("./src/api/routes/notification.routes"); // Đảm bảo đường dẫn đúng
+app.use("/api/notifications", notificationRoutes);
+// --------------------------------------------
+
 app.get("/", (req, res) => {
   res.json({ message: "Server SSB1.0 đang chạy ổn định!" });
 });
