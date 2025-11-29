@@ -166,11 +166,10 @@ function Location() {
   const [isTrackingActive, setIsTrackingActive] = useState(false);
   const [routePath, setRoutePath] = useState([]);
   const [stations, setStations] = useState([]);
-
-  const studentInfo = {
-    name: "Nguyễn Văn A",
-    class: "Lớp 5B",
-  };
+  const [studentInfo, setStudentInfo] = useState({
+    name: "Chờ thông tin",
+    class: "Chờ thông tin",
+  });
 
   const [tripInfo, setTripInfo] = useState({
     driver: "Chờ thông tin",
@@ -306,6 +305,12 @@ function Location() {
           // Get first kid's first trip
           const kid = response[0];
           console.log("👶 Selected kid:", kid);
+
+          // Update student info from backend
+          setStudentInfo({
+            name: kid.ten_con || "Chờ thông tin",
+            class: kid.lop || "Chờ thông tin",
+          });
 
           if (
             kid.danh_sach_chuyen &&
