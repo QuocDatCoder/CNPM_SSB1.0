@@ -13,13 +13,16 @@ import Sidebar from "../../components/common/Sidebar/Sidebar";
 import Assignments from "./Assignments";
 import Students from "./Students";
 import Notifications from "./Notifications";
+import StudentStopModal from "./StudentStopModal";
 import "./Dashboard.css";
 import drivers from "../../data/drivers";
 import ScheduleService from "../../services/schedule.service";
+import TrackingService from "../../services/tracking.service";
+import StudentService from "../../services/student.service";
+import StopService from "../../services/stop.service";
 import useDriverScheduleSocket from "../../hooks/useDriverScheduleSocket";
 import NotificationService from "../../services/notification.service";
 import RouteService from "../../services/route.service";
-import StudentService from "../../services/student.service";
 
 // Fix leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -62,6 +65,22 @@ function Home() {
   const [assignedRoutes, setAssignedRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [busLocation, setBusLocation] = useState(null);
+  const [tripProgress, setTripProgress] = useState({
+    percentage: 0,
+    distanceCovered: 0,
+    currentStop: null,
+  });
+  const [routePath, setRoutePath] = useState([]); // 🚌 Lưu đường đi thực tế
+  const [busPos, setBusPos] = useState(null); // 🚌 Vị trí hiện tại của xe
+  const [showStudentModal, setShowStudentModal] = useState(false); // Modal học sinh
+  const [stopsData, setStopsData] = useState([]); // Dữ liệu trạm + học sinh
+  const [loadingStops, setLoadingStops] = useState(false);
+  const [currentNearbyStop, setCurrentNearbyStop] = useState(null); // Trạm hiện tại gần nhất
+  const [hasShownModalForStop, setHasShownModalForStop] = useState(null); // Track đã hiện modal cho trạm nào
+  const [isModalOpen, setIsModalOpen] = useState(false); // ⏸️ Track trạng thái modal (tạm dừng xe khi open)
+  const [studentStatusResetTrigger, setStudentStatusResetTrigger] = useState(0); // ✅ Trigger reset trạng thái học sinh
+  const animationIndexRef = useRef(0); // 🔧 Lưu index animation để không reset khi modal mở/đóng
 
   const driver = {
     fullname: user.ho_ten || user.ten_tai_xe || user.name || "Tài xế",
@@ -103,68 +122,115 @@ function Home() {
         // Get today's date in YYYY-MM-DD format
         const today = new Date().toISOString().split("T")[0];
         const todaySchedules = response[today] || [];
+        console.log("🔍 Today's schedules found:", todaySchedules.length);
 
         // Transform backend data to component format
-        const routes = todaySchedules.map((schedule) => {
-          // Convert stops array to stations format
-          let stations = [];
-          if (schedule.stops && Array.isArray(schedule.stops)) {
-            stations = schedule.stops.map((stop, index) => ({
-              id: index + 1,
-              name: stop,
-              time:
-                index === 0
-                  ? schedule.time
-                  : index === schedule.stops.length - 1
-                  ? "Dự kiến đến"
-                  : "",
-              status: index === 0 ? "pending" : "pending",
-            }));
-          } else {
-            // Fallback if no stops provided
-            stations = [
-              {
-                id: 1,
-                name: schedule.startLocation || "Điểm khởi hành",
-                time: schedule.time,
-                status: "pending",
-              },
-              {
-                id: 2,
-                name: schedule.endLocation || "Điểm kết thúc",
-                time: "Dự kiến đến",
-                status: "pending",
-              },
-            ];
-          }
+        const routes = await Promise.all(
+          todaySchedules.map(async (schedule) => {
+            // Convert stops array to stations format and extract coordinates
+            let stations = [];
+            let coordinates = [];
 
-          return {
-            id: schedule.id,
-            shift: schedule.type === "morning" ? "Sáng" : "Chiều",
-            name:
-              schedule.title ||
-              (schedule.type === "morning"
-                ? "Lượt đi buổi sáng"
-                : "Lượt về buổi chiều"),
-            time: schedule.time,
-            startTime: `Lộ trạm đầu tiên: ${schedule.time}`,
-            school: schedule.endLocation || "Trường học",
-            students: 0, // Will be updated if we fetch student list
-            type: schedule.type,
-            route: schedule.route || "",
-            startLocation: schedule.startLocation || "",
-            endLocation: schedule.endLocation || "",
-            status: schedule.status || "chuabatdau",
-            stops: schedule.stops || [],
-            coordinates: [
-              [10.762622, 106.660172],
-              [10.771513, 106.677887],
-              [10.773431, 106.688034],
-              [10.776889, 106.700928],
-            ],
-            stations: stations,
-          };
-        });
+            if (schedule.stops && Array.isArray(schedule.stops)) {
+              // Backend trả về stops có cấu trúc: { id, ten_diem, dia_chi, latitude, longitude }
+              stations = schedule.stops.map((stop, index) => ({
+                id: stop.id || index + 1,
+                name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
+                address: stop.dia_chi || "",
+                time:
+                  index === 0
+                    ? schedule.time
+                    : index === schedule.stops.length - 1
+                    ? "Dự kiến đến"
+                    : "",
+                status: "pending",
+              }));
+
+              // Extract coordinates từ stops
+              coordinates = schedule.stops.map((stop) => [
+                parseFloat(stop.latitude),
+                parseFloat(stop.longitude),
+              ]);
+            } else {
+              // Fallback if no stops provided
+              stations = [
+                {
+                  id: 1,
+                  name: schedule.startLocation || "Điểm khởi hành",
+                  address: "",
+                  time: schedule.time,
+                  status: "pending",
+                },
+                {
+                  id: 2,
+                  name: schedule.endLocation || "Điểm kết thúc",
+                  address: "",
+                  time: "Dự kiến đến",
+                  status: "pending",
+                },
+              ];
+              // Default coordinates if no stops
+              coordinates = [
+                [10.762622, 106.660172],
+                [10.776889, 106.700928],
+              ];
+            }
+
+            // Normalize type: backend can return "luot_di"/"luot_ve" or "morning"/"afternoon"
+            const scheduleType =
+              schedule.type === "luot_di" || schedule.type === "morning"
+                ? "morning"
+                : "afternoon";
+
+            // Fetch student count for this schedule
+            let studentCount = 0;
+            try {
+              const loaiTuyen =
+                scheduleType === "morning" ? "luot_di" : "luot_ve";
+              const studentResponse =
+                await StudentService.getCurrentScheduleStudents(loaiTuyen);
+
+              if (
+                studentResponse.students &&
+                Array.isArray(studentResponse.students)
+              ) {
+                studentCount = studentResponse.students.length;
+                console.log(
+                  `📚 Schedule ${schedule.id} has ${studentCount} students`
+                );
+              }
+            } catch (err) {
+              console.error(
+                `Error fetching students for schedule ${schedule.id}:`,
+                err
+              );
+              // Use fallback from schedule if available
+              studentCount = schedule.studentCount || schedule.students || 0;
+            }
+
+            return {
+              id: schedule.id,
+              shift: scheduleType === "morning" ? "Sáng" : "Chiều",
+              name:
+                schedule.title ||
+                (scheduleType === "morning"
+                  ? "Lượt đi buổi sáng"
+                  : "Lượt về buổi chiều"),
+              time: schedule.time,
+              startTime: ` ${schedule.time}`,
+              school: schedule.endLocation || "Trường học",
+              students: studentCount,
+              type: scheduleType,
+              route: schedule.route || "",
+              startLocation: schedule.startLocation || "",
+              endLocation: schedule.endLocation || "",
+              status: schedule.status || "chuabatdau",
+              stops: schedule.stops || [],
+              coordinates: coordinates,
+              stations: stations,
+            };
+          })
+        );
 
         setAssignedRoutes(routes);
         setError(null);
@@ -239,7 +305,7 @@ function Home() {
               schedule.time?.substring(0, 5) || schedule.time
             }`,
             school: schedule.endLocation || "Trường học",
-            students: 0,
+            students: schedule.studentCount || schedule.students || 0,
             type: schedule.type === "luot_di" ? "morning" : "afternoon",
             route: schedule.route || "",
             startLocation: schedule.startLocation || "",
@@ -288,7 +354,7 @@ function Home() {
                 schedule.time?.substring(0, 5) || schedule.time
               }`,
               school: schedule.endLocation || "Trường học",
-              students: 0,
+              students: schedule.studentCount || schedule.students || 0,
               type: schedule.type === "luot_di" ? "morning" : "afternoon",
               route: schedule.route || "",
               startLocation: schedule.startLocation || "",
@@ -330,10 +396,76 @@ function Home() {
     }
   );
 
-  const handleStartTrip = (route) => {
-    setActiveTrip(route);
-    setTripStarted(true);
-    setSelectedStation(0);
+  // Join tracking room and listen for real-time bus location updates
+  useEffect(() => {
+    const driverId = user.id || user.driver_code;
+    if (!driverId) return;
+
+    // Initialize socket and join tracking room
+    TrackingService.initSocket();
+    TrackingService.joinTrackingRoom("driver", driverId);
+
+    // Listen for bus location updates
+    TrackingService.onBusLocationUpdate((data) => {
+      console.log("📍 Bus location update:", data);
+      setBusLocation(data.location);
+      setTripProgress({
+        percentage: data.progressPercentage || 0,
+        distanceCovered: data.distanceCovered || 0,
+        currentStop: data.currentStop || null,
+      });
+    });
+
+    // Listen for trip completion
+    TrackingService.onRouteCompleted((data) => {
+      console.log("✅ Route completed:", data);
+      // Auto-end trip when route completes
+      handleEndTrip();
+    });
+
+    // Cleanup on unmount
+    return () => {
+      TrackingService.leaveTrackingRoom("driver", driverId);
+    };
+  }, [user.id, user.driver_code]);
+
+  const handleStartTrip = async (route) => {
+    try {
+      // Reset animation index for new trip
+      animationIndexRef.current = 0;
+
+      // ✅ Reset tất cả trạng thái học sinh về 'choxacnhan' (UI + Database)
+      setStudentStatusResetTrigger((prev) => prev + 1);
+
+      // 🔗 Gọi API backend để reset tất cả học sinh trong database
+      try {
+        await TrackingService.resetScheduleStudentStatuses(route.id);
+        console.log(
+          `✅ Reset all students for schedule ${route.id} in database`
+        );
+      } catch (error) {
+        console.warn("Warning: Could not reset students in database:", error);
+        // Continue anyway - UI reset already done
+      }
+
+      // Call tracking API to start trip and simulator
+      await TrackingService.startTrip(route.id);
+
+      // 🚌 Fetch route đi qua TẤT CẢ các trạm (waypoints)
+      const path = await fetchRouteFromOSRM(route.coordinates);
+      setRoutePath(path);
+      if (path.length > 0) {
+        setBusPos(path[0]);
+      }
+
+      // Update local state
+      setActiveTrip(route);
+      setTripStarted(true);
+      setSelectedStation(0);
+    } catch (error) {
+      console.error("Error starting trip:", error);
+      alert("Không thể bắt đầu chuyến đi. Vui lòng thử lại.");
+    }
   };
 
   const handleEndTrip = () => {
@@ -345,6 +477,366 @@ function Home() {
     sessionStorage.removeItem("activeTrip");
     sessionStorage.removeItem("selectedStation");
   };
+
+  // Fetch danh sách học sinh theo trạm + tính khoảng cách
+  const fetchStopsWithStudents = async (scheduleId) => {
+    try {
+      setLoadingStops(true);
+
+      // Check if user is authenticated
+      const token = sessionStorage.getItem("token");
+      if (!token) {
+        console.error("❌ Not authenticated! No token found in sessionStorage");
+        console.log("🔐 Please login first before starting a trip");
+        alert("Vui lòng đăng nhập trước khi bắt đầu chuyến đi");
+        setTripStarted(false);
+        return [];
+      }
+
+      // Nếu chưa có vị trí bus, dùng vị trí đầu tiên của route
+      let lat = busPos ? busPos[0] : routePath[0]?.[0] || 10.7769;
+      let lng = busPos ? busPos[1] : routePath[0]?.[1] || 106.6869;
+
+      console.log("📍 Fetching stops with students for schedule:", scheduleId);
+      console.log("📍 Driver location:", { lat, lng });
+
+      const stops = await StopService.getStopsWithStudents(
+        scheduleId,
+        lat,
+        lng
+      );
+
+      setStopsData(stops);
+      console.log("✅ Stops with students fetched:", stops);
+
+      return stops;
+    } catch (error) {
+      console.error("Error fetching stops with students:", error);
+
+      // Check if error is authentication related
+      if (error.message && error.message.includes("401")) {
+        alert("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+        setTripStarted(false);
+        return [];
+      }
+
+      alert("Lỗi tải danh sách học sinh: " + error.message);
+      return [];
+    } finally {
+      setLoadingStops(false);
+    }
+  };
+
+  // Cập nhật trạng thái học sinh
+  const handleUpdateStudentStatus = async (scheduleStudentId, newStatus) => {
+    try {
+      console.log(
+        `📝 Updating student ${scheduleStudentId} to status: ${newStatus}`
+      );
+
+      // 🔗 Gọi API để cập nhật trạng thái học sinh
+      const response = await TrackingService.updateScheduleStudentStatus(
+        scheduleStudentId,
+        newStatus
+      );
+
+      console.log(
+        `✅ Student ${scheduleStudentId} status updated to ${newStatus}:`,
+        response
+      );
+
+      // 📡 Emit socket event để gửi real-time notification cho phụ huynh
+      // Tìm thông tin học sinh từ stopsData
+      const studentInfo = stopsData
+        .flatMap((stop) => stop.students || [])
+        .find((student) => student.scheduleStudentId === scheduleStudentId);
+
+      if (studentInfo && TrackingService.socket) {
+        const statusLabel =
+          {
+            choxacnhan: "Chờ xác nhận",
+            dihoc: "Đi học",
+            daxuong: "Đã xuống",
+            vangmat: "Vắng mặt",
+          }[newStatus] || newStatus;
+
+        TrackingService.socket.emit("student-status-changed", {
+          scheduleStudentId: scheduleStudentId,
+          studentId: studentInfo.studentId,
+          studentName: studentInfo.studentName,
+          newStatus: newStatus,
+          statusLabel: statusLabel,
+          scheduleId: activeTrip?.id,
+          timestamp: new Date().toISOString(),
+        });
+
+        console.log(
+          `📡 Real-time notification emitted for student ${studentInfo.studentName}`
+        );
+      }
+
+      // ✅ UI đã cập nhật ngay tại StudentStopModal thông qua setStudentStatuses
+      // Không cần gọi fetchStopsWithStudents vì component đã xử lý state update
+      console.log("✅ Status updated - UI đã thay đổi ngay tại Modal");
+    } catch (error) {
+      console.error("Error updating student status:", error);
+      alert("Lỗi cập nhật trạng thái học sinh");
+    }
+  };
+
+  // 🎯 Haversine: Tính khoảng cách giữa 2 điểm (lat, lng)
+  const calculateDistance = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000; // Earth radius in meters
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Trả về khoảng cách (mét)
+  };
+
+  // 🔍 Phát hiện trạm gần nhất từ vị trí xe hiện tại
+  const detectNearbyStop = async () => {
+    if (!activeTrip || !busPos) return;
+
+    const busLat = busPos[0];
+    const busLng = busPos[1];
+
+    // Tính khoảng cách tới tất cả trạm
+    const stopsWithDistance = activeTrip.stations.map((station, index) => {
+      const coord = activeTrip.coordinates[index];
+      const distance = calculateDistance(busLat, busLng, coord[0], coord[1]);
+      return {
+        index,
+        station,
+        distance,
+        isNearby: distance < 100, // Gần = < 100m
+      };
+    });
+
+    // Tìm trạm gần nhất
+    const nearestStop = stopsWithDistance.reduce((prev, curr) =>
+      curr.distance < prev.distance ? curr : prev
+    );
+
+    console.log("🎯 Trạm gần nhất:", {
+      name: nearestStop.station.name,
+      distance: nearestStop.distance.toFixed(2) + "m",
+      isNearby: nearestStop.isNearby,
+    });
+
+    setCurrentNearbyStop(nearestStop);
+
+    // 🚨 FRONTEND CẢNHs BÁO: Nếu gần stop (< 500m) → Gửi signal lên backend
+    const APPROACHING_THRESHOLD = 500; // 500m
+    if (
+      nearestStop.distance < APPROACHING_THRESHOLD &&
+      nearestStop.distance > 0 &&
+      activeTrip
+    ) {
+      // 📡 Gửi approaching-stop event từ frontend (distance-based)
+      if (TrackingService.socket) {
+        TrackingService.socket.emit("approaching-stop-frontend", {
+          studentId: 0,
+          studentName: "Học sinh",
+          stopName: nearestStop.station.name,
+          stopIndex: nearestStop.index,
+          distanceToStop: Math.round(nearestStop.distance),
+          scheduleId: activeTrip.id,
+          timestamp: new Date().toISOString(),
+        });
+
+        console.log(
+          `🚨 FRONTEND EMITTING approaching-stop: ${
+            nearestStop.station.name
+          } (${nearestStop.distance.toFixed(1)}m)`
+        );
+      }
+    }
+
+    // 🚨 Nếu xe gần trạm (< 100m) VÀ chưa hiện modal cho trạm này
+    // → Tự động mở modal
+    if (nearestStop.isNearby && hasShownModalForStop !== nearestStop.index) {
+      console.log(
+        "⚠️ Xe đã tới trạm:",
+        nearestStop.station.name,
+        "- Mở modal tự động (⏸️ Tạm dừng xe)"
+      );
+
+      // ⏸️ Tạm dừng xe di chuyển
+      setIsModalOpen(true);
+
+      // Fetch dữ liệu học sinh cho trạm này
+      const stops = await fetchStopsWithStudents(activeTrip.id);
+      setStopsData(stops);
+
+      // Mở modal
+      setShowStudentModal(true);
+      setSelectedStation(nearestStop.index);
+
+      // Lưu lại: đã hiện modal cho trạm này rồi
+      setHasShownModalForStop(nearestStop.index);
+    }
+  };
+
+  // 📍 Effect: Phát hiện trạm mỗi khi xe di chuyển
+  useEffect(() => {
+    if (tripStarted && busPos) {
+      detectNearbyStop();
+
+      // 🔄 Nếu xe rời khỏi trạm trước đó (> 200m) → Reset flag để có thể hiện modal lại nếu quay lại
+      if (
+        hasShownModalForStop !== null &&
+        currentNearbyStop &&
+        currentNearbyStop.distance > 200
+      ) {
+        console.log("✅ Xe rời khỏi trạm - Reset flag");
+        setHasShownModalForStop(null);
+      }
+    }
+  }, [busPos, tripStarted, activeTrip]);
+
+  // Mở modal khi tài xế đến trạm (hoặc bấn nút thủ công)
+  const openStudentModal = async () => {
+    if (!activeTrip) return;
+
+    console.log("⏸️ Modal mở - Tạm dừng xe di chuyển");
+    setIsModalOpen(true);
+
+    const stops = await fetchStopsWithStudents(activeTrip.id);
+    setShowStudentModal(true);
+  };
+
+  // Đóng modal - tiếp tục di chuyển
+  const handleCloseStudentModal = () => {
+    console.log("▶️ Modal đóng - Xe tiếp tục di chuyển");
+    setShowStudentModal(false);
+    setIsModalOpen(false);
+  };
+
+  const handleEndTrip = async () => {
+    try {
+      // Call tracking API to end trip
+      if (activeTrip) {
+        await TrackingService.endTrip(activeTrip.id);
+      }
+
+      // Reset animation index
+      animationIndexRef.current = 0;
+
+      // Update local state
+      setTripStarted(false);
+      setActiveTrip(null);
+      setSelectedStation(0);
+      // Clear trip state from sessionStorage
+      sessionStorage.removeItem("tripStarted");
+      sessionStorage.removeItem("activeTrip");
+      sessionStorage.removeItem("selectedStation");
+    } catch (error) {
+      console.error("Error ending trip:", error);
+      alert("Không thể kết thúc chuyến đi. Vui lòng thử lại.");
+    }
+  };
+
+  /**
+   * ⚡ Gửi vị trí xe bus từ dashboard tài xế tới backend
+   * - Gửi qua WebSocket (real-time cho phụ huynh)
+   * - Lưu vào Backend API (lưu vào database)
+   * - ⏸️ TẠM DỪNG khi modal học sinh hiện lên
+   */
+  useEffect(() => {
+    if (!tripStarted || !busLocation || !activeTrip || isModalOpen) return;
+
+    // Tính tiến độ dựa trên vị trí hiện tại
+    let progressPercentage = tripProgress.percentage;
+    let distanceCovered = tripProgress.distanceCovered;
+
+    // 🚨 Gửi vị trí tới backend mỗi 200ms (khớp với animation tốc độ)
+    // để parent nhận được update mượt mà, không bị "giật"
+    const sendInterval = setInterval(() => {
+      if (busLocation) {
+        const locationData = {
+          latitude: busLocation.latitude,
+          longitude: busLocation.longitude,
+          scheduleId: activeTrip.id,
+          driverId: user.id || user.driver_code,
+          progressPercentage,
+          distanceCovered,
+        };
+
+        // 1️⃣ Gửi qua WebSocket (real-time cho phụ huynh)
+        TrackingService.sendBusLocation(locationData);
+
+        // 2️⃣ Lưu vào Backend API (lưu vào database) - mỗi 2 giây (10 frames)
+        // để không quá tải database
+        if (Math.floor(Date.now() / 2000) % 10 === 0) {
+          TrackingService.saveDriverLocationToBackend(locationData);
+        }
+
+        console.log("📤 Sent bus location (WebSocket):", {
+          latitude: busLocation.latitude,
+          longitude: busLocation.longitude,
+        });
+      }
+    }, 200); // Gửi mỗi 200ms - khớp với animation frame rate
+
+    return () => clearInterval(sendInterval);
+  }, [
+    tripStarted,
+    busLocation,
+    activeTrip,
+    tripProgress,
+    user.id,
+    user.driver_code,
+    isModalOpen,
+  ]);
+
+  /**
+   * 🚌 Animation: Xe bus chạy dọc theo route (giống admin dashboard)
+   * ⏸️ TẠM DỪNG khi modal học sinh hiện lên
+   * 🔧 Sử dụng useRef để lưu index, tránh reset khi modal mở/đóng
+   */
+  useEffect(() => {
+    if (!tripStarted || routePath.length === 0 || isModalOpen) return;
+
+    const interval = setInterval(() => {
+      animationIndexRef.current++;
+      if (animationIndexRef.current >= routePath.length)
+        animationIndexRef.current = 0;
+
+      const currentPos = routePath[animationIndexRef.current];
+      setBusPos(currentPos);
+
+      // Cập nhật busLocation để gửi tới backend
+      setBusLocation({
+        latitude: currentPos[0],
+        longitude: currentPos[1],
+      });
+
+      // Tính tiến độ dựa trên index
+      const percentage =
+        (animationIndexRef.current / Math.max(routePath.length - 1, 1)) * 100;
+      const distance = animationIndexRef.current * 0.1; // Ước tính khoảng cách
+
+      setTripProgress({
+        percentage,
+        distanceCovered: distance,
+        currentStop: null,
+      });
+
+      console.log("🚌 Bus moving:", {
+        position: currentPos,
+        progress: percentage.toFixed(1) + "%",
+        index: animationIndexRef.current,
+      });
+    }, 200); // Mỗi 200ms - tốc độ animation
+
+    return () => clearInterval(interval);
+  }, [tripStarted, routePath, isModalOpen]);
 
   // If trip is started, show active trip view
   if (tripStarted && activeTrip) {
@@ -427,11 +919,52 @@ function Home() {
                   user.name ||
                   "Không xác định"}
               </button>
-              <span className="search-label">
-                Trạm hiện tại:
-                <br />
-                {activeTrip.stations[selectedStation]?.name || "..."}
-              </span>
+              <div style={{ marginTop: "12px" }}>
+                <span className="search-label">
+                  Trạm hiện tại:
+                  <br />
+                  {activeTrip.stations[selectedStation]?.name || "..."}
+                </span>
+
+                {/* Trạm gần nhất */}
+                {currentNearbyStop && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      padding: "8px 12px",
+                      backgroundColor: currentNearbyStop.isNearby
+                        ? "#dbeafe"
+                        : "#f3f4f6",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      color: currentNearbyStop.isNearby ? "#0284c7" : "#666",
+                    }}
+                  >
+                    {currentNearbyStop.isNearby ? "🚨" : "📍"} Gần nhất:{" "}
+                    {currentNearbyStop.station.name} (
+                    {currentNearbyStop.distance.toFixed(0)}m)
+                  </div>
+                )}
+
+                {busLocation && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      fontSize: "13px",
+                      color: "#3b82f6",
+                    }}
+                  >
+                    <strong>
+                      📊 Tiến độ: {tripProgress.percentage.toFixed(1)}%
+                    </strong>
+                    <br />
+                    <span>
+                      Đã đi: {tripProgress.distanceCovered?.toFixed(2) || 0} km
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <h3 className="station-list-title">Danh sách trạm dừng</h3>
@@ -472,8 +1005,28 @@ function Home() {
             <button className="btn-end-trip" onClick={handleEndTrip}>
               Kết thúc chuyến đi
             </button>
+
+            <button
+              className="btn-student-modal"
+              onClick={openStudentModal}
+              style={{ marginTop: "12px" }}
+            >
+              📋 Quản lý học sinh tại trạm
+            </button>
           </div>
         </div>
+
+        {/* Student Stop Modal */}
+        <StudentStopModal
+          isOpen={showStudentModal}
+          stops={stopsData}
+          currentStopIndex={selectedStation}
+          onClose={handleCloseStudentModal}
+          onUpdateStudentStatus={handleUpdateStudentStatus}
+          loading={loadingStops}
+          scheduleType={activeTrip?.type}
+          resetTrigger={studentStatusResetTrigger}
+        />
       </div>
     );
   }
@@ -519,8 +1072,19 @@ function Home() {
             ) : (
               <div className="routes-cards-driver">
                 {assignedRoutes.map((route) => (
-                  <div key={route.id} className="route-card-driver">
-                    <div className="status-routes-cards-driver">Sắp tới</div>
+                  <div
+                    key={route.id}
+                    className={`route-card-driver ${
+                      route.status === "hoanthanh" ? "completed" : ""
+                    }`}
+                  >
+                    <div
+                      className={`status-routes-cards-driver ${route.status}`}
+                    >
+                      {route.status === "hoanthanh"
+                        ? "Đã hoàn thành"
+                        : "Sắp tới"}
+                    </div>
                     <div className="route-card-header-driver">
                       <span className={`shift-badge-driver ${route.type}`}>
                         {route.shift}
@@ -531,7 +1095,12 @@ function Home() {
                     <div className="route-card-body-driver">
                       <p className="route-info-driver">
                         <strong>Thời gian đầu tiên:</strong> {route.startTime}.
-                        Lộ trạm: đến xe ⇨ {route.school}
+                        Lộ trình:{" "}
+                        {route.stations && route.stations.length > 0
+                          ? `${route.stations[0].name} ⇨ ${
+                              route.stations[route.stations.length - 1].name
+                            }`
+                          : "bến xe ⇨ " + route.school}
                       </p>
                       <p className="route-info-driver">
                         Số học sinh trên chuyến: {route.students}
@@ -539,10 +1108,15 @@ function Home() {
                     </div>
 
                     <button
-                      className="btn-start-route-driver"
+                      className={`btn-start-route-driver ${
+                        route.status === "hoanthanh" ? "completed" : ""
+                      }`}
                       onClick={() => handleStartTrip(route)}
+                      disabled={route.status === "hoanthanh"}
                     >
-                      Bắt đầu chuyến đi
+                      {route.status === "hoanthanh"
+                        ? "Chuyến đi đã hoàn thành"
+                        : "Bắt đầu chuyến đi"}
                     </button>
                   </div>
                 ))}
@@ -627,34 +1201,56 @@ export default function DriverDashboard() {
  useEffect(() => {
     const fetchAndMockStudents = async () => {
       try {
-        // Lấy danh sách học sinh
+        console.log("🔄 Bắt đầu tải dữ liệu (Rút gọn)...");
+
+        // 1. Gọi song song: Lấy tất cả tuyến (để lấy tên) + Lấy lịch của tôi (để lấy ID)
+        const [allRoutesData, myScheduleData] = await Promise.all([
+          RouteService.getAllRoutesWithStops(), // Lấy danh sách gốc để có tên tuyến đầy đủ
+          ScheduleService.getMySchedule(), // Lấy lịch cá nhân
+        ]);
+
+        // 2. Trích xuất ID các tuyến mà tài xế này chạy
+        // API getMySchedule trả về dạng: { "2024-01-01": [...], "2024-01-02": [...] }
+        // Chúng ta gộp tất cả các ngày lại để lấy hết các tuyến tài xế từng chạy/sắp chạy
+        const myRouteIds = new Set();
+
+        if (myScheduleData) {
+          // Object.values lấy ra mảng các mảng lịch trình -> .flat() làm phẳng thành 1 mảng duy nhất
+          const allSchedules = Object.values(myScheduleData).flat();
+
+          allSchedules.forEach((schedule) => {
+            // Lấy ID từ schedule (backend của bạn có thể trả về route_id hoặc object route)
+            const rId =
+              schedule.route_id || (schedule.route && schedule.route.id);
+            if (rId) myRouteIds.add(String(rId));
+          });
+        }
+
+        console.log("🎯 ID các tuyến của tài xế:", [...myRouteIds]);
+
+        // 3. Lọc danh sách gốc: Chỉ giữ lại những tuyến có trong lịch trình
+        const filteredRoutes = allRoutesData
+          .filter((route) => myRouteIds.has(String(route.id)))
+          .map((route) => {
+            // Format tên cho đẹp: "Tuyến 1 (Đi)"
+            const suffix =
+              route.loai_tuyen === "luot_di"
+                ? "(Đi)"
+                : route.loai_tuyen === "luot_ve"
+                ? "(Về)"
+                : "";
+            return {
+              id: route.id,
+              name: `${route.name} ${suffix}`.trim(),
+            };
+          });
+
+        // 4. Cập nhật State
+        setAvailableRoutes(filteredRoutes);
+
+        // Load thêm học sinh để phục vụ gửi tin nhắn (nếu cần)
         const studentsData = await StudentService.getAllStudents();
-        
-        // Lấy danh sách ID các tuyến hiện có (từ state availableRoutes đã load ở trên)
-        // Lưu ý: availableRoutes cần load xong trước, hoặc ta lấy ID từ mock logic
-        // Để đơn giản, ta giả định tuyến là 1,2,3,4... nếu availableRoutes rỗng
-        const routeIds = availableRoutes.length > 0 
-            ? availableRoutes.map(r => parseInt(r.id)) 
-            : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; 
-
-        const mappedStudents = studentsData.map((student, index) => {
-             // Logic Mock Data tương tự bên Message.jsx
-             let realRouteId = parseInt(student.current_route_id || student.route_id || 0, 10);
-             
-             if ((realRouteId === 0 || isNaN(realRouteId)) && routeIds.length > 0) {
-                 realRouteId = routeIds[index % routeIds.length];
-             }
-
-             return {
-                 id: student.id, // Dùng làm ID phụ huynh luôn (do DB thiếu)
-                 fullname: student.ho_ten,
-                 routeId: realRouteId
-             };
-        });
-        
-        console.log("✅ Đã tải và Mock tuyến cho học sinh bên Driver:", mappedStudents.length);
-        setStudentsList(mappedStudents);
-
+        setAllStudents(studentsData);
       } catch (error) {
         console.error("Lỗi tải học sinh:", error);
       }
@@ -718,7 +1314,7 @@ export default function DriverDashboard() {
 
     fetchRoutesFromSchedule();
   }, []);
-  
+
   function renderContent() {
     switch (page) {
       case "Xem lịch trình phân công":

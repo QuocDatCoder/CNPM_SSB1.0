@@ -16,6 +16,7 @@ import Header from "../../components/common/Header/header";
 import Location from "./Location";
 import Notifications from "./Notifications";
 import ScheduleService from "../../services/schedule.service";
+import ParentTrackingService from "../../services/parent-tracking.service";
 import "./Dashboard.css";
 
 // Fix Leaflet default icon issue
@@ -163,6 +164,25 @@ function ParentDashboard() {
   const [routePath, setRoutePath] = useState([]);
   const [stations, setStations] = useState([]);
 
+  // 🔄 Track trip status updates for real-time refresh
+  const [tripStatusUpdate, setTripStatusUpdate] = useState(0);
+
+  // 📢 Notification state for real-time student status changes (Global)
+  const [notification, setNotification] = useState(null);
+  const notificationTimeoutRef = useRef(null);
+
+  // 🚨 Approaching-stop notification state (yellow badge)
+  const [approachingStopNotification, setApproachingStopNotification] =
+    useState(null);
+  const approachingStopTimeoutRef = useRef(null);
+
+  // 📡 Initialize socket connection and join parent tracking room
+  useEffect(() => {
+    ParentTrackingService.initSocket();
+    ParentTrackingService.joinParentTracking();
+    console.log("📡 Parent Dashboard socket initialized");
+  }, []);
+
   // Menu items for parent
   const parentMenuItems = [
     { icon: "/icons/home.png", label: "Trang chủ" },
@@ -249,6 +269,192 @@ function ParentDashboard() {
 
     fetchKidsTrips();
   }, []);
+
+  // 🔄 Listen for trip status updates from socket
+  useEffect(() => {
+    const handleTripStatusChanged = (data) => {
+      console.log(`🔄 Trip status changed:`, data);
+      // Trigger re-fetch of kids data to get updated status
+      setTripStatusUpdate((prev) => prev + 1);
+    };
+
+    ParentTrackingService.socket?.on(
+      "trip-status-changed",
+      handleTripStatusChanged
+    );
+
+    return () => {
+      ParentTrackingService.socket?.off(
+        "trip-status-changed",
+        handleTripStatusChanged
+      );
+    };
+  }, []);
+
+  // 🔄 Re-fetch kids data when trip status updates
+  useEffect(() => {
+    if (tripStatusUpdate === 0) return; // Skip initial render
+
+    const refetchKidsTrips = async () => {
+      try {
+        const response = await ScheduleService.getMyKidsTrips();
+        setKids(response || []);
+        console.log(`✅ Kids data refreshed after trip status change`);
+      } catch (err) {
+        console.error("Error refetching kids trips:", err);
+      }
+    };
+
+    refetchKidsTrips();
+  }, [tripStatusUpdate]);
+
+  // 📢 Get all student IDs of current parent
+  const [myStudentIds, setMyStudentIds] = useState([]);
+  const myStudentIdsRef = useRef([]);
+
+  // Fetch kids data to get student IDs for notification filtering
+  useEffect(() => {
+    const fetchKidsTrips = async () => {
+      try {
+        const response = await ScheduleService.getMyKidsTrips();
+        if (response && Array.isArray(response)) {
+          const studentIds = response.map((kid) => kid.student_id);
+          console.log(`👶 My student IDs fetched:`, studentIds);
+          setMyStudentIds(studentIds);
+          myStudentIdsRef.current = studentIds; // Keep ref in sync
+        }
+      } catch (err) {
+        console.error("Error fetching kids data:", err);
+      }
+    };
+
+    fetchKidsTrips();
+  }, []);
+
+  // Keep ref updated when state changes
+  useEffect(() => {
+    myStudentIdsRef.current = myStudentIds;
+  }, [myStudentIds]);
+
+  // 📢 Listen for student status change notifications (Global)
+  useEffect(() => {
+    const handleStudentStatusChanged = (data) => {
+      const {
+        scheduleStudentId,
+        studentId,
+        studentName,
+        newStatus,
+        statusLabel,
+        timestamp,
+      } = data;
+
+      console.log(
+        `📢 Student status changed: ${studentName} -> ${statusLabel}, studentId: ${studentId}, myStudentIds: ${myStudentIdsRef.current}`
+      );
+
+      // 🔒 Chỉ hiển thị notification nếu học sinh là con của phụ huynh này
+      if (!myStudentIdsRef.current.includes(studentId)) {
+        console.log(
+          `⏭️ Ignoring notification - student ${studentId} không phải con của phụ huynh này`
+        );
+        return;
+      }
+
+      console.log(`✅ Showing notification for student ${studentId}`);
+
+      // Hiển thị notification
+      setNotification({
+        studentName: studentName,
+        statusLabel: statusLabel,
+        timestamp: timestamp,
+      });
+
+      // Clear timeout cũ nếu có
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+
+      // Set timeout mới để tự động ẩn sau 5 giây
+      notificationTimeoutRef.current = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+    };
+
+    console.log("📢 Registering student-status-changed listener");
+    ParentTrackingService.socket?.on(
+      "student-status-changed",
+      handleStudentStatusChanged
+    );
+
+    return () => {
+      console.log("📢 Unregistering student-status-changed listener");
+      ParentTrackingService.socket?.off(
+        "student-status-changed",
+        handleStudentStatusChanged
+      );
+    };
+  }, []); // Empty dependency array - register listener once
+
+  // 🚨 Listen for approaching-stop notifications (yellow badge)
+  useEffect(() => {
+    const handleApproachingStop = (data) => {
+      const {
+        studentId,
+        studentName,
+        stopName,
+        stopIndex,
+        distanceToStop,
+        scheduleId,
+        timestamp,
+      } = data;
+
+      console.log(
+        `🚨 Approaching stop: ${studentName} -> ${stopName} (${distanceToStop}m away), studentId: ${studentId}, myStudentIds: ${myStudentIdsRef.current}`
+      );
+
+      // 🔒 Chỉ hiển thị notification nếu học sinh là con của phụ huynh này
+      // NOTE: Tạm thời bỏ qua nếu studentId là 0 (placeholder), sẽ fix khi backend có studentId thực
+      if (studentId !== 0 && !myStudentIdsRef.current.includes(studentId)) {
+        console.log(
+          `⏭️ Ignoring approaching-stop - student ${studentId} không phải con của phụ huynh này`
+        );
+        return;
+      }
+
+      console.log(
+        `✅ Showing approaching-stop notification for student ${studentId}`
+      );
+
+      // Hiển thị approaching-stop notification (vàng)
+      setApproachingStopNotification({
+        studentName: studentName,
+        stopName: stopName,
+        distanceToStop: distanceToStop,
+        timestamp: timestamp,
+      });
+
+      // Clear timeout cũ nếu có
+      if (approachingStopTimeoutRef.current) {
+        clearTimeout(approachingStopTimeoutRef.current);
+      }
+
+      // Set timeout mới để tự động ẩn sau 7 giây (lâu hơn status change)
+      approachingStopTimeoutRef.current = setTimeout(() => {
+        setApproachingStopNotification(null);
+      }, 7000);
+    };
+
+    console.log("🚨 Registering approaching-stop listener");
+    ParentTrackingService.socket?.on("approaching-stop", handleApproachingStop);
+
+    return () => {
+      console.log("🚨 Unregistering approaching-stop listener");
+      ParentTrackingService.socket?.off(
+        "approaching-stop",
+        handleApproachingStop
+      );
+    };
+  }, []); // Empty dependency array - register listener once
 
   // Get user info from sessionStorage
   const userInfo = JSON.parse(sessionStorage.getItem("user") || "{}");
@@ -500,6 +706,7 @@ function ParentDashboard() {
                           <button
                             className="parent-dashboard-action-btn"
                             onClick={() => setActivePage("Vị trí")}
+                            disabled={trip.status === "Hoàn thành"}
                           >
                             <svg
                               width="16"
@@ -612,6 +819,101 @@ function ParentDashboard() {
         <Header title="Phụ huynh" showSearch={false} />
         <div className="parent-dashboard-content">{renderContent()}</div>
       </div>
+
+      {/* 📢 Real-time Notification Badge (Global) */}
+      {notification && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            backgroundColor: "#10b981",
+            color: "white",
+            padding: "16px 20px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+            zIndex: 9999,
+            minWidth: "300px",
+            animation: "slideIn 0.3s ease-out",
+          }}
+        >
+          <div style={{ fontWeight: "600", marginBottom: "4px" }}>
+            ✅ Cập nhật trạng thái
+          </div>
+          <div style={{ fontSize: "14px" }}>
+            <strong>{notification.studentName}</strong> đã{" "}
+            {notification.statusLabel.toLowerCase()}
+          </div>
+          <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.8 }}>
+            {new Date(notification.timestamp).toLocaleTimeString("vi-VN")}
+          </div>
+
+          <style>{`
+            @keyframes slideIn {
+              from {
+                transform: translateX(400px);
+                opacity: 0;
+              }
+              to {
+                transform: translateX(0);
+                opacity: 1;
+              }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* 🚨 Approaching-stop Notification Badge (Yellow) */}
+      {approachingStopNotification && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            backgroundColor: "#f59e0b",
+            color: "#1f2937",
+            padding: "16px 20px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+            zIndex: 9999,
+            minWidth: "300px",
+            animation: "slideIn 0.3s ease-out",
+            border: "2px solid #d97706",
+            marginTop: notification ? "100px" : "0px",
+            transition: "margin-top 0.3s ease-out",
+          }}
+        >
+          <div style={{ fontWeight: "600", marginBottom: "4px" }}>
+            🚍 Xe sắp đến trạm
+          </div>
+          <div style={{ fontSize: "14px" }}>
+            <strong>{approachingStopNotification.studentName}</strong> - Xe sắp
+            tới <strong>{approachingStopNotification.stopName}</strong>
+          </div>
+          <div style={{ fontSize: "13px", marginTop: "4px", opacity: 0.9 }}>
+            Cách trạm:{" "}
+            <strong>{approachingStopNotification.distanceToStop}m</strong>
+          </div>
+          <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.7 }}>
+            {new Date(approachingStopNotification.timestamp).toLocaleTimeString(
+              "vi-VN"
+            )}
+          </div>
+
+          <style>{`
+            @keyframes slideIn {
+              from {
+                transform: translateX(400px);
+                opacity: 0;
+              }
+              to {
+                transform: translateX(0);
+                opacity: 1;
+              }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 }

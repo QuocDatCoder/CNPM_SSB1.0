@@ -5,7 +5,13 @@ const {
   getActiveSimulators,
   getSimulatorStatus,
 } = require("../../services/bus-simulator.service");
-const { Schedule, Bus, User, LocationHistory } = require("../../data/models");
+const {
+  Schedule,
+  Bus,
+  User,
+  LocationHistory,
+  ScheduleStudent,
+} = require("../../data/models");
 
 /**
  * Start trip - khởi động simulator và cập nhật trạng thái
@@ -35,6 +41,17 @@ async function startTrip(req, res) {
     await schedule.Bus.update({ trang_thai: "Đang hoạt động" });
     if (schedule.driver) {
       await schedule.driver.update({ trang_thai_taixe: "hoatdong" });
+    }
+
+    // 📢 Emit trip status change event để parents nhận được real-time update
+    if (global.io) {
+      global.io.to("parent-tracking").emit("trip-status-changed", {
+        scheduleId: schedule.id,
+        status: "dangchay",
+        statusLabel: "Đang chạy",
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`📢 Emitted trip-status-changed for schedule ${schedule.id}`);
     }
 
     // Khởi động simulator (sử dụng global.io)
@@ -88,6 +105,17 @@ async function endTrip(req, res) {
     await schedule.Bus.update({ trang_thai: "Ngừng" });
     if (schedule.driver) {
       await schedule.driver.update({ trang_thai_taixe: "tamdung" });
+    }
+
+    // 📢 Emit trip status change event để parents nhận được real-time update
+    if (global.io) {
+      global.io.to("parent-tracking").emit("trip-status-changed", {
+        scheduleId: schedule.id,
+        status: "hoanthanh",
+        statusLabel: "Hoàn thành",
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`📢 Emitted trip-status-changed for schedule ${schedule.id}`);
     }
 
     res.json({
@@ -299,6 +327,112 @@ async function saveDriverLocation(req, res) {
   }
 }
 
+/**
+ * Cập nhật trạng thái học sinh (trang_thai_don)
+ * PUT /api/tracking/schedule-student/:scheduleStudentId
+ * Body: { trang_thai_don: "dihoc" | "vangmat" | "daxuong" }
+ */
+async function updateScheduleStudentStatus(req, res) {
+  try {
+    const { scheduleStudentId } = req.params;
+    const { trang_thai_don } = req.body;
+
+    // Validate input
+    if (!scheduleStudentId || !trang_thai_don) {
+      return res.status(400).json({
+        message: "Schedule Student ID and status are required",
+      });
+    }
+
+    // Các trạng thái hợp lệ
+    const validStatuses = ["choxacnhan", "dihoc", "daxuong", "vangmat"];
+    if (!validStatuses.includes(trang_thai_don)) {
+      return res.status(400).json({
+        message: `Invalid status. Valid statuses: ${validStatuses.join(", ")}`,
+      });
+    }
+
+    // Tìm ScheduleStudent record
+    const scheduleStudent = await ScheduleStudent.findByPk(scheduleStudentId);
+
+    if (!scheduleStudent) {
+      return res.status(404).json({
+        message: "Schedule Student not found",
+      });
+    }
+
+    // Cập nhật trạng thái
+    await scheduleStudent.update({ trang_thai_don });
+
+    console.log(
+      `✅ Updated student ${scheduleStudentId} status to ${trang_thai_don}`
+    );
+
+    res.json({
+      message: "Student status updated successfully",
+      data: {
+        scheduleStudentId: scheduleStudent.id,
+        studentId: scheduleStudent.student_id,
+        trang_thai_don: scheduleStudent.trang_thai_don,
+        updatedAt: scheduleStudent.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating schedule student status:", error);
+    res.status(500).json({
+      message: "Error updating student status",
+      error: error.message,
+    });
+  }
+}
+
+// ✅ Reset tất cả trạng thái học sinh trong một schedule về 'choxacnhan'
+async function resetScheduleStudentStatuses(req, res) {
+  try {
+    const { scheduleId } = req.params;
+
+    // Validate input
+    if (!scheduleId) {
+      return res.status(400).json({
+        message: "scheduleId is required",
+      });
+    }
+
+    // Tìm tất cả ScheduleStudent với scheduleId này
+    const scheduleStudents = await ScheduleStudent.findAll({
+      where: { schedule_id: scheduleId },
+    });
+
+    if (!scheduleStudents || scheduleStudents.length === 0) {
+      return res.status(404).json({
+        message: "No students found for this schedule",
+      });
+    }
+
+    // Update tất cả về 'choxacnhan'
+    await ScheduleStudent.update(
+      { trang_thai_don: "choxacnhan" },
+      { where: { schedule_id: scheduleId } }
+    );
+
+    console.log(
+      `✅ Reset ${scheduleStudents.length} students for schedule ${scheduleId}`
+    );
+
+    res.json({
+      message: "All student statuses reset to default",
+      totalReset: scheduleStudents.length,
+      scheduleId: scheduleId,
+    });
+  } catch (error) {
+    console.error("Error resetting schedule student statuses:", error);
+    res.status(500).json({
+      message: "Error resetting student statuses",
+      error: error.message,
+    });
+  }
+}
+
 module.exports = {
   startTrip,
   endTrip,
@@ -307,4 +441,6 @@ module.exports = {
   getActiveTrips,
   getTripStatus,
   saveDriverLocation,
+  updateScheduleStudentStatus,
+  resetScheduleStudentStatuses,
 };

@@ -1318,7 +1318,6 @@ VALUES
 
 -- 7. TẠO 10 LỊCH TRÌNH (10 Schedules - 5 Tuyến × 2 Chiều)
 -- Mỗi tài xế chạy cả 2 chiều (lượt đi + lượt về) cùng 1 xe trong 1 ngày
--- 7. TẠO 10 LỊCH TRÌNH (Sửa lại: Bỏ comment để tạo đủ dữ liệu cho Mục 8)
 INSERT INTO
     `Schedules` (
         `route_id`,
@@ -1345,7 +1344,7 @@ VALUES
         CURDATE(),
         'chuabatdau',
         '15:30:00'
-    ), -- Lượt về
+    ), -- Lượt về (cùng tài xế, cùng xe)
     -- Tuyến 2: Driver 3, Bus 2
     (
         3,
@@ -1397,8 +1396,7 @@ VALUES
         'chuabatdau',
         '15:30:00'
     ), -- Lượt về
-    -- Tuyến 5: Driver 6 (trong seed chỉ tạo đến user 5 là tx5, ta dùng tạm user 2 hoặc để NULL nếu chưa có tx6)
-    -- Sửa tạm: Dùng Driver 2 chạy thêm hoặc để NULL
+    -- Tuyến 5: Driver 6, Bus 5 (Nếu không có user ID 6, để NULL driver)
     (
         9,
         NULL,

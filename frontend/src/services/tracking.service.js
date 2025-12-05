@@ -191,6 +191,49 @@ const TrackingService = {
   },
 
   /**
+   * Cập nhật trạng thái học sinh
+   * PUT /api/tracking/schedule-student/:scheduleStudentId
+   * Body: { trang_thai_don: "dihoc" | "vangmat" | "daxuong" }
+   */
+  async updateScheduleStudentStatus(scheduleStudentId, status) {
+    try {
+      const response = await api.put(
+        `/tracking/schedule-student/${scheduleStudentId}`,
+        { trang_thai_don: status }
+      );
+      console.log(
+        `✅ Student ${scheduleStudentId} status updated to ${status}:`,
+        response.data
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Error updating student ${scheduleStudentId} status:`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Reset tất cả học sinh trong schedule về 'choxacnhan'
+   * @param {number} scheduleId - ID của schedule
+   * @returns {Object} Response từ backend
+   */
+  async resetScheduleStudentStatuses(scheduleId) {
+    try {
+      const response = await api.put(`/tracking/reset-students/${scheduleId}`);
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Error resetting student statuses for schedule ${scheduleId}:`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  /**
    * Disconnect socket
    */
   disconnect() {

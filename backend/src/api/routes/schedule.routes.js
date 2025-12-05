@@ -55,4 +55,20 @@ router.put("/:id", scheduleController.updateSchedule);
 // Endpoint: DELETE /api/schedules/:id
 router.delete("/:id", scheduleController.deleteSchedule);
 
+// 10. Lấy danh sách học sinh theo trạm
+// Endpoint: GET /api/schedules/:scheduleId/students-by-stop
+router.get(
+  "/:scheduleId/students-by-stop",
+  [verifyToken, isDriver],
+  scheduleController.getStudentsByStop
+);
+
+// 11. Tính khoảng cách từ tài xế đến các trạm
+// Endpoint: POST /api/schedules/:scheduleId/calculate-stop-distances
+router.post(
+  "/:scheduleId/calculate-stop-distances",
+  [verifyToken, isDriver],
+  scheduleController.calculateStopDistances
+);
+
 module.exports = router;

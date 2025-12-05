@@ -129,4 +129,103 @@ module.exports = (io, socket) => {
     // Phát lại cho tất cả client
     io.emit("studentStatusUpdated", data);
   });
+
+  /**
+   * 📡 Socket event: Tài xế thay đổi trạng thái học sinh
+   * Gửi real-time notification cho phụ huynh
+   */
+  socket.on("student-status-changed", (data) => {
+    const {
+      scheduleStudentId,
+      studentId,
+      studentName,
+      newStatus,
+      statusLabel,
+      scheduleId,
+      timestamp,
+    } = data;
+
+    console.log(
+      `📡 Student status changed: ${studentName} (ID: ${studentId}) -> ${statusLabel}`
+    );
+
+    // Emit event cho tất cả phụ huynh đang kết nối
+    io.to("parent-tracking").emit("student-status-changed", {
+      scheduleStudentId: scheduleStudentId,
+      studentId: studentId,
+      studentName: studentName,
+      newStatus: newStatus,
+      statusLabel: statusLabel,
+      scheduleId: scheduleId,
+      timestamp: timestamp,
+    });
+
+    console.log(`✅ Broadcast sent to all parents in parent-tracking room`);
+  });
+
+  /**
+   * 🚨 Socket event: Xe sắp đến trạm (cách 500m)
+   * Gửi notification vàng cho phụ huynh để họ biết xe sắp tới
+   */
+  socket.on("approaching-stop", (data) => {
+    const {
+      studentId,
+      studentName,
+      stopName,
+      stopIndex,
+      distanceToStop,
+      scheduleId,
+      timestamp,
+    } = data;
+
+    console.log(
+      `🚨 Approaching stop: Student ${studentName} (ID: ${studentId}), Stop: ${stopName}, Distance: ${distanceToStop}m`
+    );
+
+    // Emit event cho tất cả phụ huynh đang kết nối
+    io.to("parent-tracking").emit("approaching-stop", {
+      studentId: studentId,
+      studentName: studentName,
+      stopName: stopName,
+      stopIndex: stopIndex,
+      distanceToStop: distanceToStop,
+      scheduleId: scheduleId,
+      timestamp: timestamp,
+    });
+
+    console.log(`✅ Approaching-stop notification sent to all parents`);
+  });
+
+  /**
+   * 🚨 Socket event: Frontend tính toán khoảng cách và gửi signal
+   * Khi xe < 500m từ stop → gửi approaching-stop event cho parents
+   */
+  socket.on("approaching-stop-frontend", (data) => {
+    const {
+      studentId,
+      studentName,
+      stopName,
+      stopIndex,
+      distanceToStop,
+      scheduleId,
+      timestamp,
+    } = data;
+
+    console.log(
+      `🚨 [FRONTEND] Approaching stop: ${studentName} → ${stopName} (${distanceToStop}m)`
+    );
+
+    // Relay to all parents in parent-tracking room
+    io.to("parent-tracking").emit("approaching-stop", {
+      studentId: studentId,
+      studentName: studentName,
+      stopName: stopName,
+      stopIndex: stopIndex,
+      distanceToStop: distanceToStop,
+      scheduleId: scheduleId,
+      timestamp: timestamp,
+    });
+
+    console.log(`✅ [FRONTEND] Approaching-stop broadcast to all parents`);
+  });
 };

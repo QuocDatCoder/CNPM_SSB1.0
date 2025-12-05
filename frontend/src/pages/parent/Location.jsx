@@ -182,6 +182,32 @@ function Location() {
     distance: "-- km",
   });
 
+  // 📢 Notification state for real-time student status changes (Moved to ParentDashboard)
+  // const [notification, setNotification] = useState(null);
+  // const notificationTimeoutRef = useRef(null);
+  const [studentStatusMap, setStudentStatusMap] = useState({}); // Lưu trạng thái học sinh
+
+  // 👶 Get all student IDs of current parent (for filtering in local listener)
+  const [myStudentIds, setMyStudentIds] = useState([]); // Danh sách tất cả học sinh con của phụ huynh này
+
+  // Fetch kids data to get student IDs for filtering
+  useEffect(() => {
+    const fetchKidsTrips = async () => {
+      try {
+        const response = await ScheduleService.getMyKidsTrips();
+        if (response && Array.isArray(response)) {
+          const studentIds = response.map((kid) => kid.student_id);
+          console.log(`👶 Location.jsx - My student IDs:`, studentIds);
+          setMyStudentIds(studentIds);
+        }
+      } catch (err) {
+        console.error("Error fetching kids data:", err);
+      }
+    };
+
+    fetchKidsTrips();
+  }, []);
+
   // ⚡ Bỏ effect animation không cần - dùng busLocation trực tiếp
 
   // Auto-fit map để hiển thị toàn bộ route và trạm
@@ -195,16 +221,19 @@ function Location() {
     }
   }, [routePath]);
 
+  // Keep myStudentIds in ref for use in listeners without causing re-registration
+  const myStudentIdsRef = useRef([]);
+
+  useEffect(() => {
+    myStudentIdsRef.current = myStudentIds;
+  }, [myStudentIds]);
+
   // Đăng ký listener WebSocket một lần khi component mount
   useEffect(() => {
     ParentTrackingService.initSocket();
     ParentTrackingService.joinParentTracking();
 
-    // 🚨 Xóa tất cả listener cũ trước khi đăng ký listener mới
-    ParentTrackingService.socket?.off("bus-location-update");
-    ParentTrackingService.socket?.off("route-completed");
-
-    // Đăng ký listener cho cập nhật vị trí
+    // 📍 Listener cho cập nhật vị trí xe
     const handleBusLocationUpdate = (data) => {
       console.log("🚌 Received bus location update:", data);
 
@@ -261,7 +290,7 @@ function Location() {
       setIsTrackingActive(true);
     };
 
-    // Đăng ký listener cho hoàn thành chuyến
+    // ✅ Listener cho hoàn thành chuyến
     const handleRouteCompleted = (data) => {
       console.log("✅ Route completed:", data);
       setTripInfo((prev) => ({
@@ -272,14 +301,57 @@ function Location() {
       setIsTrackingActive(false);
     };
 
+    // 📢 Listener cho thay đổi trạng thái học sinh (ONLY update status map, NOT notification)
+    // Notification is handled globally by ParentDashboard
+    const handleStudentStatusChanged = (data) => {
+      const {
+        scheduleStudentId,
+        studentId,
+        studentName,
+        newStatus,
+        statusLabel,
+        timestamp,
+      } = data;
+
+      console.log(
+        `📢 Location.jsx - Student status changed: ${studentName} -> ${statusLabel}, studentId: ${studentId}, myStudentIds: ${myStudentIdsRef.current}`
+      );
+
+      // 🔒 Chỉ cập nhật nếu học sinh là con của phụ huynh này
+      if (!myStudentIdsRef.current.includes(studentId)) {
+        console.log(
+          `⏭️ Location.jsx - Ignoring update - student ${studentId} không phải con của phụ huynh này`
+        );
+        return;
+      }
+
+      // 1️⃣ Cập nhật ONLY status map (để Location component hiển thị status mới trên map)
+      setStudentStatusMap((prev) => ({
+        ...prev,
+        [scheduleStudentId]: newStatus,
+      }));
+
+      console.log(
+        `✅ Location.jsx - Student status map updated for ${scheduleStudentId}`
+      );
+    };
+
+    console.log("📍 Location.jsx: Registering location and status listeners");
     ParentTrackingService.socket?.on(
       "bus-location-update",
       handleBusLocationUpdate
     );
     ParentTrackingService.socket?.on("route-completed", handleRouteCompleted);
+    ParentTrackingService.socket?.on(
+      "student-status-changed",
+      handleStudentStatusChanged
+    );
 
     // Cleanup: xóa listener khi component unmount
     return () => {
+      console.log(
+        "📍 Location.jsx: Unregistering location and status listeners"
+      );
       ParentTrackingService.socket?.off(
         "bus-location-update",
         handleBusLocationUpdate
@@ -288,9 +360,14 @@ function Location() {
         "route-completed",
         handleRouteCompleted
       );
-      ParentTrackingService.leaveParentTracking();
+      ParentTrackingService.socket?.off(
+        "student-status-changed",
+        handleStudentStatusChanged
+      );
+      // DO NOT call leaveParentTracking here - keep the parent-tracking room active
+      // for other pages to receive notifications
     };
-  }, []);
+  }, []); // Empty dependency array - register once and never re-register
 
   useEffect(() => {
     const fetchParentSchedules = async () => {

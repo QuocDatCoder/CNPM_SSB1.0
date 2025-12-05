@@ -1,0 +1,409 @@
+.student-stop-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.student-stop-modal {
+  background: white;
+  border-radius: 12px;
+  width: 95%;
+  max-width: 1200px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.student-stop-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative;
+}
+
+.student-stop-modal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.student-stop-modal-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.student-stop-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+}
+.student-stop-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.student-stop-modal-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.student-stop-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* Stop Selector */
+.stop-selector {
+  margin-bottom: 24px;
+}
+
+.stop-selector-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.stop-selector-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stop-selector-input:hover {
+  border-color: #9ca3af;
+}
+
+.stop-selector-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Stop Info */
+.stop-info {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 24px;
+  display: flex;
+  gap: 16px;
+}
+
+.stop-info-item {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  flex: 1;
+}
+
+.stop-info-label {
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.stop-info-value {
+  color: #111827;
+  font-weight: 500;
+}
+
+.stop-info-value.nearby {
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* Students List Container */
+.students-list-container {
+  margin-top: 0;
+}
+
+.students-list-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 16px 0;
+}
+
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #9ca3af;
+}
+
+.loading-state p,
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Students Grid - Card Layout */
+.students-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.student-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+}
+
+.student-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.1);
+}
+
+/* Card Header */
+.student-card-header {
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.student-id-section {
+  flex: 1;
+}
+
+.student-id {
+  background: #e0e7ff;
+  color: #4f46e5;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.student-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  background: #f59e0b;
+}
+
+.status-dot {
+  font-size: 10px;
+}
+
+/* Card Body */
+.student-card-body {
+  flex: 1;
+  padding: 12px;
+}
+
+.student-name {
+  margin: 0 0 2px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.student-class {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.student-info-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.info-icon {
+  font-size: 14px;
+  width: 18px;
+  display: inline-block;
+}
+
+.info-text {
+  color: #4b5563;
+}
+
+/* Card Footer - Status Buttons */
+.student-card-footer {
+  padding: 8px 12px;
+  border-top: 1px solid #e5e7eb;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.status-btn {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.status-btn:hover {
+  border-color: #9ca3af;
+  background: #e5e7eb;
+}
+
+.status-btn.active {
+  border: none;
+  color: white;
+}
+
+/* Modal Footer */
+.student-stop-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #f9fafb;
+}
+
+.btn-modal-action {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-continue {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.btn-continue:hover {
+  background: linear-gradient(180deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-close {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.btn-close:hover {
+  background: #d1d5db;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .students-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .student-stop-modal {
+    max-width: 98%;
+    max-height: 95vh;
+  }
+
+  .student-stop-modal-content {
+    padding: 16px;
+  }
+
+  .students-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stop-info {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .student-card-footer {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+  .student-item {
+    flex-direction: column;
+  }
+
+  .student-actions {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .action-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .action-btn {
+    flex: 1;
+    min-width: 80px;
+  }
+}

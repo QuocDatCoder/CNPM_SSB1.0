@@ -7,6 +7,8 @@ const {
   getActiveTrips,
   getTripStatus,
   saveDriverLocation,
+  updateScheduleStudentStatus,
+  resetScheduleStudentStatuses,
 } = require("../controllers/tracking.controller.js");
 const {
   verifyToken,
@@ -23,6 +25,22 @@ router.put("/end-trip/:scheduleId", verifyToken, isDriver, endTrip);
 
 // 🚌 Save driver location (từ FE tài xế gửi)
 router.post("/save-location", verifyToken, isDriver, saveDriverLocation);
+
+// 👨‍🎓 Cập nhật trạng thái học sinh (Tài xế cập nhật khi đón/trả học sinh)
+router.put(
+  "/schedule-student/:scheduleStudentId",
+  verifyToken,
+  isDriver,
+  updateScheduleStudentStatus
+);
+
+// ✅ Reset tất cả học sinh trong schedule về 'choxacnhan' (Khi bắt đầu chuyến mới)
+router.put(
+  "/reset-students/:scheduleId",
+  verifyToken,
+  isDriver,
+  resetScheduleStudentStatuses
+);
 
 // Get current bus location
 router.get("/current-location/:scheduleId", verifyToken, getCurrentLocation);

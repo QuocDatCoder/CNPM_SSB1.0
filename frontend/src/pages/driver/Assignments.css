@@ -192,7 +192,7 @@
 }
 
 .trip-card.morning .trip-action-btn {
-  background: #10b981;
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
   color: white;
 }
 
@@ -204,6 +204,25 @@
   background: #e5e7eb;
   color: #6b7280;
   cursor: not-allowed;
+}
+
+.trip-action-btn:disabled,
+.trip-action-btn.hoanthanh,
+.trip-card.afternoon .trip-action-btn.hoanthanh {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  color: white;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.trip-card.hoanthanh {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  opacity: 0.8;
+}
+
+.trip-card.hoanthanh:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: none;
 }
 
 .trip-details {
