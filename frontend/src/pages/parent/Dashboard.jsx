@@ -171,6 +171,11 @@ function ParentDashboard() {
   const [notification, setNotification] = useState(null);
   const notificationTimeoutRef = useRef(null);
 
+  // 🚨 Approaching-stop notification state (yellow badge)
+  const [approachingStopNotification, setApproachingStopNotification] =
+    useState(null);
+  const approachingStopTimeoutRef = useRef(null);
+
   // 📡 Initialize socket connection and join parent tracking room
   useEffect(() => {
     ParentTrackingService.initSocket();
@@ -386,6 +391,67 @@ function ParentDashboard() {
       ParentTrackingService.socket?.off(
         "student-status-changed",
         handleStudentStatusChanged
+      );
+    };
+  }, []); // Empty dependency array - register listener once
+
+  // 🚨 Listen for approaching-stop notifications (yellow badge)
+  useEffect(() => {
+    const handleApproachingStop = (data) => {
+      const {
+        studentId,
+        studentName,
+        stopName,
+        stopIndex,
+        distanceToStop,
+        scheduleId,
+        timestamp,
+      } = data;
+
+      console.log(
+        `🚨 Approaching stop: ${studentName} -> ${stopName} (${distanceToStop}m away), studentId: ${studentId}, myStudentIds: ${myStudentIdsRef.current}`
+      );
+
+      // 🔒 Chỉ hiển thị notification nếu học sinh là con của phụ huynh này
+      // NOTE: Tạm thời bỏ qua nếu studentId là 0 (placeholder), sẽ fix khi backend có studentId thực
+      if (studentId !== 0 && !myStudentIdsRef.current.includes(studentId)) {
+        console.log(
+          `⏭️ Ignoring approaching-stop - student ${studentId} không phải con của phụ huynh này`
+        );
+        return;
+      }
+
+      console.log(
+        `✅ Showing approaching-stop notification for student ${studentId}`
+      );
+
+      // Hiển thị approaching-stop notification (vàng)
+      setApproachingStopNotification({
+        studentName: studentName,
+        stopName: stopName,
+        distanceToStop: distanceToStop,
+        timestamp: timestamp,
+      });
+
+      // Clear timeout cũ nếu có
+      if (approachingStopTimeoutRef.current) {
+        clearTimeout(approachingStopTimeoutRef.current);
+      }
+
+      // Set timeout mới để tự động ẩn sau 7 giây (lâu hơn status change)
+      approachingStopTimeoutRef.current = setTimeout(() => {
+        setApproachingStopNotification(null);
+      }, 7000);
+    };
+
+    console.log("🚨 Registering approaching-stop listener");
+    ParentTrackingService.socket?.on("approaching-stop", handleApproachingStop);
+
+    return () => {
+      console.log("🚨 Unregistering approaching-stop listener");
+      ParentTrackingService.socket?.off(
+        "approaching-stop",
+        handleApproachingStop
       );
     };
   }, []); // Empty dependency array - register listener once
@@ -780,6 +846,58 @@ function ParentDashboard() {
           </div>
           <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.8 }}>
             {new Date(notification.timestamp).toLocaleTimeString("vi-VN")}
+          </div>
+
+          <style>{`
+            @keyframes slideIn {
+              from {
+                transform: translateX(400px);
+                opacity: 0;
+              }
+              to {
+                transform: translateX(0);
+                opacity: 1;
+              }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* 🚨 Approaching-stop Notification Badge (Yellow) */}
+      {approachingStopNotification && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            backgroundColor: "#f59e0b",
+            color: "#1f2937",
+            padding: "16px 20px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+            zIndex: 9999,
+            minWidth: "300px",
+            animation: "slideIn 0.3s ease-out",
+            border: "2px solid #d97706",
+            marginTop: notification ? "100px" : "0px",
+            transition: "margin-top 0.3s ease-out",
+          }}
+        >
+          <div style={{ fontWeight: "600", marginBottom: "4px" }}>
+            🚍 Xe sắp đến trạm
+          </div>
+          <div style={{ fontSize: "14px" }}>
+            <strong>{approachingStopNotification.studentName}</strong> - Xe sắp
+            tới <strong>{approachingStopNotification.stopName}</strong>
+          </div>
+          <div style={{ fontSize: "13px", marginTop: "4px", opacity: 0.9 }}>
+            Cách trạm:{" "}
+            <strong>{approachingStopNotification.distanceToStop}m</strong>
+          </div>
+          <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.7 }}>
+            {new Date(approachingStopNotification.timestamp).toLocaleTimeString(
+              "vi-VN"
+            )}
           </div>
 
           <style>{`

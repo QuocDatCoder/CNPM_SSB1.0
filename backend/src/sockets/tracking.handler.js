@@ -162,4 +162,37 @@ module.exports = (io, socket) => {
 
     console.log(`✅ Broadcast sent to all parents in parent-tracking room`);
   });
+
+  /**
+   * 🚨 Socket event: Xe sắp đến trạm (cách 500m)
+   * Gửi notification vàng cho phụ huynh để họ biết xe sắp tới
+   */
+  socket.on("approaching-stop", (data) => {
+    const {
+      studentId,
+      studentName,
+      stopName,
+      stopIndex,
+      distanceToStop,
+      scheduleId,
+      timestamp,
+    } = data;
+
+    console.log(
+      `🚨 Approaching stop: Student ${studentName} (ID: ${studentId}), Stop: ${stopName}, Distance: ${distanceToStop}m`
+    );
+
+    // Emit event cho tất cả phụ huynh đang kết nối
+    io.to("parent-tracking").emit("approaching-stop", {
+      studentId: studentId,
+      studentName: studentName,
+      stopName: stopName,
+      stopIndex: stopIndex,
+      distanceToStop: distanceToStop,
+      scheduleId: scheduleId,
+      timestamp: timestamp,
+    });
+
+    console.log(`✅ Approaching-stop notification sent to all parents`);
+  });
 };

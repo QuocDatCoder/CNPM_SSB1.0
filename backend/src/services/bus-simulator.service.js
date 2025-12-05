@@ -53,13 +53,14 @@ class BusSimulator {
     this.schedule = null;
     this.bus = null;
     this.driverId = null;
-    this.speed = 30; // km/h (tốc độ giả lập)
-    this.updateInterval = 2000; // 2 giây (emit 1 vị trí mới)
+    this.speed = 30; // km/h (tốc độ thực tế)
+    this.updateInterval = 200; // 200ms (update mỗi 200ms để mịn - không ảnh hưởng thời gian tổng)
     this.intervalId = null;
     this.totalDistance = 0; // Tổng quãng đường
     this.currentDistance = 0; // Quãng đường đã đi
     this.currentLat = null;
     this.currentLon = null;
+    this.notifiedStops = new Set(); // Track which stops have been notified
   }
 
   /**
@@ -94,13 +95,37 @@ class BusSimulator {
         order: [["thu_tu", "ASC"]],
       });
 
-      this.stops = routeStops.map((rs) => ({
-        id: rs.Stop.id,
-        ten_diem: rs.Stop.ten_diem,
-        latitude: parseFloat(rs.Stop.latitude),
-        longitude: parseFloat(rs.Stop.longitude),
-        thu_tu: rs.thu_tu,
-      }));
+      this.stops = routeStops
+        .map((rs) => {
+          const lat = parseFloat(rs.Stop.latitude);
+          const lng = parseFloat(rs.Stop.longitude);
+
+          // Validate coordinates
+          if (isNaN(lat) || isNaN(lng)) {
+            console.warn(
+              `⚠️ Stop ${rs.Stop.id} (${rs.Stop.ten_diem}) has invalid coordinates: lat=${rs.Stop.latitude}, lng=${rs.Stop.longitude}`
+            );
+            return null; // Skip invalid stops
+          }
+
+          return {
+            id: rs.Stop.id,
+            ten_diem: rs.Stop.ten_diem,
+            latitude: lat,
+            longitude: lng,
+            thu_tu: rs.thu_tu,
+          };
+        })
+        .filter((stop) => stop !== null); // Remove null entries
+
+      console.log(
+        `✅ [Schedule ${this.scheduleId}] Loaded ${this.stops.length} stops:`
+      );
+      this.stops.forEach((stop, idx) => {
+        console.log(
+          `   Stop ${idx}: ${stop.ten_diem} (${stop.latitude}, ${stop.longitude})`
+        );
+      });
 
       if (this.stops.length < 2) {
         throw new Error("Route must have at least 2 stops");
@@ -169,11 +194,11 @@ class BusSimulator {
       const kmPerUpdate = (this.speed / 3600) * (this.updateInterval / 1000); // km = speed * (time in hours)
       this.currentDistance += kmPerUpdate;
 
-      // Nếu đã chạy hết tuyến
-      if (this.currentDistance >= this.totalDistance) {
-        await this.finishRoute();
-        return;
-      }
+      // Nếu đã chạy hết tuyến - DISABLED: Cho tài xế tự kết thúc chuyến
+      // if (this.currentDistance >= this.totalDistance) {
+      //   await this.finishRoute();
+      //   return;
+      // }
 
       // Tìm stop hiện tại và stop tiếp theo
       let distanceCovered = 0;
@@ -215,6 +240,14 @@ class BusSimulator {
         this.currentLat = this.stops[this.stops.length - 1].latitude;
         this.currentLon = this.stops[this.stops.length - 1].longitude;
         this.currentStopIndex = this.stops.length - 1;
+      }
+
+      // 🔄 Reset notifiedStops khi xe quay lại gần điểm đầu (loop lại)
+      if (this.currentStopIndex <= 1) {
+        console.log(
+          `🔄 [Schedule ${this.scheduleId}] Xe quay lại đầu tuyến - Reset notifiedStops`
+        );
+        this.notifiedStops = new Set();
       }
 
       // Lưu vào DB
@@ -270,6 +303,9 @@ class BusSimulator {
     // TODO: Lấy danh sách phụ huynh từ ScheduleStudent
     this.io.to("parent-tracking").emit("bus-location-update", locationData);
 
+    // 🚨 Check if approaching any stop (within 500m)
+    this.checkApproachingStop();
+
     console.log(
       `📍 [Schedule ${this.scheduleId}] Location: ${this.currentLat.toFixed(
         6
@@ -279,6 +315,98 @@ class BusSimulator {
         2
       )} km) - Progress: ${progressPercentage.toFixed(1)}%`
     );
+  }
+
+  /**
+   * 🚨 Check if bus is approaching any stop (within 500m)
+   * Send notification to parents
+   */
+  checkApproachingStop() {
+    try {
+      const APPROACHING_DISTANCE = 0.1; // 100m = 0.1km (easier to trigger approaching-stop)
+
+      // Initialize notifiedStops if not exists
+      if (!this.notifiedStops) {
+        this.notifiedStops = new Set();
+      }
+
+      // Debug: Check if stops exist
+      if (!this.stops || this.stops.length === 0) {
+        console.warn(`⚠️ [Schedule ${this.scheduleId}] No stops available`);
+        return;
+      }
+
+      // Debug: Check current position
+      if (!this.currentLat || !this.currentLon) {
+        console.warn(
+          `⚠️ [Schedule ${this.scheduleId}] Current position not set`
+        );
+        return;
+      }
+
+      // Check each stop after current stop
+      for (let i = this.currentStopIndex + 1; i < this.stops.length; i++) {
+        const stop = this.stops[i];
+
+        // Skip if already notified for this stop
+        if (this.notifiedStops.has(i)) {
+          continue;
+        }
+
+        // Validate stop has coordinates
+        if (!stop.latitude || !stop.longitude) {
+          console.warn(
+            `⚠️ [Schedule ${this.scheduleId}] Stop ${i} missing coordinates`
+          );
+          continue;
+        }
+
+        const distanceToStop = calculateDistance(
+          this.currentLat,
+          this.currentLon,
+          stop.latitude,
+          stop.longitude
+        );
+
+        const distanceInMeters = distanceToStop * 1000; // Convert km to meters
+
+        console.log(
+          `📍 [Schedule ${this.scheduleId}] Distance to stop ${i} (${
+            stop.ten_diem
+          }): ${distanceInMeters.toFixed(1)}m`
+        );
+
+        // If within 500m and hasn't been notified for this stop yet
+        if (
+          distanceInMeters <= APPROACHING_DISTANCE * 1000 &&
+          distanceInMeters > 0
+        ) {
+          // Emit notification
+          this.io.to("parent-tracking").emit("approaching-stop", {
+            studentId: 0, // TODO: Get from ScheduleStudent
+            studentName: "Học sinh", // TODO: Get student name
+            stopName: stop.ten_diem,
+            stopIndex: i,
+            distanceToStop: Math.round(distanceInMeters),
+            scheduleId: this.scheduleId,
+            timestamp: new Date().toISOString(),
+          });
+
+          console.log(
+            `🚨 [Schedule ${this.scheduleId}] APPROACHING STOP: ${
+              stop.ten_diem
+            } (${distanceInMeters.toFixed(1)}m) - EVENT EMITTED!`
+          );
+
+          // Mark this stop as notified
+          this.notifiedStops.add(i);
+
+          break; // Only notify for nearest upcoming stop
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Error checking approaching stop: ${error.message}`);
+    }
   }
 
   /**
@@ -372,7 +500,15 @@ const startBusSimulator = async (scheduleId, io) => {
 
     // Tạo simulator mới
     const simulator = new BusSimulator(scheduleId, io);
+    console.log(
+      `🔧 [Schedule ${scheduleId}] Initializing simulator... (stops count before: ${simulator.stops.length})`
+    );
+
     await simulator.initialize();
+
+    console.log(
+      `✅ [Schedule ${scheduleId}] Simulator initialized! Stops loaded: ${simulator.stops.length}`
+    );
     simulator.start();
 
     // Lưu vào map
