@@ -90,23 +90,55 @@ export default function Dashboard() {
 
   const visibleRoutes = routes.slice(currentIndex, currentIndex + itemsPerPage);
 
-  // Fetch route from OSRM
-  async function fetchRoute(start, end) {
+  // Fetch route from OSRM with retry and timeout
+  async function fetchRoute(start, end, retryCount = 0, maxRetries = 3) {
     const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+    const TIMEOUT_MS = 30000; // 30 seconds timeout
 
     try {
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      console.log(
+        `🔄 Fetching route (attempt ${retryCount + 1}/${maxRetries + 1})...`
+      );
+
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const json = await res.json();
 
-      if (!json.routes) return [];
+      if (!json.routes || json.routes.length === 0) {
+        console.error("No route found from OSRM");
+        return [];
+      }
 
       const coords = json.routes[0].geometry.coordinates.map((c) => [
         c[1],
         c[0],
       ]);
+
+      console.log(`✅ Route fetched: ${coords.length} points`);
       return coords;
     } catch (error) {
-      console.error("Error fetching route:", error);
+      console.error(
+        `Error fetching route (attempt ${retryCount + 1}):`,
+        error.message
+      );
+
+      // Retry with exponential backoff
+      if (retryCount < maxRetries) {
+        const backoffMs = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`⏳ Retrying in ${backoffMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        return fetchRoute(start, end, retryCount + 1, maxRetries);
+      }
+
+      console.error("❌ All OSRM attempts failed");
       return [];
     }
   }
