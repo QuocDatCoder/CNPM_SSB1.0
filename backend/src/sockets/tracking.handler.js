@@ -195,4 +195,37 @@ module.exports = (io, socket) => {
 
     console.log(`✅ Approaching-stop notification sent to all parents`);
   });
+
+  /**
+   * 🚨 Socket event: Frontend tính toán khoảng cách và gửi signal
+   * Khi xe < 500m từ stop → gửi approaching-stop event cho parents
+   */
+  socket.on("approaching-stop-frontend", (data) => {
+    const {
+      studentId,
+      studentName,
+      stopName,
+      stopIndex,
+      distanceToStop,
+      scheduleId,
+      timestamp,
+    } = data;
+
+    console.log(
+      `🚨 [FRONTEND] Approaching stop: ${studentName} → ${stopName} (${distanceToStop}m)`
+    );
+
+    // Relay to all parents in parent-tracking room
+    io.to("parent-tracking").emit("approaching-stop", {
+      studentId: studentId,
+      studentName: studentName,
+      stopName: stopName,
+      stopIndex: stopIndex,
+      distanceToStop: distanceToStop,
+      scheduleId: scheduleId,
+      timestamp: timestamp,
+    });
+
+    console.log(`✅ [FRONTEND] Approaching-stop broadcast to all parents`);
+  });
 };

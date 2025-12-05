@@ -179,6 +179,16 @@ class BusSimulator {
     this.currentDistance = 0;
 
     console.log(`🚀 Starting simulator for schedule ${this.scheduleId}`);
+    console.log(
+      `   Speed: ${this.speed} km/h, Update interval: ${
+        this.updateInterval
+      }ms, Total distance: ${this.totalDistance.toFixed(2)} km`
+    );
+    console.log(
+      `   Stops: ${this.stops.length}, First stop: ${
+        this.stops[0]?.ten_diem
+      }, Last stop: ${this.stops[this.stops.length - 1]?.ten_diem}`
+    );
 
     this.intervalId = setInterval(async () => {
       await this.updateLocation();
@@ -318,12 +328,15 @@ class BusSimulator {
   }
 
   /**
-   * 🚨 Check if bus is approaching any stop (within 500m)
+   * 🚨 Check if bus is approaching the NEXT stop (within 500m)
    * Send notification to parents
+   *
+   * NOTE: Only check the NEXT stop (currentStopIndex + 1), not all future stops
+   * because the bus is only approaching ONE stop at a time!
    */
   checkApproachingStop() {
     try {
-      const APPROACHING_DISTANCE = 0.1; // 100m = 0.1km (easier to trigger approaching-stop)
+      const APPROACHING_DISTANCE = 0.5; // 500m = 0.5km
 
       // Initialize notifiedStops if not exists
       if (!this.notifiedStops) {
@@ -344,65 +357,80 @@ class BusSimulator {
         return;
       }
 
-      // Check each stop after current stop
-      for (let i = this.currentStopIndex + 1; i < this.stops.length; i++) {
-        const stop = this.stops[i];
+      // 🎯 Only check the NEXT stop (the one bus is heading towards)
+      const nextStopIndex = this.currentStopIndex + 1;
 
-        // Skip if already notified for this stop
-        if (this.notifiedStops.has(i)) {
-          continue;
-        }
+      // If already at last stop, no next stop to approach
+      if (nextStopIndex >= this.stops.length) {
+        return;
+      }
 
-        // Validate stop has coordinates
-        if (!stop.latitude || !stop.longitude) {
-          console.warn(
-            `⚠️ [Schedule ${this.scheduleId}] Stop ${i} missing coordinates`
-          );
-          continue;
-        }
+      const nextStop = this.stops[nextStopIndex];
 
-        const distanceToStop = calculateDistance(
-          this.currentLat,
-          this.currentLon,
-          stop.latitude,
-          stop.longitude
+      console.log(
+        `🔍 [Schedule ${
+          this.scheduleId
+        }] Checking NEXT stop ${nextStopIndex} (${
+          nextStop.ten_diem
+        }): currentPos=(${this.currentLat.toFixed(6)},${this.currentLon.toFixed(
+          6
+        )})`
+      );
+
+      // Skip if already notified for this stop
+      if (this.notifiedStops.has(nextStopIndex)) {
+        return;
+      }
+
+      // Validate stop has coordinates
+      if (!nextStop.latitude || !nextStop.longitude) {
+        console.warn(
+          `⚠️ [Schedule ${this.scheduleId}] Stop ${nextStopIndex} missing coordinates`
         );
+        return;
+      }
 
-        const distanceInMeters = distanceToStop * 1000; // Convert km to meters
+      const distanceToStop = calculateDistance(
+        this.currentLat,
+        this.currentLon,
+        parseFloat(nextStop.latitude),
+        parseFloat(nextStop.longitude)
+      );
+
+      const distanceInMeters = distanceToStop * 1000; // Convert km to meters
+      const threshold = APPROACHING_DISTANCE * 1000; // 500m
+
+      console.log(
+        `📍 [Schedule ${this.scheduleId}] Distance to NEXT stop (${
+          nextStop.ten_diem
+        }): ${distanceInMeters.toFixed(
+          1
+        )}m | Threshold: ${threshold}m | Will notify: ${
+          distanceInMeters <= threshold && distanceInMeters > 0 ? "✅" : "❌"
+        }`
+      );
+
+      // If within threshold distance
+      if (distanceInMeters <= threshold && distanceInMeters > 0) {
+        // Emit notification
+        this.io.to("parent-tracking").emit("approaching-stop", {
+          studentId: 0, // TODO: Get from ScheduleStudent
+          studentName: "Học sinh", // TODO: Get student name
+          stopName: nextStop.ten_diem,
+          stopIndex: nextStopIndex,
+          distanceToStop: Math.round(distanceInMeters),
+          scheduleId: this.scheduleId,
+          timestamp: new Date().toISOString(),
+        });
 
         console.log(
-          `📍 [Schedule ${this.scheduleId}] Distance to stop ${i} (${
-            stop.ten_diem
-          }): ${distanceInMeters.toFixed(1)}m`
+          `🚨 [Schedule ${this.scheduleId}] APPROACHING STOP EMITTED: ${
+            nextStop.ten_diem
+          } (${distanceInMeters.toFixed(1)}m) - EVENT SENT!`
         );
 
-        // If within 500m and hasn't been notified for this stop yet
-        if (
-          distanceInMeters <= APPROACHING_DISTANCE * 1000 &&
-          distanceInMeters > 0
-        ) {
-          // Emit notification
-          this.io.to("parent-tracking").emit("approaching-stop", {
-            studentId: 0, // TODO: Get from ScheduleStudent
-            studentName: "Học sinh", // TODO: Get student name
-            stopName: stop.ten_diem,
-            stopIndex: i,
-            distanceToStop: Math.round(distanceInMeters),
-            scheduleId: this.scheduleId,
-            timestamp: new Date().toISOString(),
-          });
-
-          console.log(
-            `🚨 [Schedule ${this.scheduleId}] APPROACHING STOP: ${
-              stop.ten_diem
-            } (${distanceInMeters.toFixed(1)}m) - EVENT EMITTED!`
-          );
-
-          // Mark this stop as notified
-          this.notifiedStops.add(i);
-
-          break; // Only notify for nearest upcoming stop
-        }
+        // Mark this stop as notified
+        this.notifiedStops.add(nextStopIndex);
       }
     } catch (error) {
       console.warn(`⚠️ Error checking approaching stop: ${error.message}`);

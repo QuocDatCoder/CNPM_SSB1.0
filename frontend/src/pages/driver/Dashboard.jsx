@@ -799,6 +799,33 @@ function Home() {
 
     setCurrentNearbyStop(nearestStop);
 
+    // 🚨 FRONTEND CẢNHs BÁO: Nếu gần stop (< 500m) → Gửi signal lên backend
+    const APPROACHING_THRESHOLD = 500; // 500m
+    if (
+      nearestStop.distance < APPROACHING_THRESHOLD &&
+      nearestStop.distance > 0 &&
+      activeTrip
+    ) {
+      // 📡 Gửi approaching-stop event từ frontend (distance-based)
+      if (TrackingService.socket) {
+        TrackingService.socket.emit("approaching-stop-frontend", {
+          studentId: 0,
+          studentName: "Học sinh",
+          stopName: nearestStop.station.name,
+          stopIndex: nearestStop.index,
+          distanceToStop: Math.round(nearestStop.distance),
+          scheduleId: activeTrip.id,
+          timestamp: new Date().toISOString(),
+        });
+
+        console.log(
+          `🚨 FRONTEND EMITTING approaching-stop: ${
+            nearestStop.station.name
+          } (${nearestStop.distance.toFixed(1)}m)`
+        );
+      }
+    }
+
     // 🚨 Nếu xe gần trạm (< 100m) VÀ chưa hiện modal cho trạm này
     // → Tự động mở modal
     if (nearestStop.isNearby && hasShownModalForStop !== nearestStop.index) {
