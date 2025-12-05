@@ -153,11 +153,20 @@ const scheduleController = {
     try {
       // Lấy ID phụ huynh từ Token
       const parentId = req.user.id;
+      console.log(`🔍 getParentDashboard called for parentId: ${parentId}`);
 
       const data = await scheduleService.getParentDashboardInfo(parentId);
+      console.log(
+        `✅ getParentDashboard succeeded, returning ${data.length} children`
+      );
 
       res.status(200).json({ success: true, data });
     } catch (error) {
+      console.error(
+        `❌ getParentDashboard error for parentId ${req.user.id}:`,
+        error
+      );
+      console.error(`Stack trace:`, error.stack);
       res.status(500).json({ success: false, message: error.message });
     }
   },

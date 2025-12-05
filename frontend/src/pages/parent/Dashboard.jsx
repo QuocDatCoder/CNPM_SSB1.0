@@ -304,6 +304,10 @@ function ParentDashboard() {
     }))
   );
 
+  console.log("👶 Kids data:", kids);
+  console.log("🚌 Transformed trips:", trips);
+  console.log("🚌 Trips count:", trips.length);
+
   // Default center nếu không có dữ liệu route
   const defaultCenter =
     routePath.length > 0 ? routePath[0] : [10.7769, 106.6869];
@@ -367,6 +371,12 @@ function ParentDashboard() {
                       }}
                     >
                       <p>Hôm nay không có chuyến đi nào</p>
+                      {console.log(
+                        "⚠️ No trips to display. kids:",
+                        kids,
+                        "trips:",
+                        trips
+                      )}
                     </div>
                   )}
 
