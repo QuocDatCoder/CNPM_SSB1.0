@@ -129,4 +129,37 @@ module.exports = (io, socket) => {
     // Phát lại cho tất cả client
     io.emit("studentStatusUpdated", data);
   });
+
+  /**
+   * 📡 Socket event: Tài xế thay đổi trạng thái học sinh
+   * Gửi real-time notification cho phụ huynh
+   */
+  socket.on("student-status-changed", (data) => {
+    const {
+      scheduleStudentId,
+      studentId,
+      studentName,
+      newStatus,
+      statusLabel,
+      scheduleId,
+      timestamp,
+    } = data;
+
+    console.log(
+      `📡 Student status changed: ${studentName} (ID: ${studentId}) -> ${statusLabel}`
+    );
+
+    // Emit event cho tất cả phụ huynh đang kết nối
+    io.to("parent-tracking").emit("student-status-changed", {
+      scheduleStudentId: scheduleStudentId,
+      studentId: studentId,
+      studentName: studentName,
+      newStatus: newStatus,
+      statusLabel: statusLabel,
+      scheduleId: scheduleId,
+      timestamp: timestamp,
+    });
+
+    console.log(`✅ Broadcast sent to all parents in parent-tracking room`);
+  });
 };

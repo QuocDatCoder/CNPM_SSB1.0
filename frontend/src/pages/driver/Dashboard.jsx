@@ -713,6 +713,36 @@ function Home() {
         response
       );
 
+      // 📡 Emit socket event để gửi real-time notification cho phụ huynh
+      // Tìm thông tin học sinh từ stopsData
+      const studentInfo = stopsData
+        .flatMap((stop) => stop.students || [])
+        .find((student) => student.scheduleStudentId === scheduleStudentId);
+
+      if (studentInfo && TrackingService.socket) {
+        const statusLabel =
+          {
+            choxacnhan: "Chờ xác nhận",
+            dihoc: "Đi học",
+            daxuong: "Đã xuống",
+            vangmat: "Vắng mặt",
+          }[newStatus] || newStatus;
+
+        TrackingService.socket.emit("student-status-changed", {
+          scheduleStudentId: scheduleStudentId,
+          studentId: studentInfo.studentId,
+          studentName: studentInfo.studentName,
+          newStatus: newStatus,
+          statusLabel: statusLabel,
+          scheduleId: activeTrip?.id,
+          timestamp: new Date().toISOString(),
+        });
+
+        console.log(
+          `📡 Real-time notification emitted for student ${studentInfo.studentName}`
+        );
+      }
+
       // ✅ UI đã cập nhật ngay tại StudentStopModal thông qua setStudentStatuses
       // Không cần gọi fetchStopsWithStudents vì component đã xử lý state update
       console.log("✅ Status updated - UI đã thay đổi ngay tại Modal");
