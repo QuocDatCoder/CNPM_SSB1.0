@@ -323,7 +323,12 @@ export default function Assignments() {
                 </div>
               ) : (
                 todaySchedule.map((trip) => (
-                  <div key={trip.id} className={`trip-card ${trip.type}`}>
+                  <div
+                    key={trip.id}
+                    className={`trip-card ${trip.type} ${
+                      trip.status || "chuabatdau"
+                    }`}
+                  >
                     <div className="trip-header">
                       <div className="trip-icon">
                         {trip.type === "morning" ? (
@@ -358,8 +363,15 @@ export default function Assignments() {
                         <h3 className="trip-title">{trip.title}</h3>
                         <p className="trip-time">{trip.time}</p>
                       </div>
-                      <button className="trip-action-btn">
-                        {trip.type === "morning" ? "Bắt đầu" : "Chưa đến giờ"}
+                      <button
+                        className={`trip-action-btn ${
+                          trip.status || "chuabatdau"
+                        }`}
+                        disabled={trip.status === "hoanthanh"}
+                      >
+                        {trip.status === "hoanthanh"
+                          ? "Đã hoàn thành"
+                          : "Chưa bắt đầu"}
                       </button>
                     </div>
 

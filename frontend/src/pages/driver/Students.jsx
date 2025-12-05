@@ -209,6 +209,8 @@ export default function Students() {
             <span className={`schedule-status ${currentSchedule.trang_thai}`}>
               {currentSchedule.trang_thai === "dangchay"
                 ? "Đang chạy"
+                : currentSchedule.trang_thai === "hoanthanh"
+                ? "Đã hoàn thành"
                 : "Chưa bắt đầu"}
             </span>
           </div>

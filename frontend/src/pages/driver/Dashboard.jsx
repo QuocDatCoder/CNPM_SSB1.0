@@ -21,6 +21,7 @@ import "./Dashboard.css";
 import drivers from "../../data/drivers";
 import ScheduleService from "../../services/schedule.service";
 import TrackingService from "../../services/tracking.service";
+import StudentService from "../../services/student.service";
 import useDriverScheduleSocket from "../../hooks/useDriverScheduleSocket";
 
 // Fix leaflet default icon issue
@@ -207,85 +208,115 @@ function Home() {
         console.log("🔍 Today's date (local):", today);
 
         const todaySchedules = response[today] || [];
-        console.log("🔍 Today's schedules found:", todaySchedules.length); // Transform backend data to component format
-        const routes = todaySchedules.map((schedule) => {
-          // Convert stops array to stations format and extract coordinates
-          let stations = [];
-          let coordinates = [];
+        console.log("🔍 Today's schedules found:", todaySchedules.length);
 
-          if (schedule.stops && Array.isArray(schedule.stops)) {
-            // Backend trả về stops có cấu trúc: { id, ten_diem, dia_chi, latitude, longitude }
-            stations = schedule.stops.map((stop, index) => ({
-              id: stop.id || index + 1,
-              name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
-              address: stop.dia_chi || "",
-              time:
-                index === 0
-                  ? schedule.time
-                  : index === schedule.stops.length - 1
-                  ? "Dự kiến đến"
-                  : "",
-              status: "pending",
-            }));
+        // Transform backend data to component format
+        const routes = await Promise.all(
+          todaySchedules.map(async (schedule) => {
+            // Convert stops array to stations format and extract coordinates
+            let stations = [];
+            let coordinates = [];
 
-            // Extract coordinates từ stops
-            coordinates = schedule.stops.map((stop) => [
-              parseFloat(stop.latitude),
-              parseFloat(stop.longitude),
-            ]);
-          } else {
-            // Fallback if no stops provided
-            stations = [
-              {
-                id: 1,
-                name: schedule.startLocation || "Điểm khởi hành",
-                address: "",
-                time: schedule.time,
+            if (schedule.stops && Array.isArray(schedule.stops)) {
+              // Backend trả về stops có cấu trúc: { id, ten_diem, dia_chi, latitude, longitude }
+              stations = schedule.stops.map((stop, index) => ({
+                id: stop.id || index + 1,
+                name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
+                address: stop.dia_chi || "",
+                time:
+                  index === 0
+                    ? schedule.time
+                    : index === schedule.stops.length - 1
+                    ? "Dự kiến đến"
+                    : "",
                 status: "pending",
-              },
-              {
-                id: 2,
-                name: schedule.endLocation || "Điểm kết thúc",
-                address: "",
-                time: "Dự kiến đến",
-                status: "pending",
-              },
-            ];
-            // Default coordinates if no stops
-            coordinates = [
-              [10.762622, 106.660172],
-              [10.776889, 106.700928],
-            ];
-          }
+              }));
 
-          // Normalize type: backend can return "luot_di"/"luot_ve" or "morning"/"afternoon"
-          const scheduleType =
-            schedule.type === "luot_di" || schedule.type === "morning"
-              ? "morning"
-              : "afternoon";
+              // Extract coordinates từ stops
+              coordinates = schedule.stops.map((stop) => [
+                parseFloat(stop.latitude),
+                parseFloat(stop.longitude),
+              ]);
+            } else {
+              // Fallback if no stops provided
+              stations = [
+                {
+                  id: 1,
+                  name: schedule.startLocation || "Điểm khởi hành",
+                  address: "",
+                  time: schedule.time,
+                  status: "pending",
+                },
+                {
+                  id: 2,
+                  name: schedule.endLocation || "Điểm kết thúc",
+                  address: "",
+                  time: "Dự kiến đến",
+                  status: "pending",
+                },
+              ];
+              // Default coordinates if no stops
+              coordinates = [
+                [10.762622, 106.660172],
+                [10.776889, 106.700928],
+              ];
+            }
 
-          return {
-            id: schedule.id,
-            shift: scheduleType === "morning" ? "Sáng" : "Chiều",
-            name:
-              schedule.title ||
-              (scheduleType === "morning"
-                ? "Lượt đi buổi sáng"
-                : "Lượt về buổi chiều"),
-            time: schedule.time,
-            startTime: `Lộ trạm đầu tiên: ${schedule.time}`,
-            school: schedule.endLocation || "Trường học",
-            students: 0, // Will be updated if we fetch student list
-            type: scheduleType,
-            route: schedule.route || "",
-            startLocation: schedule.startLocation || "",
-            endLocation: schedule.endLocation || "",
-            status: schedule.status || "chuabatdau",
-            stops: schedule.stops || [],
-            coordinates: coordinates,
-            stations: stations,
-          };
-        });
+            // Normalize type: backend can return "luot_di"/"luot_ve" or "morning"/"afternoon"
+            const scheduleType =
+              schedule.type === "luot_di" || schedule.type === "morning"
+                ? "morning"
+                : "afternoon";
+
+            // Fetch student count for this schedule
+            let studentCount = 0;
+            try {
+              const loaiTuyen =
+                scheduleType === "morning" ? "luot_di" : "luot_ve";
+              const studentResponse =
+                await StudentService.getCurrentScheduleStudents(loaiTuyen);
+
+              if (
+                studentResponse.students &&
+                Array.isArray(studentResponse.students)
+              ) {
+                studentCount = studentResponse.students.length;
+                console.log(
+                  `📚 Schedule ${schedule.id} has ${studentCount} students`
+                );
+              }
+            } catch (err) {
+              console.error(
+                `Error fetching students for schedule ${schedule.id}:`,
+                err
+              );
+              // Use fallback from schedule if available
+              studentCount = schedule.studentCount || schedule.students || 0;
+            }
+
+            return {
+              id: schedule.id,
+              shift: scheduleType === "morning" ? "Sáng" : "Chiều",
+              name:
+                schedule.title ||
+                (scheduleType === "morning"
+                  ? "Lượt đi buổi sáng"
+                  : "Lượt về buổi chiều"),
+              time: schedule.time,
+              startTime: ` ${schedule.time}`,
+              school: schedule.endLocation || "Trường học",
+              students: studentCount,
+              type: scheduleType,
+              route: schedule.route || "",
+              startLocation: schedule.startLocation || "",
+              endLocation: schedule.endLocation || "",
+              status: schedule.status || "chuabatdau",
+              stops: schedule.stops || [],
+              coordinates: coordinates,
+              stations: stations,
+            };
+          })
+        );
 
         setAssignedRoutes(routes);
         setError(null);
@@ -374,7 +405,7 @@ function Home() {
               schedule.time?.substring(0, 5) || schedule.time
             }`,
             school: schedule.endLocation || "Trường học",
-            students: 0,
+            students: schedule.studentCount || schedule.students || 0,
             type: schedule.type === "luot_di" ? "morning" : "afternoon",
             route: schedule.route || "",
             startLocation: schedule.startLocation || "",
@@ -463,7 +494,7 @@ function Home() {
                 schedule.time?.substring(0, 5) || schedule.time
               }`,
               school: schedule.endLocation || "Trường học",
-              students: 0,
+              students: schedule.studentCount || schedule.students || 0,
               type: schedule.type === "luot_di" ? "morning" : "afternoon",
               route: schedule.route || "",
               startLocation: schedule.startLocation || "",
@@ -973,8 +1004,19 @@ function Home() {
             ) : (
               <div className="routes-cards-driver">
                 {assignedRoutes.map((route) => (
-                  <div key={route.id} className="route-card-driver">
-                    <div className="status-routes-cards-driver">Sắp tới</div>
+                  <div
+                    key={route.id}
+                    className={`route-card-driver ${
+                      route.status === "hoanthanh" ? "completed" : ""
+                    }`}
+                  >
+                    <div
+                      className={`status-routes-cards-driver ${route.status}`}
+                    >
+                      {route.status === "hoanthanh"
+                        ? "Đã hoàn thành"
+                        : "Sắp tới"}
+                    </div>
                     <div className="route-card-header-driver">
                       <span className={`shift-badge-driver ${route.type}`}>
                         {route.shift}
@@ -985,7 +1027,12 @@ function Home() {
                     <div className="route-card-body-driver">
                       <p className="route-info-driver">
                         <strong>Thời gian đầu tiên:</strong> {route.startTime}.
-                        Lộ trạm: đến xe ⇨ {route.school}
+                        Lộ trình:{" "}
+                        {route.stations && route.stations.length > 0
+                          ? `${route.stations[0].name} ⇨ ${
+                              route.stations[route.stations.length - 1].name
+                            }`
+                          : "bến xe ⇨ " + route.school}
                       </p>
                       <p className="route-info-driver">
                         Số học sinh trên chuyến: {route.students}
@@ -993,10 +1040,15 @@ function Home() {
                     </div>
 
                     <button
-                      className="btn-start-route-driver"
+                      className={`btn-start-route-driver ${
+                        route.status === "hoanthanh" ? "completed" : ""
+                      }`}
                       onClick={() => handleStartTrip(route)}
+                      disabled={route.status === "hoanthanh"}
                     >
-                      Bắt đầu chuyến đi
+                      {route.status === "hoanthanh"
+                        ? "Chuyến đi đã hoàn thành"
+                        : "Bắt đầu chuyến đi"}
                     </button>
                   </div>
                 ))}
