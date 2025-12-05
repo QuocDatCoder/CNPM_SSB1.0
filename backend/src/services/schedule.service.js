@@ -166,6 +166,69 @@ const createSchedule = async (data) => {
   // C. Tạo mới
   const newSchedule = await Schedule.create(data);
 
+  // C.1. AUTO-ASSIGN students to this schedule
+  // Find all students who use this route (via default_route_stop_id_di or default_route_stop_id_ve)
+  try {
+    const routeStops = await RouteStop.findAll({
+      where: { route_id: data.route_id },
+    });
+
+    const routeStopIds = routeStops.map((rs) => rs.id);
+
+    if (routeStopIds.length > 0) {
+      // Find students based on route type (lượt_di or lượt_về)
+      let studentsOnRoute = [];
+
+      if (route.loai_tuyen === "luot_di") {
+        // For morning routes, find students with default_route_stop_id_di
+        studentsOnRoute = await Student.findAll({
+          where: { default_route_stop_id_di: routeStopIds },
+        });
+      } else {
+        // For afternoon routes, find students with default_route_stop_id_ve
+        studentsOnRoute = await Student.findAll({
+          where: { default_route_stop_id_ve: routeStopIds },
+        });
+      }
+
+      console.log(
+        `📍 Found ${studentsOnRoute.length} students for route ${data.route_id} (${route.loai_tuyen})`
+      );
+
+      // Create ScheduleStudent records for each student
+      for (const student of studentsOnRoute) {
+        // Find the stop_id for this student (their default stop on this route)
+        let studentRouteStopId = null;
+        let studentStopId = null;
+
+        if (route.loai_tuyen === "luot_di") {
+          studentRouteStopId = student.default_route_stop_id_di;
+        } else {
+          studentRouteStopId = student.default_route_stop_id_ve;
+        }
+
+        const studentRouteStop = routeStops.find(
+          (rs) => rs.id === studentRouteStopId
+        );
+
+        if (studentRouteStop) {
+          await ScheduleStudent.create({
+            schedule_id: newSchedule.id,
+            student_id: student.id,
+            stop_id: studentRouteStop.stop_id,
+            trang_thai_don: "choxacnhan",
+          });
+          console.log(
+            `✅ Assigned student ${student.ho_ten} to schedule ${newSchedule.id}`
+          );
+        }
+      }
+    }
+  } catch (assignError) {
+    console.error("⚠️ Error auto-assigning students to schedule:", assignError);
+    // Don't throw, just log - schedule was created successfully
+  }
+
   // D. Ghi log
   try {
     const driver = data.driver_id ? await User.findByPk(data.driver_id) : null;
@@ -823,35 +886,39 @@ const getParentDashboardInfo = async (parentId) => {
       where: { parent_id: parentId },
       include: [
         {
-          // 2. Tìm lịch trình CỦA NGÀY HÔM NAY mà con được gán
+          // 2. Tìm lịch trình mà con được gán
           model: ScheduleStudent,
-          required: false, // Vẫn lấy thông tin con dù hôm nay không có lịch
+          required: false, // Vẫn lấy thông tin con dù không có lịch
           include: [
             {
+              // 3. Join Schedule - eager load ALL schedule records (không filter ở đây)
               model: Schedule,
-              required: false, // Cho phép lấy con dù không có schedule hôm nay
-              where: { ngay_chay: today }, // Chỉ lấy lịch hôm nay
+              required: false, // Cho phép lấy ScheduleStudent dù không có schedule
               include: [
                 {
                   model: Route,
                   attributes: [
+                    "id",
                     "ten_tuyen",
                     "mo_ta",
                     "khoang_cach",
                     "loai_tuyen",
                   ],
                 },
-                { model: Bus, attributes: ["bien_so_xe", "hang_xe"] },
+                {
+                  model: Bus,
+                  attributes: ["id", "bien_so_xe", "hang_xe"],
+                },
                 {
                   model: User,
                   as: "driver",
-                  attributes: ["ho_ten", "so_dien_thoai"],
+                  attributes: ["id", "ho_ten", "so_dien_thoai"],
                 },
               ],
             },
             {
               model: Stop, // Lấy điểm đón/trả
-              attributes: ["ten_diem", "dia_chi"],
+              attributes: ["id", "ten_diem", "dia_chi"],
             },
           ],
         },
@@ -860,12 +927,64 @@ const getParentDashboardInfo = async (parentId) => {
     console.log(`👉 Tìm thấy ${students.length} học sinh.`);
     students.forEach((s) => {
       console.log(`- Bé ${s.ho_ten}: ${s.ScheduleStudents.length} chuyến.`);
+      s.ScheduleStudents.forEach((ss, idx) => {
+        console.log(
+          `  + Chuyến ${idx + 1}: ScheduleStudent.schedule_id=${
+            ss.schedule_id
+          }, Schedule=${ss.Schedule ? ss.Schedule.id : "null"}, ngay_chay=${
+            ss.Schedule ? ss.Schedule.ngay_chay : "N/A"
+          }`
+        );
+        if (!ss.Schedule && ss.schedule_id) {
+          console.warn(
+            `⚠️ ALERT: ScheduleStudent ${ss.id} has schedule_id=${ss.schedule_id} but Schedule is NULL!`
+          );
+        }
+      });
     });
     // 3. Format dữ liệu gọn gàng cho App Phụ huynh
     return students.map((child) => {
       // Lấy danh sách các chuyến đi trong ngày (có thể có Sáng & Chiều)
-      const trips = child.ScheduleStudents.map((ss) => {
+      const trips = child.ScheduleStudents.filter((ss, idx) => {
+        // DEBUG: Log raw ScheduleStudent object
+        console.log(`\n🔍 [DEBUG] ScheduleStudent #${idx}:`, {
+          id: ss.id,
+          schedule_id: ss.schedule_id,
+          hasScheduleProp: "Schedule" in ss,
+          scheduleIsNull: ss.Schedule === null,
+          scheduleIsUndefined: ss.Schedule === undefined,
+          scheduleKeys: ss.Schedule ? Object.keys(ss.Schedule) : "N/A",
+        });
+
+        // Filter by today's date first
+        if (!ss.Schedule) {
+          console.warn(
+            `⚠️ ScheduleStudent ${ss.id} has no Schedule (null/undefined)`
+          );
+          console.log(
+            `  ScheduleStudent raw data:`,
+            ss.toJSON ? ss.toJSON() : ss
+          );
+          return false;
+        }
+        if (ss.Schedule.ngay_chay !== today) {
+          console.log(
+            `ℹ️ Skipping ScheduleStudent ${ss.id}: not today (${ss.Schedule.ngay_chay} !== ${today})`
+          );
+          return false;
+        }
+        if (!ss.Schedule.Route) {
+          console.warn(`⚠️ Schedule ${ss.Schedule.id} has no Route`);
+          return false;
+        }
+        if (!ss.Schedule.Bus) {
+          console.warn(`⚠️ Schedule ${ss.Schedule.id} has no Bus`);
+          return false;
+        }
+        return true;
+      }).map((ss) => {
         const s = ss.Schedule;
+        // These are now guaranteed to exist after filter
         return {
           schedule_id: s.id,
           route_id: s.route_id, // ✅ Thêm route_id để lấy thông tin tuyến hoàn chỉnh
@@ -884,8 +1003,10 @@ const getParentDashboardInfo = async (parentId) => {
           hang_xe: s.Bus.hang_xe,
 
           // Thông tin Tài xế (Quan trọng để PH liên lạc)
-          tai_xe: s.driver ? s.driver.ho_ten : "Chưa phân công",
-          sdt_tai_xe: s.driver ? s.driver.so_dien_thoai : "",
+          tai_xe:
+            s.driver && s.driver.ho_ten ? s.driver.ho_ten : "Chưa phân công",
+          sdt_tai_xe:
+            s.driver && s.driver.so_dien_thoai ? s.driver.so_dien_thoai : "",
 
           // Trạng thái con mình (Đã lên xe chưa)
           trang_thai_con: ss.trang_thai_don, // choxacnhan, dihoc, daxuong

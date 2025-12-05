@@ -1,5 +1,14 @@
-const { Student, User, RouteStop, Stop, Route, ScheduleStudent, Schedule, sequelize } = require('../data/models');
-const { Op } = require('sequelize');
+const {
+  Student,
+  User,
+  RouteStop,
+  Stop,
+  Route,
+  ScheduleStudent,
+  Schedule,
+  sequelize,
+} = require("../data/models");
+const { Op } = require("sequelize");
 
 // 1. Lấy danh sách học sinh
 const getAllStudents = async () => {
@@ -21,7 +30,23 @@ const getAllStudents = async () => {
         },
         {
           model: RouteStop,
-          as: "defaultRouteStop",
+          as: "defaultRouteStopDi",
+          include: [
+            {
+              model: Stop,
+              as: "Stop",
+              attributes: ["id", "ten_diem", "dia_chi"],
+            },
+            {
+              model: Route,
+              as: "Route",
+              attributes: ["id", "ten_tuyen"],
+            },
+          ],
+        },
+        {
+          model: RouteStop,
+          as: "defaultRouteStopVe",
           include: [
             {
               model: Stop,
@@ -41,9 +66,12 @@ const getAllStudents = async () => {
 
     return students.map((student) => {
       const parent = student.parent || {};
-      const routeStop = student.defaultRouteStop || {};
-      const stop = routeStop.Stop || routeStop.stop || {};
-      const route = routeStop.Route || routeStop.route || {};
+      const routeStopDi = student.defaultRouteStopDi || {};
+      const stopDi = routeStopDi.Stop || {};
+      const routeDi = routeStopDi.Route || {};
+      const routeStopVe = student.defaultRouteStopVe || {};
+      const stopVe = routeStopVe.Stop || {};
+      const routeVe = routeStopVe.Route || {};
 
       return {
         id: student.id,
@@ -62,14 +90,17 @@ const getAllStudents = async () => {
         email_phu_huynh: parent.email || "",
         dia_chi: parent.dia_chi || "",
 
-        // Thông tin Tuyến/Trạm (Lấy từ RouteStop)
-        tram_don: stop.ten_diem || "Chưa đăng ký",
-        dia_chi_tram: stop.dia_chi || "",
-        tuyen_duong: route.ten_tuyen || "Chưa đăng ký",
+        // Thông tin Lượt đi (Sáng)
+        tram_don_di: stopDi.ten_diem || "Chưa đăng ký",
+        dia_chi_tram_di: stopDi.dia_chi || "",
+        tuyen_duong_di: routeDi.ten_tuyen || "Chưa đăng ký",
+        default_route_stop_id_di: student.default_route_stop_id_di,
 
-        default_route_stop_id: student.default_route_stop_id,
-        current_route_id: route.id || null,
-        current_stop_id: stop.id || null
+        // Thông tin Lượt về (Chiều)
+        tram_don_ve: stopVe.ten_diem || "Chưa đăng ký",
+        dia_chi_tram_ve: stopVe.dia_chi || "",
+        tuyen_duong_ve: routeVe.ten_tuyen || "Chưa đăng ký",
+        default_route_stop_id_ve: student.default_route_stop_id_ve,
       };
     });
   } catch (error) {
@@ -77,53 +108,73 @@ const getAllStudents = async () => {
     throw error;
   }
 };
-const autoAssignToSchedule = async (studentId, routeId, stopId, transaction) => {
-    try {
-        // 1. Tìm route_stop_id tương ứng
-        const routeStop = await RouteStop.findOne({
-            where: { route_id: routeId, stop_id: stopId },
-            transaction
-        });
+const autoAssignToSchedule = async (
+  studentId,
+  routeStopIdDi,
+  routeStopIdVe,
+  transaction
+) => {
+  try {
+    // Assign both directions if provided
+    const routeStops = [];
+    if (routeStopIdDi) routeStops.push(routeStopIdDi);
+    if (routeStopIdVe) routeStops.push(routeStopIdVe);
 
-        if (!routeStop) {
-            console.warn(`Không tìm thấy RouteStop cho Route ${routeId} và Stop ${stopId}`);
-            return; 
-        }
+    if (routeStops.length === 0) {
+      console.warn(`Không có RouteStop để gán cho student ${studentId}`);
+      return;
+    }
 
-        // 2. Tìm các lịch trình phù hợp
-        const today = new Date();
-        today.setHours(0,0,0,0);
+    // Lấy Route ID từ RouteStops
+    const routeStopRecords = await RouteStop.findAll({
+      where: { id: { [Op.in]: routeStops } },
+      transaction,
+    });
 
-        const schedules = await Schedule.findAll({
-            where: {
-                route_id: routeId,
-                ngay_chay: { [Op.gte]: today },
-                trang_thai: { [Op.ne]: 'hoanthanh' }
-            },
-            transaction
-        });
+    if (routeStopRecords.length === 0) {
+      console.warn(`Không tìm thấy RouteStop records`);
+      return;
+    }
 
-        if (schedules.length === 0) return;
+    // Group by route_id
+    const routeMap = {};
+    routeStopRecords.forEach((rs) => {
+      if (!routeMap[rs.route_id]) routeMap[rs.route_id] = rs.stop_id;
+    });
 
-        // 3. Gán học sinh vào từng lịch trình
-        for (const schedule of schedules) {
+    // 2. Tìm các lịch trình phù hợp cho mỗi route
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Gán cho tất cả schedules của các route
+    for (const [routeId, stopId] of Object.entries(routeMap)) {
+      const schedules = await Schedule.findAll({
+        where: {
+          route_id: parseInt(routeId),
+          ngay_chay: { [Op.gte]: today },
+          trang_thai: { [Op.ne]: "hoanthanh" },
+        },
+        transaction,
+      });
+
+      // 3. Gán học sinh vào từng lịch trình
+      for (const schedule of schedules) {
         await ScheduleStudent.findOrCreate({
-            where: {
-                schedule_id: schedule.id,
-                student_id: studentId
-            },
-            defaults: {
-                stop_id: routeStop.stop_id,  // đúng cột
-                trang_thai_don: 'choxacnhan'
-            },
-            transaction
+          where: {
+            schedule_id: schedule.id,
+            student_id: studentId,
+          },
+          defaults: {
+            stop_id: parseInt(stopId),
+            trang_thai_don: "choxacnhan",
+          },
+          transaction,
         });
+      }
     }
-
-
-    } catch (error) {
-        console.error("Lỗi tự động gán lịch trình:", error);
-    }
+  } catch (error) {
+    console.error("Lỗi tự động gán lịch trình:", error);
+  }
 };
 
 // 3. Tạo Học sinh KÈM Phụ huynh (Logic thông minh có transaction)
@@ -137,60 +188,80 @@ const createStudentWithParent = async (data) => {
     // --- BƯỚC 1: XỬ LÝ PHỤ HUYNH ---
     const existingParent = await User.findOne({
       where: { so_dien_thoai: data.sdt_ph },
-      transaction
+      transaction,
     });
 
     if (existingParent) {
       parent = existingParent;
       parentId = existingParent.id;
     } else {
-      parent = await User.create({
-        username: data.username || data.sdt_ph,
-        email: data.email_ph,
-        password_hash: data.password || '$2b$10$...', // hash thực tế
-        ho_ten: data.ho_ten_ph,
-        so_dien_thoai: data.sdt_ph,
-        dia_chi: data.dia_chi,
-        vai_tro: 'phuhuynh',
-      }, { transaction });
+      parent = await User.create(
+        {
+          username: data.username || data.sdt_ph,
+          email: data.email_ph,
+          password_hash: data.password || "$2b$10$...", // hash thực tế
+          ho_ten: data.ho_ten_ph,
+          so_dien_thoai: data.sdt_ph,
+          dia_chi: data.dia_chi,
+          vai_tro: "phuhuynh",
+        },
+        { transaction }
+      );
       parentId = parent.id;
     }
 
-    // --- BƯỚC 2: LẤY routeStopId ---
-    let routeStopId = null;
-    if (data.route_id && data.stop_id) {
+    // --- BƯỚC 2: LẤY routeStopIds (cả lượt đi và lượt về) ---
+    let routeStopIdDi = null;
+    let routeStopIdVe = null;
+
+    if (data.route_id_di && data.stop_id_di) {
       const routeStop = await RouteStop.findOne({
-        where: { route_id: data.route_id, stop_id: data.stop_id },
-        transaction
+        where: { route_id: data.route_id_di, stop_id: data.stop_id_di },
+        transaction,
       });
-      if (routeStop) routeStopId = routeStop.id;
+      if (routeStop) routeStopIdDi = routeStop.id;
+    }
+
+    if (data.route_id_ve && data.stop_id_ve) {
+      const routeStop = await RouteStop.findOne({
+        where: { route_id: data.route_id_ve, stop_id: data.stop_id_ve },
+        transaction,
+      });
+      if (routeStop) routeStopIdVe = routeStop.id;
     }
 
     // --- BƯỚC 3: TẠO HỌC SINH ---
-    const student = await Student.create({
-      ho_ten: data.ho_ten_hs,
-      lop: data.lop,
-      ngay_sinh: data.ngay_sinh,
-      gioi_tinh: data.gioi_tinh,
-      gvcn: data.gvcn,
-      parent_id: parentId,
-      default_route_stop_id: routeStopId
-    }, { transaction });
+    const student = await Student.create(
+      {
+        ho_ten: data.ho_ten_hs,
+        lop: data.lop,
+        ngay_sinh: data.ngay_sinh,
+        gioi_tinh: data.gioi_tinh,
+        gvcn: data.gvcn,
+        parent_id: parentId,
+        default_route_stop_id_di: routeStopIdDi,
+        default_route_stop_id_ve: routeStopIdVe,
+      },
+      { transaction }
+    );
 
     // --- BƯỚC 4: TỰ ĐỘNG GÁN VÀO LỊCH TRÌNH ---
-    if (data.route_id && data.stop_id) {
-      await autoAssignToSchedule(student.id, data.route_id, data.stop_id, transaction);
+    if (routeStopIdDi || routeStopIdVe) {
+      await autoAssignToSchedule(
+        student.id,
+        routeStopIdDi,
+        routeStopIdVe,
+        transaction
+      );
     }
 
     await transaction.commit();
     return { student, parent };
-
   } catch (error) {
     await transaction.rollback();
     throw error;
   }
 };
-
 
 // 3. Sửa thông tin học sinh
 const updateStudent = async (id, data) => {
@@ -226,15 +297,25 @@ const updateStudent = async (id, data) => {
     if (data.gioi_tinh !== undefined) studentData.gioi_tinh = data.gioi_tinh;
     if (data.gvcn !== undefined) studentData.gvcn = data.gvcn;
 
-    // Xử lý route và stop
-    if (data.route_id !== undefined && data.stop_id !== undefined) {
+    // Xử lý route và stop - dual directions
+    if (data.route_id_di !== undefined && data.stop_id_di !== undefined) {
       const routeStop = await RouteStop.findOne({
         where: {
-          route_id: data.route_id,
-          stop_id: data.stop_id,
+          route_id: data.route_id_di,
+          stop_id: data.stop_id_di,
         },
       });
-      studentData.default_route_stop_id = routeStop ? routeStop.id : null;
+      studentData.default_route_stop_id_di = routeStop ? routeStop.id : null;
+    }
+
+    if (data.route_id_ve !== undefined && data.stop_id_ve !== undefined) {
+      const routeStop = await RouteStop.findOne({
+        where: {
+          route_id: data.route_id_ve,
+          stop_id: data.stop_id_ve,
+        },
+      });
+      studentData.default_route_stop_id_ve = routeStop ? routeStop.id : null;
     }
 
     await student.update(studentData);

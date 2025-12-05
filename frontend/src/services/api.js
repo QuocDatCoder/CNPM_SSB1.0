@@ -26,13 +26,25 @@ class ApiClient {
     };
 
     try {
+      console.log(`📤 Fetching: ${url}`);
       const response = await fetch(url, config);
 
+      console.log(
+        `🔍 Response status for ${endpoint}:`,
+        response.status,
+        response.ok
+      );
+
       if (!response.ok) {
-        const error = await response.json().catch(() => ({
-          message: response.statusText,
-        }));
-        throw new Error(error.message || `HTTP Error: ${response.status}`);
+        let errorMessage = response.statusText;
+        try {
+          const error = await response.json();
+          errorMessage = error.message || response.statusText;
+        } catch (parseErr) {
+          console.warn(`⚠️ Could not parse error response:`, parseErr);
+        }
+        console.error(`❌ API returned error for ${endpoint}:`, errorMessage);
+        throw new Error(`HTTP Error: ${response.status} - ${errorMessage}`);
       }
 
       // Handle 204 No Content (DELETE requests)
@@ -40,7 +52,28 @@ class ApiClient {
         return null;
       }
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonErr) {
+        console.error(`❌ Failed to parse JSON for ${endpoint}:`, jsonErr);
+        throw new Error(`Invalid JSON response: ${jsonErr.message}`);
+      }
+
+      console.log(`✅ API response body for ${endpoint}:`, result);
+      console.log(
+        `✅ Result type:`,
+        typeof result,
+        "Is null:",
+        result === null
+      );
+
+      // Safety check
+      if (!result) {
+        console.warn(`⚠️ Empty response for ${endpoint}`);
+        return [];
+      }
+
       // Trả về data nếu có, nếu không trả về toàn bộ result
       return result.data !== undefined ? result.data : result;
     } catch (error) {
