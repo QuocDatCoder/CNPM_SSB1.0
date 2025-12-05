@@ -104,6 +104,7 @@ CREATE TABLE `RouteStops` (
 --
 -- Bảng 7: `Students` (Học Sinh)
 -- *** CẬP NHẬT: Thêm ngay_sinh, gioi_tinh, gvcn từ Figma ***
+-- *** CẬP NHẬT: Thêm 2 cột cho lượt đi và lượt về ***
 --
 CREATE TABLE `Students` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -113,10 +114,12 @@ CREATE TABLE `Students` (
   `gioi_tinh` ENUM('Nam', 'Nữ') DEFAULT 'Nam',
   `gvcn` VARCHAR(150) DEFAULT NULL,
   `parent_id` INT NOT NULL,
-  `default_route_stop_id` INT DEFAULT NULL,
+  `default_route_stop_id_di` INT DEFAULT NULL COMMENT 'Điểm dừng lượt đi',
+  `default_route_stop_id_ve` INT DEFAULT NULL COMMENT 'Điểm dừng lượt về',
   
   FOREIGN KEY (`parent_id`) REFERENCES `Users`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`default_route_stop_id`) REFERENCES `RouteStops`(`id`) ON DELETE SET NULL
+  FOREIGN KEY (`default_route_stop_id_di`) REFERENCES `RouteStops`(`id`) ON DELETE SET NULL,
+  FOREIGN KEY (`default_route_stop_id_ve`) REFERENCES `RouteStops`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------

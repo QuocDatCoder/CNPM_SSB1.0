@@ -167,7 +167,7 @@ const createSchedule = async (data) => {
   const newSchedule = await Schedule.create(data);
 
   // C.1. AUTO-ASSIGN students to this schedule
-  // Find all students who use this route (via default_route_stop_id)
+  // Find all students who use this route (via default_route_stop_id_di or default_route_stop_id_ve)
   try {
     const routeStops = await RouteStop.findAll({
       where: { route_id: data.route_id },
@@ -176,19 +176,39 @@ const createSchedule = async (data) => {
     const routeStopIds = routeStops.map((rs) => rs.id);
 
     if (routeStopIds.length > 0) {
-      const studentsOnRoute = await Student.findAll({
-        where: { default_route_stop_id: routeStopIds },
-      });
+      // Find students based on route type (lượt_di or lượt_về)
+      let studentsOnRoute = [];
+
+      if (route.loai_tuyen === "luot_di") {
+        // For morning routes, find students with default_route_stop_id_di
+        studentsOnRoute = await Student.findAll({
+          where: { default_route_stop_id_di: routeStopIds },
+        });
+      } else {
+        // For afternoon routes, find students with default_route_stop_id_ve
+        studentsOnRoute = await Student.findAll({
+          where: { default_route_stop_id_ve: routeStopIds },
+        });
+      }
 
       console.log(
-        `📍 Found ${studentsOnRoute.length} students using this route`
+        `📍 Found ${studentsOnRoute.length} students for route ${data.route_id} (${route.loai_tuyen})`
       );
 
       // Create ScheduleStudent records for each student
       for (const student of studentsOnRoute) {
         // Find the stop_id for this student (their default stop on this route)
+        let studentRouteStopId = null;
+        let studentStopId = null;
+
+        if (route.loai_tuyen === "luot_di") {
+          studentRouteStopId = student.default_route_stop_id_di;
+        } else {
+          studentRouteStopId = student.default_route_stop_id_ve;
+        }
+
         const studentRouteStop = routeStops.find(
-          (rs) => rs.id === student.default_route_stop_id
+          (rs) => rs.id === studentRouteStopId
         );
 
         if (studentRouteStop) {

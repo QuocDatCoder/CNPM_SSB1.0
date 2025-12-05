@@ -48,7 +48,7 @@ export default function RouteManagement() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [routePath, setRoutePath] = useState([]);
-  const [selectedShift, setSelectedShift] = useState({}); // Track selected shift for each route pair
+  const [selectedShift, setSelectedShift] = useState({}); // Track shift selection per route
 
   useEffect(() => {
     loadRoutes();
@@ -66,8 +66,11 @@ export default function RouteManagement() {
       data.forEach((route) => {
         if (processed.has(route.id)) return;
 
-        // Tìm tuyến ngược (luợt về nếu đang là luợt đi, hoặc ngược lại)
-        const baseName = route.name.replace(/: .+ - .+$/, "");
+        // Tìm tuyến ngược - lấy phần tên chung (Tuyến X) từ name
+        // Ví dụ: "Tuyến 1 Lượt Đi" -> "Tuyến 1"
+        const nameParts = route.name.split(" Lượt ");
+        const baseName = nameParts[0]; // "Tuyến 1"
+
         const counterpart = data.find(
           (r) =>
             r.id !== route.id &&
@@ -98,7 +101,7 @@ export default function RouteManagement() {
 
       setRoutes(groupedRoutes);
 
-      // Initialize selected shifts
+      // Initialize selectedShift for paired routes
       const initialShifts = {};
       groupedRoutes.forEach((route) => {
         if (route.isPair) {
@@ -124,13 +127,13 @@ export default function RouteManagement() {
     console.log("Delete route:", id);
   };
 
-  const handleViewRoute = async (route, shift = null) => {
+  const handleViewRoute = async (route) => {
+    // Use selected shift if it's a pair, otherwise use the route itself
     let displayRoute = route;
 
-    if (route.isPair && shift) {
+    if (route.isPair) {
+      const shift = selectedShift[route.id] || "luot_di";
       displayRoute = shift === "luot_di" ? route.luot_di : route.luot_ve;
-    } else if (route.isPair) {
-      displayRoute = route.luot_di;
     }
 
     setSelectedRoute(displayRoute);
@@ -174,19 +177,24 @@ export default function RouteManagement() {
       <div className="route-content">
         <div className="route-grid">
           {filteredRoutes.map((route, index) => {
+            // Lấy shift được chọn, mặc định lượt_di cho tuyến cặp
+            const currentShift = route.isPair
+              ? selectedShift[route.id] || "luot_di"
+              : null;
             const currentRoute = route.isPair
-              ? selectedShift[route.id] === "luot_di"
+              ? currentShift === "luot_di"
                 ? route.luot_di
                 : route.luot_ve
               : route;
 
             return (
               <div className="route-card" key={route.id || index}>
+                {/* Shift tabs for paired routes */}
                 {route.isPair && (
                   <div className="route-shift-tabs">
                     <button
                       className={`route-shift-tab ${
-                        selectedShift[route.id] === "luot_di" ? "active" : ""
+                        currentShift === "luot_di" ? "active" : ""
                       }`}
                       onClick={() =>
                         setSelectedShift({
@@ -195,11 +203,11 @@ export default function RouteManagement() {
                         })
                       }
                     >
-                      Luợt đi
+                      Lượt đi
                     </button>
                     <button
                       className={`route-shift-tab ${
-                        selectedShift[route.id] === "luot_ve" ? "active" : ""
+                        currentShift === "luot_ve" ? "active" : ""
                       }`}
                       onClick={() =>
                         setSelectedShift({
@@ -208,7 +216,7 @@ export default function RouteManagement() {
                         })
                       }
                     >
-                      Luợt về
+                      Lượt về
                     </button>
                   </div>
                 )}
@@ -221,7 +229,7 @@ export default function RouteManagement() {
                 </div>
                 <div className="routemgmt-info">
                   <div className="routemgmt-details">
-                    <p className="routemgmt-id">Mã: {currentRoute.id}</p>
+                    <p className="routemgmt-name">{route.name}</p>
                     <p className="routemgmt-distance">
                       Độ dài: {currentRoute.distance}
                     </p>
@@ -240,9 +248,7 @@ export default function RouteManagement() {
                     <div className="routemgmt-view-btn-container">
                       <button
                         className="routemgmt-action-btn routemgmt-view-btn"
-                        onClick={() =>
-                          handleViewRoute(route, selectedShift[route.id])
-                        }
+                        onClick={() => handleViewRoute(route)}
                         title="Xem tuyến"
                       >
                         <span className="routemgmt-icon">📍</span>
