@@ -500,6 +500,7 @@ function ParentDashboard() {
                           <button
                             className="parent-dashboard-action-btn"
                             onClick={() => setActivePage("Vị trí")}
+                            disabled={trip.status === "Hoàn thành"}
                           >
                             <svg
                               width="16"
