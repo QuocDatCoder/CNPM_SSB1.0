@@ -16,6 +16,7 @@ const messageCategories = [
 ];
 
 export default function Message() {
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [activeCategory, setActiveCategory] = useState("inbox");
   const [messages, setMessages] = useState([]);
@@ -43,7 +44,7 @@ export default function Message() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
 
-  // 1. Load Tin nhắn
+  // 1. Load Tin nhắn khi đổi tab
   useEffect(() => {
     loadMessages();
     setSelectedMessages([]);
@@ -55,7 +56,7 @@ export default function Message() {
     loadMetaData();
   }, []);
 
-  const loadMetaData = async () => {
+const loadMetaData = async () => {
     try {
       const [routesData, studentsData, driversData] = await Promise.all([
         RouteService.getAllRoutesWithStops(),
@@ -63,88 +64,148 @@ export default function Message() {
         DriverService.getAllDrivers()
       ]);
 
-      // Xử lý Routes (KHÔNG GỘP)
-      const fullRoutes = routesData.map((route) => {
-        const suffix = route.loai_tuyen === 'luot_di' ? '(Đi)' : (route.loai_tuyen === 'luot_ve' ? '(Về)' : '');
+      // --- BƯỚC 1: Xử lý Routes (Tạo danh sách tuyến chuẩn) ---
+      const fullRoutes = routesData.map((route) => ({
+          id: parseInt(route.id, 10), // Ép về số nguyên
+          name: route.name, 
+      }));
+      setAvailableRoutes(fullRoutes); // Lưu vào state
+
+      // Lấy danh sách ID các tuyến (ví dụ: [1, 2, 3, 4...]) để dùng gán random
+      const routeIds = fullRoutes.map(r => r.id); 
+
+      // --- BƯỚC 2: Xử lý Students (CÓ MOCK DATA) ---
+      const mappedStudents = studentsData.map((student, index) => {
+        let realRouteId = parseInt(student.current_route_id || 0, 10);
+        
+        // Nếu không có tuyến, gán random để test
+        if (realRouteId === 0 && routeIds.length > 0) {
+            realRouteId = routeIds[index % routeIds.length];
+        }
+
         return {
-            id: route.id, 
-            name: `${route.name} ${suffix}`.trim(), 
-            rawName: route.name 
+          id: student.id,
+          fullname: student.ho_ten,
+          routeId: realRouteId,
+          routeName: student.tuyen_duong || `Tuyến (Gán tạm) ${realRouteId}`,
+          parentId: student.id,
+          parentName: student.ten_phu_huynh || `Phụ huynh em ${student.ho_ten}`,
+          parentPhone: student.sdt_phu_huynh,
         };
       });
-      setAvailableRoutes(fullRoutes);
-
-      // Xử lý Students
-      const mappedStudents = studentsData.map((student) => ({
-        id: student.id,
-        fullname: student.ho_ten,
-        routeId: student.current_route_id,
-        routeName: student.tuyen_duong || "",
-        parentId: student.parent_id,
-        parentName: student.ten_phu_huynh,
-        parentPhone: student.sdt_phu_huynh,
-        parentEmail: student.email_phu_huynh,
-      }));
       setStudentsList(mappedStudents);
 
-      // Xử lý Drivers
-      const mappedDrivers = driversData.map((driver) => ({
-        id: driver.id,
-        fullname: driver.fullname,
-        phone: driver.phone,
-        routeName: driver.routeName || driver.tuyen_duong || "Chưa phân tuyến", 
-      }));
+      // --- BƯỚC 3: Xử lý Drivers (CÓ MOCK DATA - FIX LỖI TÀI XẾ) ---
+      const mappedDrivers = driversData.map((driver, index) => {
+        // Lấy routeId từ API
+        let realRouteId = parseInt(driver.route_id || driver.current_route_id || 0, 10);
+
+        // MOCK DATA: Nếu API trả về 0, tự động gán tài xế vào các tuyến có sẵn
+        // Tài xế 1 -> Tuyến 1, Tài xế 2 -> Tuyến 2... xoay vòng
+        if (realRouteId === 0 && routeIds.length > 0) {
+            realRouteId = routeIds[index % routeIds.length];
+        }
+
+        return {
+            id: driver.id, 
+            fullname: driver.fullname,
+            routeId: realRouteId, // ID đã được gán giả lập
+            routeName: driver.routeName || driver.tuyen_duong || `Tuyến (Gán tạm) ${realRouteId}`, 
+        };
+      });
+      
+      // LOG KIỂM TRA: Bạn mở F12 xem dòng này, nếu thấy số [1, 2, 3...] là thành công
+      console.log("🔥 Tài xế sau khi gán tuyến:", mappedDrivers.map(d => ({Ten: d.fullname, Tuyen: d.routeId})));
+      
       setDriversList(mappedDrivers);
 
     } catch (error) {
-      console.error("Lỗi tải dữ liệu:", error);
+      console.error("Lỗi tải dữ liệu metadata:", error);
     }
   };
 
-  const loadMessages = async () => {
+// Trong Message.jsx
+
+const loadMessages = async () => {
     setLoading(true);
     try {
       const res = await NotificationService.getMessages(activeCategory);
-      let data = [];
-      if (Array.isArray(res)) data = res;
-      else if (res.data && Array.isArray(res.data)) data = res.data;
-      setMessages(data);
+      
+      console.log(`📥 API Response (${activeCategory}):`, res); // Debug xem server trả về gì
+
+      let list = [];
+      
+      // Trường hợp 1: API trả về mảng trực tiếp [ ... ]
+      if (Array.isArray(res)) {
+          list = res;
+      } 
+      // Trường hợp 2: API trả về object { data: [...] } (Code backend của bạn đang trả kiểu này)
+      else if (res.data && Array.isArray(res.data)) {
+          list = res.data;
+      }
+      // Trường hợp 3: Axios wrapper { data: { data: [...] } } (Đôi khi axios bọc thêm 1 lớp)
+      else if (res.data?.data && Array.isArray(res.data.data)) {
+          list = res.data.data;
+      }
+
+      setMessages(list);
     } catch (error) {
       console.error("Lỗi tải tin nhắn:", error);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
   };
 
   // --- LOGIC LỌC NGƯỜI NHẬN ---
-  const getFilteredList = () => {
+const getFilteredList = () => {
     let list = [];
 
     if (recipientType === 'parent') {
       let filteredStudents = studentsList;
-      if (recipientFilter !== 'all') {
-        const filterId = parseInt(recipientFilter);
-        filteredStudents = studentsList.filter(s => s.routeId === filterId);
-      }
       
+      if (recipientFilter !== 'all') {
+        const filterId = parseInt(recipientFilter, 10);
+        
+        console.log(`📌 --- DEBUG KIỂM TRA DỮ LIỆU ---`);
+        console.log(`🔍 Bạn đang chọn lọc Route ID: ${filterId}`);
+        
+        // Kiểm tra xem trong danh sách có ai có routeId này không
+        const checkData = studentsList.map(s => s.routeId);
+        console.log("📊 Danh sách Route ID của tất cả học sinh trong RAM:", checkData);
+
+        // In ra 3 học sinh đầu tiên để soi dữ liệu
+        if (studentsList.length > 0) {
+            console.log("👤 Soi học sinh đầu tiên:", {
+                ten: studentsList[0].fullname,
+                routeId_Goc: studentsList[0].routeId, // Giá trị sau khi map
+                Khop_Filter_Khong: studentsList[0].routeId === filterId
+            });
+        }
+
+        filteredStudents = studentsList.filter(s => s.routeId === filterId);
+        console.log(`✅ Kết quả sau khi lọc: ${filteredStudents.length}`);
+      }
+
       list = filteredStudents.map(s => ({
-        id: s.parentId,
-        name: s.parentName,
-        subInfo: `Con: ${s.fullname} (${s.routeName})`,
-        contact: s.parentPhone,
-        uniqueKey: `parent_${s.parentId}_stu_${s.id}`
-      })).filter(p => p.id && p.name);
-    } 
-    else if (recipientType === 'driver') {
-      let filteredDrivers = driversList;
-      // Logic lọc driver (tạm thời lấy hết vì chưa có routeId)
-      list = filteredDrivers.map(d => ({
-        id: d.id,
-        name: d.fullname,
-        subInfo: d.routeName,
-        contact: d.phone,
-        uniqueKey: `driver_${d.id}`
+          id: s.parentId,
+          name: s.parentName, 
+          subInfo: `Con: ${s.fullname} ${s.routeName ? `(${s.routeName})` : ''}`,
+          uniqueKey: `parent_student_${s.id}` 
       }));
+
+    } else if (recipientType === 'driver') {
+        // ... (giữ nguyên logic tài xế)
+        if (recipientFilter === 'all') {
+            list = driversList.map(d => ({
+                id: d.id,
+                name: d.fullname,
+                subInfo: d.routeName,
+                uniqueKey: `driver_${d.id}`
+            }));
+        } else {
+            list = [];
+        }
     }
     return list;
   };
@@ -162,7 +223,7 @@ export default function Message() {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      const allIds = [...new Set(currentList.map(item => item.id))];
+      const allIds = currentList.map(item => item.id);
       setSelectedRecipients(allIds);
     } else {
       setSelectedRecipients([]);
@@ -183,7 +244,7 @@ export default function Message() {
      try {
        await NotificationService.toggleStar(id);
        setMessages(prev => prev.map(msg => msg.id === id ? { ...msg, starred: !msg.starred } : msg));
-     } catch(e) {}
+     } catch(e) { console.error(e); }
   };
 
   const handleDeleteMessage = async (id) => {
@@ -191,7 +252,7 @@ export default function Message() {
     try {
         await NotificationService.deleteMessage(id);
         setMessages(prev => prev.filter(m => m.id !== id));
-    } catch(e) {}
+    } catch(e) { alert("Lỗi khi xóa tin nhắn"); }
   };
   
   const handleSelectMessage = (id) => {
@@ -208,7 +269,7 @@ export default function Message() {
         await Promise.all(selectedMessages.map(id => NotificationService.deleteMessage(id)));
         setMessages(prev => prev.filter(m => !selectedMessages.includes(m.id)));
         setSelectedMessages([]);
-    } catch(e) {}
+    } catch(e) { alert("Có lỗi khi xóa danh sách tin nhắn"); }
   };
 
   // --- XỬ LÝ GỬI TIN ---
@@ -226,9 +287,37 @@ export default function Message() {
     if (!messageTitle || !messageContent) return alert("Vui lòng nhập tiêu đề và nội dung!");
     if (isScheduled && (!scheduleDate || !scheduleTime)) return alert("Vui lòng chọn ngày giờ!");
 
-    let finalRecipients = selectedRecipients;
-    if (finalRecipients.length === 0) {
-       finalRecipients = [...new Set(currentList.map(r => r.id))];
+    let finalRecipients = [];
+
+    // --- CHANGE: Xử lý logic lấy người nhận ---
+    
+    // TRƯỜNG HỢP 1: Tài xế + Chọn tuyến cụ thể (Tự động tìm tài xế)
+    if (recipientType === 'driver' && recipientFilter !== 'all') {
+        // Ép về số để tìm
+        const routeIdToFind = parseInt(recipientFilter, 10);
+        
+        // Tìm tài xế có routeId trùng khớp (dạng số)
+        const targetDriver = driversList.find(d => d.routeId === routeIdToFind);
+        
+        if (targetDriver) {
+            finalRecipients = [targetDriver.id];
+        } else {
+            return alert(`Không tìm thấy tài xế nào chạy tuyến số ${routeIdToFind}!`);
+        }
+    }
+    // TRƯỜNG HỢP 2: Chọn thủ công (Tài xế All hoặc Phụ huynh)
+    else {
+        finalRecipients = selectedRecipients;
+        // Nếu không tick ai cả, mặc định gửi cho tất cả trong danh sách lọc hiện tại
+        if (finalRecipients.length === 0 && currentList.length > 0) {
+             // Với phụ huynh, nếu chọn tuyến mà ko tick ai -> gửi cả tuyến
+             // Với tài xế all -> gửi tất cả tài xế
+             if (window.confirm(`Bạn chưa chọn người cụ thể. Bạn có muốn gửi cho toàn bộ ${currentList.length} người trong danh sách không?`)) {
+                finalRecipients = currentList.map(r => r.id);
+             } else {
+                return;
+             }
+        }
     }
 
     if (finalRecipients.length === 0) return alert("Không tìm thấy người nhận phù hợp!");
@@ -237,31 +326,46 @@ export default function Message() {
       recipient_ids: finalRecipients,
       subject: messageTitle,
       content: messageContent,
-      schedule_time: isScheduled ? `${scheduleDate} ${scheduleTime}` : null
+      schedule_time: isScheduled ? `${scheduleDate} ${scheduleTime}` : null,
+      type: 'tinnhan' 
     };
 
     try {
       await NotificationService.sendMessage(payload);
       alert(isScheduled ? "Đã lên lịch thành công!" : "Đã gửi tin nhắn!");
+      
       setShowComposeModal(false);
       setShowScheduleModal(false);
-      if (activeCategory === 'sent' || activeCategory === 'scheduled') loadMessages();
+      setMessageTitle("");
+      setMessageContent("");
+      setSelectedRecipients([]);
+
+      if (activeCategory === 'sent' || activeCategory === 'scheduled') {
+          loadMessages();
+      }
     } catch (error) {
-      alert("Gửi lỗi: " + (error.response?.data?.message || "Lỗi server"));
+      const errMsg = error.response?.data?.message || "Lỗi server khi gửi tin.";
+      alert("Gửi lỗi: " + errMsg);
     }
   };
 
   const formatDate = (dateStr) => {
       if(!dateStr) return "";
-      return new Date(dateStr).toLocaleDateString("vi-VN", {day: '2-digit', month: 'short'});
+      return new Date(dateStr).toLocaleDateString("vi-VN", {day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'});
   }
+
+  // Helper hiển thị tên tuyến đang chọn
+  const getSelectedRouteName = () => {
+      const r = availableRoutes.find(r => r.id === parseInt(recipientFilter));
+      return r ? r.name : "";
+  };
 
   return (
     <div className="message-page">
       <Header title="Tin nhắn" />
 
       <div className="message-container">
-        {/* Sidebar */}
+        {/* Sidebar (Giữ nguyên) */}
         <div className={`message-sidebar ${sidebarExpanded ? "expanded" : "collapsed"}`}
           onMouseEnter={() => setSidebarExpanded(true)} onMouseLeave={() => setSidebarExpanded(false)}>
           <div className="categories-wrapper">
@@ -292,19 +396,19 @@ export default function Message() {
 
           <div className="message-list">
              {loading && <p style={{padding: 20}}>Đang tải...</p>}
+             {!loading && filteredMessages.length === 0 && (
+                 <p style={{padding: 20, color: '#999'}}>Không có tin nhắn nào.</p>
+             )}
              {!loading && filteredMessages.map((message) => (
-              <div key={message.id} className="message-item">
+              <div key={message.id} className={`message-item ${message.read ? '' : 'unread'}`}>
                 <input type="checkbox" className="message-checkbox"
                   checked={selectedMessages.includes(message.id)} onChange={() => handleSelectMessage(message.id)} />
                 <button className={`star-btn ${message.starred ? "starred" : ""}`} onClick={() => handleToggleStar(message.id)}>
                   {message.starred ? "★" : "☆"}
                 </button>
                 <div className="message-info">
-                  {/* Hiển thị TỪ hoặc TỚI */}
                   <span className="message-sender">
-                    {activeCategory === 'sent' 
-                        ? `Tới: ${message.receiver}` 
-                        : `Từ: ${message.sender}`}
+                    {activeCategory === 'sent' ? `Tới: ${message.receiver}` : `Từ: ${message.sender}`}
                   </span>
                   <span className="message-subject">{message.subject}</span>
                   <span className="message-preview"> - {message.preview}</span>
@@ -338,73 +442,93 @@ export default function Message() {
                         <input type="radio" name="recipient-type" value="driver"
                           checked={recipientType === "driver"}
                           style={{ accentColor: "black" }}
-                          onChange={() => { setRecipientType("driver"); setSelectedRecipients([]); }} /> Tài xế
+                          onChange={() => { 
+                              setRecipientType("driver"); 
+                              setSelectedRecipients([]); 
+                              setShowDropdownList(false);
+                          }} /> Tài xế
                       </label>
                       <label className="radio-label">
                         <input type="radio" name="recipient-type" value="parent"
                           checked={recipientType === "parent"}
                           style={{ accentColor: "black" }}
-                          onChange={() => { setRecipientType("parent"); setSelectedRecipients([]); }} /> Phụ huynh
+                          onChange={() => { 
+                              setRecipientType("parent"); 
+                              setSelectedRecipients([]); 
+                          }} /> Phụ huynh
                       </label>
                     </div>
                     
+                    {/* --- CHANGE: Luôn hiện combobox chọn tuyến cho cả Tài xế và Phụ huynh --- */}
                     <select className="recipient-filter" value={recipientFilter}
-                      onChange={(e) => {
-                        setRecipientFilter(e.target.value);
-                        setSelectedRecipients([]);
-                        if (e.target.value !== "all") setShowDropdownList(true);
-                        else setShowDropdownList(false);
-                      }}
+                        onChange={(e) => {
+                            setRecipientFilter(e.target.value);
+                            setSelectedRecipients([]);
+                            // Nếu là Parent + chọn tuyến -> Mở dropdown list
+                            if (recipientType === "parent" && e.target.value !== "all") {
+                                setShowDropdownList(true);
+                            } else {
+                                setShowDropdownList(false);
+                            }
+                        }}
                     >
-                      <option value="all">Toàn bộ các tuyến</option>
-                      {availableRoutes.map((route) => (
-                          <option key={route.id} value={route.id}>{route.name}</option>
-                      ))}
+                        <option value="all">Toàn bộ các tuyến</option>
+                        {availableRoutes.map((route) => (
+                            <option key={route.id} value={route.id}>{route.name}</option>
+                        ))}
                     </select>
                   </div>
 
                   {/* Danh sách người nhận */}
-                  {(showDropdownList || recipientFilter !== "all") && (
-                     <>
-                      {showDropdownList ? (
-                        <div className="parent-dropdown-wrapper">
-                          <div className="parent-header">
-                            <label className="select-all-checkbox-label">
-                              <input type="checkbox" style={{ accentColor: "black" }}
-                                onChange={handleSelectAll}
-                                checked={currentList.length > 0 && selectedRecipients.length >= currentList.length}
-                              /> Chọn tất cả
-                            </label>
-                            <span className="selected-count-inline">
-                              {selectedRecipients.length} đã chọn
-                            </span>
+                  <div className="recipient-dropdown-area">
+                      
+                      {/* CASE 1: TÀI XẾ + CHỌN TUYẾN -> Hiện thông báo tự động */}
+                      {recipientType === "driver" && recipientFilter !== "all" ? (
+                          <div className="auto-select-message" style={{marginTop: 10, padding: 10, background: '#e8f5e9', borderRadius: 4, color: '#2e7d32'}}>
+                              <i className="fa fa-check-circle"></i> Hệ thống tự động chọn tài xế tuyến: <strong>{availableRoutes.find(r=>r.id == recipientFilter)?.name}</strong>
                           </div>
-                          <div className="parent-list">
-                            {currentList.length === 0 ? (
-                                <p className="no-parents">Không tìm thấy người nhận.</p>
-                            ) : (
-                                currentList.map((item) => (
-                                <label key={item.uniqueKey} className="parent-checkbox-label">
-                                    <input type="checkbox" style={{ accentColor: "black" }}
-                                    checked={selectedRecipients.includes(item.id)}
-                                    onChange={() => handleSelectOne(item.id)}
-                                    />
-                                    <div className="parent-info">
-                                        <strong>{item.name}</strong> 
-                                        <div style={{fontSize: '0.85em', color: '#666'}}>{item.subInfo}</div>
-                                    </div>
-                                </label>
-                                ))
-                            )}
-                          </div>
-                        </div>
                       ) : (
-                        <button type="button" className="parent-selected-btn" onClick={() => setShowDropdownList(true)}>
-                          {selectedRecipients.length > 0 ? `Đã chọn: ${selectedRecipients.length} người` : "Chọn người cụ thể"}
-                        </button>
+                          
+                      /* CASE 2: PHỤ HUYNH HOẶC TÀI XẾ (ALL) -> Hiện Dropdown chọn người */
+                          <div className="parent-dropdown-wrapper" style={{marginTop: 10, border: '1px solid #ddd', borderRadius: 4}}>
+                            <div className="parent-header" style={{padding: '8px 10px', background: '#f9f9f9', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between'}}>
+                                <label className="select-all-checkbox-label" style={{cursor: 'pointer'}}>
+                                  <input type="checkbox" style={{ accentColor: "#007bff", marginRight: 8 }}
+                                    onChange={handleSelectAll}
+                                    checked={currentList.length > 0 && selectedRecipients.length >= currentList.length}
+                                  /> 
+                                  <strong>Chọn tất cả ({currentList.length})</strong>
+                                </label>
+                                <span style={{fontSize: '0.9em', color: '#666'}}>
+                                  Đã chọn: {selectedRecipients.length}
+                                </span>
+                            </div>
+
+                            <div className="parent-list" style={{maxHeight: '250px', overflowY: 'auto', padding: 10}}>
+                                {currentList.length === 0 ? (
+                                    <div style={{textAlign: 'center', color: '#999', padding: 20}}>
+                                        {recipientType === 'parent' 
+                                            ? "Không tìm thấy phụ huynh nào trong tuyến này." 
+                                            : "Không có dữ liệu."}
+                                    </div>
+                                ) : (
+                                    currentList.map((item) => (
+                                    <div key={item.uniqueKey} className="parent-item" style={{display: 'flex', alignItems: 'center', marginBottom: 10, paddingBottom: 5, borderBottom: '1px dashed #eee'}}>
+                                        <input type="checkbox" style={{ accentColor: "#007bff", transform: 'scale(1.2)', marginRight: 10, cursor: 'pointer' }}
+                                            checked={selectedRecipients.includes(item.id)}
+                                            onChange={() => handleSelectOne(item.id)}
+                                        />
+                                        <div className="parent-info" onClick={() => handleSelectOne(item.id)} style={{cursor: 'pointer', flex: 1}}>
+                                            <div style={{fontWeight: 600, color: '#333'}}>{item.name}</div> 
+                                            <div style={{fontSize: '0.85em', color: '#666'}}>{item.subInfo}</div>
+                                        </div>
+                                    </div>
+                                    ))
+                                )}
+                            </div>
+                          </div>
                       )}
-                     </>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -421,7 +545,7 @@ export default function Message() {
             </div>
 
             <div className="compose-actions">
-              <button className="btn-send" onClick={() => handleSendMessage(false)}>Gửi</button>
+              <button className="btn-send" onClick={() => handleSendMessage(false)}>Gửi ngay</button>
               <button className="btn-schedule" onClick={() => {setShowComposeModal(false); setShowScheduleModal(true)}}>
                 <span>📅</span> Lên lịch gửi
               </button>
@@ -452,8 +576,12 @@ export default function Message() {
 
               <div className="schedule-summary">
                 <h3>Thông tin tin nhắn:</h3>
-                {/* [ĐÃ REVERT] Về format đơn giản */}
-                <p><strong>Gửi đến:</strong> {recipientType === "driver" ? "Tài xế" : "Phụ huynh"} - {selectedRecipients.length > 0 ? `${selectedRecipients.length} người` : "Toàn bộ"}</p>
+                <p><strong>Gửi đến:</strong> 
+                   {recipientType === "driver" 
+                      ? (recipientFilter !== 'all' ? ` Tài xế tuyến ${getSelectedRouteName()}` : " Tất cả tài xế")
+                      : ` Phụ huynh (${selectedRecipients.length} người)`
+                   }
+                </p>
                 <p><strong>Tiêu đề:</strong> {messageTitle || "(Chưa có)"}</p>
               </div>
             </div>

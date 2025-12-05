@@ -13,7 +13,26 @@ const Notification = require("./notification.model");
 const AssignmentHistory = require("./assignmentHistory.model");
 
 // 2. Định nghĩa Mối quan hệ
+Notification.belongsTo(User, { 
+    foreignKey: 'user_id_gui', 
+    as: 'nguoi_gui' 
+});
 
+// Notification thuộc về Người nhận
+Notification.belongsTo(User, { 
+    foreignKey: 'user_id_nhan', 
+    as: 'nguoi_nhan' 
+});
+
+// User có nhiều Notification (Chiều ngược lại - Tùy chọn)
+User.hasMany(Notification, { 
+    foreignKey: 'user_id_nhan', 
+    as: 'received_notifications' 
+});
+User.hasMany(Notification, { 
+    foreignKey: 'user_id_gui', 
+    as: 'sent_notifications' 
+});
 // --- Users & Students ---
 User.hasMany(Student, { foreignKey: "parent_id", as: "children" });
 Student.belongsTo(User, { foreignKey: "parent_id", as: "parent" });

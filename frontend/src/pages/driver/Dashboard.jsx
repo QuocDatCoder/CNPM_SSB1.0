@@ -1,17 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   MapContainer,
   TileLayer,
   Polyline,
   Marker,
   Popup,
-  useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import "leaflet-routing-machine";
-// Import routing machine CSS using direct path for Vite compatibility
-import "../../../node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css";
 import Header from "../../components/common/Header/header";
 import Sidebar from "../../components/common/Sidebar/Sidebar";
 import Assignments from "./Assignments";
@@ -20,7 +16,6 @@ import Notifications from "./Notifications";
 import "./Dashboard.css";
 import drivers from "../../data/drivers";
 import ScheduleService from "../../services/schedule.service";
-import TrackingService from "../../services/tracking.service";
 import useDriverScheduleSocket from "../../hooks/useDriverScheduleSocket";
 import NotificationService from "../../services/notification.service";
 import RouteService from "../../services/route.service";
@@ -36,97 +31,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
-
-// 🚌 Icon xe bus động
-const busIcon = L.icon({
-  iconUrl: "/icons/busmap.png",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-});
-
-// Component để vẽ routing thực tế giữa các điểm
-const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
-  const map = useMap();
-  const routingControlRef = useRef(null);
-  const fallbackPolylineRef = useRef(null);
-
-  useEffect(() => {
-    if (!map || !waypoints || waypoints.length < 2) return;
-
-    // Làm sạch trước khi tạo mới
-    if (routingControlRef.current && map.hasLayer(routingControlRef.current)) {
-      map.removeControl(routingControlRef.current);
-      routingControlRef.current = null;
-    }
-    if (
-      fallbackPolylineRef.current &&
-      map.hasLayer(fallbackPolylineRef.current)
-    ) {
-      map.removeLayer(fallbackPolylineRef.current);
-      fallbackPolylineRef.current = null;
-    }
-
-    try {
-      // Tạo routing control mới
-      routingControlRef.current = L.Routing.control({
-        waypoints: waypoints.map((coord) => L.latLng(coord[0], coord[1])),
-        lineOptions: {
-          styles: [
-            {
-              color: color,
-              opacity: 0.8,
-              weight: 5,
-              lineCap: "round",
-              lineJoin: "round",
-            },
-          ],
-        },
-        show: false, // Hide turn-by-turn instructions
-        addWaypoints: false,
-        draggableWaypoints: false,
-        fitSelectedRoutes: true,
-        router: L.Routing.osrmv1({
-          serviceUrl: "https://router.project-osrm.org/route/v1",
-        }),
-      });
-
-      routingControlRef.current.addTo(map);
-    } catch (err) {
-      console.warn("Routing error, using fallback polyline:", err);
-      // Fallback: vẽ polyline thẳng
-      if (map) {
-        fallbackPolylineRef.current = L.polyline(waypoints, {
-          color: color,
-          opacity: 0.8,
-          weight: 5,
-          lineCap: "round",
-          lineJoin: "round",
-        }).addTo(map);
-      }
-    }
-
-    return () => {
-      if (
-        routingControlRef.current &&
-        map.hasLayer(routingControlRef.current)
-      ) {
-        try {
-          map.removeControl(routingControlRef.current);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-      }
-      if (
-        fallbackPolylineRef.current &&
-        map.hasLayer(fallbackPolylineRef.current)
-      ) {
-        map.removeLayer(fallbackPolylineRef.current);
-      }
-    };
-  }, [waypoints, map, color]);
-
-  return null;
-};
 
 const driverMenu = [
   { icon: "/icons/home.png", label: "Trang chủ" },
@@ -158,14 +62,6 @@ function Home() {
   const [assignedRoutes, setAssignedRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [busLocation, setBusLocation] = useState(null);
-  const [tripProgress, setTripProgress] = useState({
-    percentage: 0,
-    distanceCovered: 0,
-    currentStop: null,
-  });
-  const [routePath, setRoutePath] = useState([]); // 🚌 Lưu đường đi thực tế
-  const [busPos, setBusPos] = useState(null); // 🚌 Vị trí hiện tại của xe
 
   const driver = {
     fullname: user.ho_ten || user.ten_tai_xe || user.name || "Tài xế",
@@ -203,89 +99,69 @@ function Home() {
         const response = await ScheduleService.getMySchedule();
 
         console.log("✅ Schedule response:", response);
-        console.log("✅ Full response keys:", Object.keys(response));
 
-        // Get today's date in YYYY-MM-DD format (local time, not UTC)
-        const today = new Date().toLocaleDateString("en-CA"); // Format: YYYY-MM-DD in local time
-        console.log("🔍 Today's date (local):", today);
-
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split("T")[0];
         const todaySchedules = response[today] || [];
-        console.log("🔍 Today's schedules found:", todaySchedules.length); // Transform backend data to component format
-        const routes = todaySchedules.map((schedule) => {
-          // Convert stops array to stations format and extract coordinates
-          let stations = [];
-          let coordinates = [];
 
+        // Transform backend data to component format
+        const routes = todaySchedules.map((schedule) => {
+          // Convert stops array to stations format
+          let stations = [];
           if (schedule.stops && Array.isArray(schedule.stops)) {
-            // Backend trả về stops có cấu trúc: { id, ten_diem, dia_chi, latitude, longitude }
             stations = schedule.stops.map((stop, index) => ({
-              id: stop.id || index + 1,
-              name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
-              address: stop.dia_chi || "",
+              id: index + 1,
+              name: stop,
               time:
                 index === 0
                   ? schedule.time
                   : index === schedule.stops.length - 1
                   ? "Dự kiến đến"
                   : "",
-              status: "pending",
+              status: index === 0 ? "pending" : "pending",
             }));
-
-            // Extract coordinates từ stops
-            coordinates = schedule.stops.map((stop) => [
-              parseFloat(stop.latitude),
-              parseFloat(stop.longitude),
-            ]);
           } else {
             // Fallback if no stops provided
             stations = [
               {
                 id: 1,
                 name: schedule.startLocation || "Điểm khởi hành",
-                address: "",
                 time: schedule.time,
                 status: "pending",
               },
               {
                 id: 2,
                 name: schedule.endLocation || "Điểm kết thúc",
-                address: "",
                 time: "Dự kiến đến",
                 status: "pending",
               },
             ];
-            // Default coordinates if no stops
-            coordinates = [
-              [10.762622, 106.660172],
-              [10.776889, 106.700928],
-            ];
           }
-
-          // Normalize type: backend can return "luot_di"/"luot_ve" or "morning"/"afternoon"
-          const scheduleType =
-            schedule.type === "luot_di" || schedule.type === "morning"
-              ? "morning"
-              : "afternoon";
 
           return {
             id: schedule.id,
-            shift: scheduleType === "morning" ? "Sáng" : "Chiều",
+            shift: schedule.type === "morning" ? "Sáng" : "Chiều",
             name:
               schedule.title ||
-              (scheduleType === "morning"
+              (schedule.type === "morning"
                 ? "Lượt đi buổi sáng"
                 : "Lượt về buổi chiều"),
             time: schedule.time,
             startTime: `Lộ trạm đầu tiên: ${schedule.time}`,
             school: schedule.endLocation || "Trường học",
             students: 0, // Will be updated if we fetch student list
-            type: scheduleType,
+            type: schedule.type,
             route: schedule.route || "",
             startLocation: schedule.startLocation || "",
             endLocation: schedule.endLocation || "",
             status: schedule.status || "chuabatdau",
             stops: schedule.stops || [],
-            coordinates: coordinates,
+            coordinates: [
+              [10.762622, 106.660172],
+              [10.771513, 106.677887],
+              [10.773431, 106.688034],
+              [10.776889, 106.700928],
+            ],
             stations: stations,
           };
         });
@@ -316,15 +192,12 @@ function Home() {
       const today = new Date().toISOString().split("T")[0];
 
       if (schedule.date === today) {
-        // Convert stops array to stations format and extract coordinates
+        // Convert stops array to stations format
         let stations = [];
-        let coordinates = [];
-
         if (schedule.stops && Array.isArray(schedule.stops)) {
           stations = schedule.stops.map((stop, index) => ({
-            id: stop.id || index + 1,
-            name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
-            address: stop.dia_chi || "",
+            id: index + 1,
+            name: stop,
             time:
               index === 0
                 ? schedule.time
@@ -333,31 +206,20 @@ function Home() {
                 : "",
             status: "pending",
           }));
-
-          coordinates = schedule.stops.map((stop) => [
-            parseFloat(stop.latitude),
-            parseFloat(stop.longitude),
-          ]);
         } else {
           stations = [
             {
               id: 1,
               name: schedule.startLocation || "Điểm khởi hành",
-              address: "",
               time: `${schedule.time?.substring(0, 5) || schedule.time}`,
               status: "pending",
             },
             {
               id: 2,
               name: schedule.endLocation || "Điểm kết thúc",
-              address: "",
               time: "Dự kiến đến",
               status: "pending",
             },
-          ];
-          coordinates = [
-            [10.762622, 106.660172],
-            [10.776889, 106.700928],
           ];
         }
 
@@ -384,7 +246,12 @@ function Home() {
             endLocation: schedule.endLocation || "",
             status: schedule.status || "chuabatdau",
             stops: schedule.stops || [],
-            coordinates: coordinates,
+            coordinates: [
+              [10.762622, 106.660172],
+              [10.771513, 106.677887],
+              [10.773431, 106.688034],
+              [10.776889, 106.700928],
+            ],
             stations: stations,
           },
         ]);
@@ -404,51 +271,6 @@ function Home() {
           const filtered = prevRoutes.filter(
             (route) => route.id !== schedule.id
           );
-
-          // Convert stops array to stations format and extract coordinates
-          let stations = [];
-          let coordinates = [];
-
-          if (schedule.stops && Array.isArray(schedule.stops)) {
-            stations = schedule.stops.map((stop, index) => ({
-              id: stop.id || index + 1,
-              name: stop.ten_diem || stop.name || `Trạm ${index + 1}`,
-              address: stop.dia_chi || "",
-              time:
-                index === 0
-                  ? schedule.time
-                  : index === schedule.stops.length - 1
-                  ? "Dự kiến đến"
-                  : "",
-              status: "pending",
-            }));
-
-            coordinates = schedule.stops.map((stop) => [
-              parseFloat(stop.latitude),
-              parseFloat(stop.longitude),
-            ]);
-          } else {
-            stations = [
-              {
-                id: 1,
-                name: schedule.startLocation || "Điểm khởi hành",
-                address: "",
-                time: `${schedule.time?.substring(0, 5) || schedule.time}`,
-                status: "pending",
-              },
-              {
-                id: 2,
-                name: schedule.endLocation || "Điểm kết thúc",
-                address: "",
-                time: "Dự kiến đến",
-                status: "pending",
-              },
-            ];
-            coordinates = [
-              [10.762622, 106.660172],
-              [10.776889, 106.700928],
-            ];
-          }
 
           // Thêm lịch cập nhật vào
           return [
@@ -472,9 +294,26 @@ function Home() {
               startLocation: schedule.startLocation || "",
               endLocation: schedule.endLocation || "",
               status: schedule.status || "chuabatdau",
-              stops: schedule.stops || [],
-              coordinates: coordinates,
-              stations: stations,
+              coordinates: [
+                [10.762622, 106.660172],
+                [10.771513, 106.677887],
+                [10.773431, 106.688034],
+                [10.776889, 106.700928],
+              ],
+              stations: [
+                {
+                  id: 1,
+                  name: schedule.startLocation || "Điểm khởi hành",
+                  time: `${schedule.time?.substring(0, 5) || schedule.time}`,
+                  status: "pending",
+                },
+                {
+                  id: 2,
+                  name: schedule.endLocation || "Điểm kết thúc",
+                  time: "Dự kiến đến",
+                  status: "pending",
+                },
+              ],
             },
           ];
         });
@@ -491,216 +330,21 @@ function Home() {
     }
   );
 
-  // Join tracking room and listen for real-time bus location updates
-  useEffect(() => {
-    const driverId = user.id || user.driver_code;
-    if (!driverId) return;
-
-    // Initialize socket and join tracking room
-    TrackingService.initSocket();
-    TrackingService.joinTrackingRoom("driver", driverId);
-
-    // Listen for bus location updates
-    TrackingService.onBusLocationUpdate((data) => {
-      console.log("📍 Bus location update:", data);
-      setBusLocation(data.location);
-      setTripProgress({
-        percentage: data.progressPercentage || 0,
-        distanceCovered: data.distanceCovered || 0,
-        currentStop: data.currentStop || null,
-      });
-    });
-
-    // Listen for trip completion
-    TrackingService.onRouteCompleted((data) => {
-      console.log("✅ Route completed:", data);
-      // Auto-end trip when route completes
-      handleEndTrip();
-    });
-
-    // Cleanup on unmount
-    return () => {
-      TrackingService.leaveTrackingRoom("driver", driverId);
-    };
-  }, [user.id, user.driver_code]);
-
-  const handleStartTrip = async (route) => {
-    try {
-      // Call tracking API to start trip and simulator
-      await TrackingService.startTrip(route.id);
-
-      // 🚌 Fetch route đi qua TẤT CẢ các trạm (waypoints)
-      const path = await fetchRouteFromOSRM(route.coordinates);
-      setRoutePath(path);
-      if (path.length > 0) {
-        setBusPos(path[0]);
-      }
-
-      // Update local state
-      setActiveTrip(route);
-      setTripStarted(true);
-      setSelectedStation(0);
-    } catch (error) {
-      console.error("Error starting trip:", error);
-      alert("Không thể bắt đầu chuyến đi. Vui lòng thử lại.");
-    }
+  const handleStartTrip = (route) => {
+    setActiveTrip(route);
+    setTripStarted(true);
+    setSelectedStation(0);
   };
 
-  /**
-   * 🚌 Fetch route từ OSRM đi qua TẤT CẢ các trạm (waypoints)
-   * @param {Array} coordinates - Array tất cả tọa độ: [[lat, lng], [lat, lng], ...]
-   * @returns {Array} Route coordinates từ OSRM
-   */
-  const fetchRouteFromOSRM = async (coordinates) => {
-    if (!coordinates || coordinates.length < 2) {
-      console.warn("Invalid coordinates for OSRM");
-      return [];
-    }
-
-    // Tạo URL với tất cả waypoints
-    // Format: /driving/lng,lat;lng,lat;lng,lat?overview=full&geometries=geojson
-    const waypointsStr = coordinates
-      .map((coord) => `${coord[1]},${coord[0]}`) // [lat,lng] → lng,lat
-      .join(";");
-
-    const url = `https://router.project-osrm.org/route/v1/driving/${waypointsStr}?overview=full&geometries=geojson`;
-
-    console.log("📍 Fetching OSRM route with waypoints:", coordinates.length);
-
-    try {
-      const res = await fetch(url);
-      const json = await res.json();
-
-      if (!json.routes) {
-        console.warn("No route found from OSRM");
-        return [];
-      }
-
-      const coords = json.routes[0].geometry.coordinates.map((c) => [
-        c[1],
-        c[0],
-      ]);
-
-      console.log("✅ OSRM route fetched:", coords.length, "coordinates");
-      return coords;
-    } catch (error) {
-      console.error("Error fetching OSRM route:", error);
-      return [];
-    }
+  const handleEndTrip = () => {
+    setTripStarted(false);
+    setActiveTrip(null);
+    setSelectedStation(0);
+    // Clear trip state from sessionStorage
+    sessionStorage.removeItem("tripStarted");
+    sessionStorage.removeItem("activeTrip");
+    sessionStorage.removeItem("selectedStation");
   };
-
-  const handleEndTrip = async () => {
-    try {
-      // Call tracking API to end trip
-      if (activeTrip) {
-        await TrackingService.endTrip(activeTrip.id);
-      }
-
-      // Update local state
-      setTripStarted(false);
-      setActiveTrip(null);
-      setSelectedStation(0);
-      // Clear trip state from sessionStorage
-      sessionStorage.removeItem("tripStarted");
-      sessionStorage.removeItem("activeTrip");
-      sessionStorage.removeItem("selectedStation");
-    } catch (error) {
-      console.error("Error ending trip:", error);
-      alert("Không thể kết thúc chuyến đi. Vui lòng thử lại.");
-    }
-  };
-
-  /**
-   * ⚡ Gửi vị trí xe bus từ dashboard tài xế tới backend
-   * - Gửi qua WebSocket (real-time cho phụ huynh)
-   * - Lưu vào Backend API (lưu vào database)
-   */
-  useEffect(() => {
-    if (!tripStarted || !busLocation || !activeTrip) return;
-
-    // Tính tiến độ dựa trên vị trí hiện tại
-    let progressPercentage = tripProgress.percentage;
-    let distanceCovered = tripProgress.distanceCovered;
-
-    // 🚨 Gửi vị trí tới backend mỗi 200ms (khớp với animation tốc độ)
-    // để parent nhận được update mượt mà, không bị "giật"
-    const sendInterval = setInterval(() => {
-      if (busLocation) {
-        const locationData = {
-          latitude: busLocation.latitude,
-          longitude: busLocation.longitude,
-          scheduleId: activeTrip.id,
-          driverId: user.id || user.driver_code,
-          progressPercentage,
-          distanceCovered,
-        };
-
-        // 1️⃣ Gửi qua WebSocket (real-time cho phụ huynh)
-        TrackingService.sendBusLocation(locationData);
-
-        // 2️⃣ Lưu vào Backend API (lưu vào database) - mỗi 2 giây (10 frames)
-        // để không quá tải database
-        if (Math.floor(Date.now() / 2000) % 10 === 0) {
-          TrackingService.saveDriverLocationToBackend(locationData);
-        }
-
-        console.log("📤 Sent bus location (WebSocket):", {
-          latitude: busLocation.latitude,
-          longitude: busLocation.longitude,
-        });
-      }
-    }, 200); // Gửi mỗi 200ms - khớp với animation frame rate
-
-    return () => clearInterval(sendInterval);
-  }, [
-    tripStarted,
-    busLocation,
-    activeTrip,
-    tripProgress,
-    user.id,
-    user.driver_code,
-  ]);
-
-  /**
-   * 🚌 Animation: Xe bus chạy dọc theo route (giống admin dashboard)
-   */
-  useEffect(() => {
-    if (!tripStarted || routePath.length === 0) return;
-
-    let index = 0;
-
-    const interval = setInterval(() => {
-      index++;
-      if (index >= routePath.length) index = 0;
-
-      const currentPos = routePath[index];
-      setBusPos(currentPos);
-
-      // Cập nhật busLocation để gửi tới backend
-      setBusLocation({
-        latitude: currentPos[0],
-        longitude: currentPos[1],
-      });
-
-      // Tính tiến độ dựa trên index
-      const percentage = (index / Math.max(routePath.length - 1, 1)) * 100;
-      const distance = index * 0.1; // Ước tính khoảng cách
-
-      setTripProgress({
-        percentage,
-        distanceCovered: distance,
-        currentStop: null,
-      });
-
-      console.log("🚌 Bus moving:", {
-        position: currentPos,
-        progress: percentage.toFixed(1) + "%",
-        index,
-      });
-    }, 200); // Mỗi 200ms - tốc độ animation
-
-    return () => clearInterval(interval);
-  }, [tripStarted, routePath]);
 
   // If trip is started, show active trip view
   if (tripStarted && activeTrip) {
@@ -727,18 +371,6 @@ function Home() {
               <p className="trip-time">Bắt đầu: {activeTrip.time}</p>
             </div>
           </div>
-
-          {/* Trip Progress Card */}
-          <div className="trip-info-card">
-            <div className="card-icon-trip">📊</div>
-            <div className="card-content">
-              <h4>Tiến độ chuyến đi</h4>
-              <p className="trip-progress">
-                {tripProgress.percentage.toFixed(1)}% •{" "}
-                {tripProgress.distanceCovered?.toFixed(2) || 0} km
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Main Content Grid */}
@@ -759,90 +391,20 @@ function Home() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
 
-                {/* Draw actual road routing connecting all stops */}
-                <RoutingPolyline
-                  waypoints={activeTrip.coordinates}
+                <Polyline
+                  positions={activeTrip.coordinates}
                   color="#3b82f6"
+                  weight={5}
+                  opacity={0.8}
                 />
 
-                {/* Draw markers for all stops with info */}
-                {activeTrip.coordinates.map((coord, index) => {
-                  const station = activeTrip.stations[index];
-                  const isStart = index === 0;
-                  const isEnd = index === activeTrip.stations.length - 1;
-                  const color = isStart
-                    ? "#10b981"
-                    : isEnd
-                    ? "#ef4444"
-                    : "#f59e0b";
-
-                  return (
-                    <Marker key={index} position={coord} title={station?.name}>
-                      <Popup>
-                        <div>
-                          <strong>
-                            {station?.name || `Trạm ${index + 1}`}
-                          </strong>
-                          <br />
-                          {station?.address && (
-                            <>
-                              <span style={{ fontSize: "12px" }}>
-                                {station.address}
-                              </span>
-                              <br />
-                            </>
-                          )}
-                          <span
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: "bold",
-                              color: color,
-                            }}
-                          >
-                            {isStart
-                              ? "🟢 Điểm đầu"
-                              : isEnd
-                              ? "🔴 Điểm cuối"
-                              : "🟡 Trạm dừng"}
-                          </span>
-                          <br />
-                          {station?.time && (
-                            <span style={{ fontSize: "12px" }}>
-                              {station.time}
-                            </span>
-                          )}
-                        </div>
-                      </Popup>
-                    </Marker>
-                  );
-                })}
-
-                {/* Current bus location marker - với icon xe bus */}
-                {busPos && (
-                  <Marker
-                    position={busPos}
-                    icon={busIcon}
-                    title="Vị trí xe bus hiện tại"
-                  >
+                {activeTrip.coordinates.map((coord, index) => (
+                  <Marker key={index} position={coord}>
                     <Popup>
-                      <div style={{ textAlign: "center" }}>
-                        <strong>🚌 Vị trí xe bus</strong>
-                        <br />
-                        <span style={{ fontSize: "12px" }}>
-                          Lat: {busPos[0].toFixed(6)}
-                        </span>
-                        <br />
-                        <span style={{ fontSize: "12px" }}>
-                          Lon: {busPos[1].toFixed(6)}
-                        </span>
-                        <br />
-                        <span style={{ fontSize: "12px", color: "#3b82f6" }}>
-                          📊 Tiến độ: {tripProgress.percentage.toFixed(1)}%
-                        </span>
-                      </div>
+                      {activeTrip.stations[index]?.name || `Trạm ${index + 1}`}
                     </Popup>
                   </Marker>
-                )}
+                ))}
               </MapContainer>
             </div>
           </div>
@@ -865,30 +427,11 @@ function Home() {
                   user.name ||
                   "Không xác định"}
               </button>
-              <div style={{ marginTop: "12px" }}>
-                <span className="search-label">
-                  Trạm hiện tại:
-                  <br />
-                  {activeTrip.stations[selectedStation]?.name || "..."}
-                </span>
-                {busLocation && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      fontSize: "13px",
-                      color: "#3b82f6",
-                    }}
-                  >
-                    <strong>
-                      📊 Tiến độ: {tripProgress.percentage.toFixed(1)}%
-                    </strong>
-                    <br />
-                    <span>
-                      Đã đi: {tripProgress.distanceCovered?.toFixed(2) || 0} km
-                    </span>
-                  </div>
-                )}
-              </div>
+              <span className="search-label">
+                Trạm hiện tại:
+                <br />
+                {activeTrip.stations[selectedStation]?.name || "..."}
+              </span>
             </div>
 
             <h3 className="station-list-title">Danh sách trạm dừng</h3>
@@ -1025,61 +568,34 @@ function Home() {
                 {/* Draw routes on map */}
                 {assignedRoutes.map((route) => (
                   <React.Fragment key={route.id}>
-                    {/* Draw actual road routing connecting all stops */}
-                    <RoutingPolyline
-                      waypoints={route.coordinates}
+                    <Polyline
+                      positions={route.coordinates}
                       color={route.type === "morning" ? "#3b82f6" : "#f59e0b"}
+                      weight={4}
+                      opacity={0.7}
                     />
 
-                    {/* Draw markers for all stops */}
-                    {route.stations &&
-                      route.stations.map((station, index) => {
-                        const isStart = index === 0;
-                        const isEnd = index === route.stations.length - 1;
-                        const color = isStart
-                          ? "#10b981"
-                          : isEnd
-                          ? "#ef4444"
-                          : "#f59e0b";
+                    {/* Start marker */}
+                    <Marker position={route.coordinates[0]}>
+                      <Popup>
+                        <strong>{route.name}</strong>
+                        <br />
+                        Điểm đầu
+                        <br />
+                        {route.startTime}
+                      </Popup>
+                    </Marker>
 
-                        return (
-                          <Marker
-                            key={station.id}
-                            position={route.coordinates[index]}
-                            title={station.name}
-                          >
-                            <Popup>
-                              <div>
-                                <strong>{station.name}</strong>
-                                <br />
-                                <span style={{ fontSize: "12px" }}>
-                                  {station.address}
-                                </span>
-                                <br />
-                                <span
-                                  style={{
-                                    fontSize: "12px",
-                                    fontWeight: "bold",
-                                    color: color,
-                                  }}
-                                >
-                                  {isStart
-                                    ? "🟢 Điểm đầu"
-                                    : isEnd
-                                    ? "🔴 Điểm cuối"
-                                    : "🟡 Trạm dừng"}
-                                </span>
-                                <br />
-                                {station.time && (
-                                  <span style={{ fontSize: "12px" }}>
-                                    {station.time}
-                                  </span>
-                                )}
-                              </div>
-                            </Popup>
-                          </Marker>
-                        );
-                      })}
+                    {/* End marker */}
+                    <Marker
+                      position={route.coordinates[route.coordinates.length - 1]}
+                    >
+                      <Popup>
+                        <strong>{route.name}</strong>
+                        <br />
+                        Điểm cuối - {route.school}
+                      </Popup>
+                    </Marker>
                   </React.Fragment>
                 ))}
               </MapContainer>
@@ -1103,64 +619,104 @@ export default function DriverDashboard() {
 
   const [availableRoutes, setAvailableRoutes] = useState([]); // List danh sách tuyến
   const [selectedRouteId, setSelectedRouteId] = useState("");
-  const [allStudents, setAllStudents] = useState([]);
+  const [studentsList, setStudentsList] = useState([]);
+
 
   // Dashboard.jsx - Bên trong component DriverDashboard
 
-  useEffect(() => {
-    const loadData = async () => {
+ useEffect(() => {
+    const fetchAndMockStudents = async () => {
       try {
-        console.log("🔄 Bắt đầu tải dữ liệu (Rút gọn)...");
-
-        // 1. Gọi song song: Lấy tất cả tuyến (để lấy tên) + Lấy lịch của tôi (để lấy ID)
-        const [allRoutesData, myScheduleData] = await Promise.all([
-          RouteService.getAllRoutesWithStops(), // Lấy danh sách gốc để có tên tuyến đầy đủ
-          ScheduleService.getMySchedule()       // Lấy lịch cá nhân
-        ]);
-
-        // 2. Trích xuất ID các tuyến mà tài xế này chạy
-        // API getMySchedule trả về dạng: { "2024-01-01": [...], "2024-01-02": [...] }
-        // Chúng ta gộp tất cả các ngày lại để lấy hết các tuyến tài xế từng chạy/sắp chạy
-        const myRouteIds = new Set();
-        
-        if (myScheduleData) {
-            // Object.values lấy ra mảng các mảng lịch trình -> .flat() làm phẳng thành 1 mảng duy nhất
-            const allSchedules = Object.values(myScheduleData).flat();
-            
-            allSchedules.forEach(schedule => {
-                // Lấy ID từ schedule (backend của bạn có thể trả về route_id hoặc object route)
-                const rId = schedule.route_id || (schedule.route && schedule.route.id);
-                if (rId) myRouteIds.add(String(rId));
-            });
-        }
-        
-        console.log("🎯 ID các tuyến của tài xế:", [...myRouteIds]);
-
-        // 3. Lọc danh sách gốc: Chỉ giữ lại những tuyến có trong lịch trình
-        const filteredRoutes = allRoutesData
-            .filter(route => myRouteIds.has(String(route.id)))
-            .map((route) => {
-                // Format tên cho đẹp: "Tuyến 1 (Đi)"
-                const suffix = route.loai_tuyen === 'luot_di' ? '(Đi)' : (route.loai_tuyen === 'luot_ve' ? '(Về)' : '');
-                return {
-                    id: route.id, 
-                    name: `${route.name} ${suffix}`.trim(), 
-                };
-            });
-            
-        // 4. Cập nhật State
-        setAvailableRoutes(filteredRoutes);
-        
-        // Load thêm học sinh để phục vụ gửi tin nhắn (nếu cần)
+        // Lấy danh sách học sinh
         const studentsData = await StudentService.getAllStudents();
-        setAllStudents(studentsData);
+        
+        // Lấy danh sách ID các tuyến hiện có (từ state availableRoutes đã load ở trên)
+        // Lưu ý: availableRoutes cần load xong trước, hoặc ta lấy ID từ mock logic
+        // Để đơn giản, ta giả định tuyến là 1,2,3,4... nếu availableRoutes rỗng
+        const routeIds = availableRoutes.length > 0 
+            ? availableRoutes.map(r => parseInt(r.id)) 
+            : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; 
+
+        const mappedStudents = studentsData.map((student, index) => {
+             // Logic Mock Data tương tự bên Message.jsx
+             let realRouteId = parseInt(student.current_route_id || student.route_id || 0, 10);
+             
+             if ((realRouteId === 0 || isNaN(realRouteId)) && routeIds.length > 0) {
+                 realRouteId = routeIds[index % routeIds.length];
+             }
+
+             return {
+                 id: student.id, // Dùng làm ID phụ huynh luôn (do DB thiếu)
+                 fullname: student.ho_ten,
+                 routeId: realRouteId
+             };
+        });
+        
+        console.log("✅ Đã tải và Mock tuyến cho học sinh bên Driver:", mappedStudents.length);
+        setStudentsList(mappedStudents);
 
       } catch (error) {
-        console.error("❌ Lỗi tải dữ liệu:", error);
+        console.error("Lỗi tải học sinh:", error);
       }
     };
 
-    loadData();
+    // Chỉ chạy khi availableRoutes đã có dữ liệu (để chia tuyến cho đều)
+    if(availableRoutes.length > 0) {
+        fetchAndMockStudents();
+    }
+  }, [availableRoutes]);
+  useEffect(() => {
+    const fetchRoutesFromSchedule = async () => {
+      try {
+        // 1. Chỉ gọi API lấy lịch trình (cái này chắc chắn có dữ liệu vì Trang chủ đã hiện)
+        const scheduleData = await ScheduleService.getMySchedule();
+        
+        // 2. Gom lịch của tất cả các ngày lại
+        // Object.values trả về mảng các mảng lịch -> .flat() làm phẳng thành 1 mảng duy nhất
+        const allSchedules = scheduleData ? Object.values(scheduleData).flat() : [];
+        
+        // 3. Dùng Map để lọc trùng (một tuyến chạy nhiều ngày chỉ lấy 1 lần)
+        const uniqueRoutesMap = new Map();
+
+        allSchedules.forEach(item => {
+            // Cố gắng tìm ID tuyến. 
+            // Ưu tiên: route_id -> item.route.id -> cuối cùng là item.id (ID lịch trình - phương án dự phòng)
+            const rId = item.route_id || (item.route && item.route.id) || item.id;
+            
+            // Cố gắng tìm Tên tuyến
+            let rName = "";
+            if (item.route_name) rName = item.route_name;
+            else if (typeof item.route === 'string') rName = item.route; // Nếu route trả về là string tên
+            else if (item.route && item.route.name) rName = item.route.name;
+            else if (item.title) rName = item.title;
+            else rName = `Tuyến #${rId}`;
+
+            // Format tên: Thêm (Sáng)/(Chiều) nếu cần để dễ phân biệt
+            const shiftName = item.type === 'luot_di' ? '(Đi)' : (item.type === 'luot_ve' ? '(Về)' : '');
+            const finalName = `${rName} ${shiftName}`.trim();
+
+            // Chỉ thêm vào map nếu có ID và chưa tồn tại
+            if (rId && !uniqueRoutesMap.has(rId)) {
+                uniqueRoutesMap.set(rId, finalName);
+            }
+        });
+
+        // 4. Chuyển Map thành mảng cho Dropdown
+        const routesForDropdown = Array.from(uniqueRoutesMap.entries()).map(([id, name]) => ({
+            id: id,
+            name: name
+        }));
+
+        console.log("✅ Đã tìm thấy các tuyến:", routesForDropdown);
+        setAvailableRoutes(routesForDropdown);
+
+      } catch (error) {
+        console.error("❌ Lỗi lấy danh sách tuyến:", error);
+        setAvailableRoutes([]);
+      }
+    };
+
+    fetchRoutesFromSchedule();
   }, []);
   
   function renderContent() {
@@ -1185,106 +741,81 @@ export default function DriverDashboard() {
     setPage(label);
   }
 
-// Dashboard.jsx
+  async function sendAlert() {
+    // 1. Validate
+    if (!alertMessage.trim()) return alert("Vui lòng nhập nội dung!");
+    if (!alertType) return alert("Vui lòng chọn loại cảnh báo!");
+    if (!sendToParents && !sendToAdmin) return alert("Chọn người nhận!");
 
-// Dashboard.jsx
+    // 2. TẠO DANH SÁCH ID NGƯỜI NHẬN (Mảng số nguyên)
+let finalRecipientIds = [];
 
- // Dashboard.jsx
+// Thêm Admin
+if (sendToAdmin) finalRecipientIds.push(1);
 
-async function sendAlert() {
-  // 1. Validate dữ liệu đầu vào
-  if (!alertMessage.trim()) return alert("Vui lòng nhập nội dung cảnh báo!");
-  if (!alertType) return alert("Vui lòng chọn loại cảnh báo!");
-  if (!sendToParents && !sendToAdmin) return alert("Vui lòng chọn người nhận!");
-
-  // ---------------------------------------------------------
-  // LUỒNG 1: GỬI ALERT CHO ADMIN (Luôn chạy nếu có tick Admin hoặc tick Parents)
-  // Logic: Admin luôn cần nhận thông báo hệ thống (chuông đỏ)
-  // ---------------------------------------------------------
-  try {
-    const adminPayload = {
-      alertType,
-      message: alertMessage,
-      toParents: false, // QUAN TRỌNG: Backend không cần gửi cho PH ở luồng này nữa
-      toAdmin: true,    // Chỉ đích danh Admin
-      routeId: selectedRouteId ? parseInt(selectedRouteId) : null,
-      parentIds: []     // Không cần list parents ở đây
-    };
-
-    // Gọi API Alert riêng cho Admin
-    await NotificationService.sendAlert(adminPayload);
-    console.log("✅ Đã gửi Alert cho Admin");
-
-  } catch (error) {
-    console.error("Lỗi gửi Alert Admin:", error);
-    return alert("Lỗi khi gửi báo cáo cho Admin!");
-  }
-
-  // ---------------------------------------------------------
-  // LUỒNG 2: GỬI MESSAGE CHO PHỤ HUYNH (Nếu có tick Parents)
-  // Logic: Gửi tin nhắn vào hộp thư, tiêu đề có chữ "CẢNH BÁO"
-  // ---------------------------------------------------------
-  if (sendToParents) {
-    if (!selectedRouteId) return alert("Vui lòng chọn phạm vi (Tuyến hoặc Tất cả)!");
-
-    let targetParentIds = [];
-
-    // A. Nếu chọn 'Tất cả' -> Lấy toàn bộ phụ huynh
-    if (selectedRouteId === 'all') {
-        targetParentIds = [...new Set(allStudents.map(s => s.parent_id).filter(id => id))];
-    } 
-    // B. Nếu chọn Tuyến cụ thể -> Lọc theo tuyến
-    else {
-        const studentsInRoute = allStudents.filter(student => 
-            student.current_route_id == selectedRouteId 
-        );
-        targetParentIds = [...new Set(studentsInRoute.map(s => s.parent_id).filter(id => id))];
-    }
-
-    if (targetParentIds.length === 0) {
-      alert("Đã gửi cho Admin, nhưng không tìm thấy phụ huynh nào để gửi tin nhắn.");
+// Thêm Phụ huynh
+if (sendToParents) {
+    console.log("🔍 Đang Debug lọc phụ huynh:");
+    console.log("   - Tuyến đang chọn (selectedRouteId):", selectedRouteId, typeof selectedRouteId);
+    
+    // In ra thử 1 học sinh để xem cấu trúc data
+    if (studentsList.length > 0) {
+        console.log("   - Data mẫu học sinh:", studentsList[0]);
     } else {
-      try {
-        // Tạo tiêu đề cảnh báo
-        const typeMap = {
-           'su-co-xe': 'Sự cố xe',
-           'su-co-giao-thong': 'Tắc đường/Giao thông',
-           'su-co-y-te': 'Sự cố y tế',
-           'khac': 'Thông báo'
-        };
-        const titleLabel = typeMap[alertType] || 'Cảnh báo';
-
-        // Gọi API Message riêng cho Phụ huynh
-        const messagePayload = {
-          recipient_ids: targetParentIds,
-          subject: `⚠️ CẢNH BÁO: ${titleLabel}`, // Tiêu đề nhấn mạnh
-          content: alertMessage,
-          schedule_time: null,
-          type: 'canhbaophuhuynh' // Backend sẽ lưu loại này để hiển thị icon khác biệt (nếu cần)
-        };
-
-        await NotificationService.sendMessage(messagePayload);
-        console.log(`✅ Đã gửi Message cho ${targetParentIds.length} phụ huynh`);
-
-      } catch (error) {
-        console.error("Lỗi gửi Message Phụ huynh:", error);
-        alert("Đã gửi cho Admin, nhưng lỗi khi gửi tin nhắn cho phụ huynh.");
-        return; // Dừng lại nếu lỗi gửi tin nhắn
-      }
+        console.warn("   ⚠️ Danh sách học sinh (studentsList) đang RỖNG!");
     }
-  }
 
-  // 3. THÔNG BÁO HOÀN TẤT VÀ RESET FORM
-  alert("Đã xử lý xong!");
-  
-  setShowAlertModal(false);
-  setAlertMessage("");
-  setAlertType("");
-  setSendToParents(false);
-  setSendToAdmin(true);
-  setSelectedRouteId(""); 
+    // SỬA LẠI LOGIC LỌC: Chuyển hết về String để so sánh cho chắc chắn
+    const targetStudents = studentsList.filter(s => {
+        // Log so sánh từng người (nếu cần thiết thì bật lên)
+        // console.log(`So sánh: ${s.routeId} vs ${selectedRouteId}`);
+        return String(s.routeId) === String(selectedRouteId);
+    });
+
+    console.log(`✅ Tìm thấy ${targetStudents.length} học sinh khớp tuyến.`);
+
+    targetStudents.forEach(s => {
+        // QUAN TRỌNG: Chỉ lấy ID nếu nó là số hợp lệ
+        const pid = parseInt(s.id);
+        if (!isNaN(pid) && !finalRecipientIds.includes(pid)) {
+            finalRecipientIds.push(pid);
+        }
+    });
 }
 
+// Nếu danh sách rỗng thì chặn luôn, không gửi API nữa để đỡ rối
+if (finalRecipientIds.length === 0) {
+    return alert("Lỗi: Danh sách người nhận rỗng! Hãy kiểm tra Console (F12) để xem chi tiết.");
+}
+
+    // 3. GỬI API (1 Request duy nhất chứa mảng ID)
+    try {
+        console.log("🚀 Payload gửi đi:", { 
+            recipient_ids: finalRecipientIds, 
+            message: alertMessage 
+        });
+
+        // Gọi endpoint map với hàm sendDriverAlert vừa viết ở Backend
+        const res = await NotificationService.sendAlert({
+            recipient_ids: finalRecipientIds, // Backend sẽ nhận mảng này
+            message: alertMessage,
+            alertType: alertType
+        });
+
+        console.log("✅ Kết quả Server:", res);
+        alert(`Gửi thành công cho ${finalRecipientIds.length} người!`);
+
+        // Reset Form
+        setShowAlertModal(false);
+        setAlertMessage("");
+        setSendToParents(false); 
+        setSelectedRouteId("");
+
+    } catch (error) {
+        console.error("❌ Lỗi:", error);
+        alert("Gửi thất bại.");
+    }
+  }
   return (
     <div className="driver-app-container">
       <Sidebar
@@ -1298,150 +829,90 @@ async function sendAlert() {
         <div className="driver-content">{renderContent()}</div>
       </div>
 
-      {showAlertModal && (
-        <div
-          className="alert-modal-overlay"
-          onClick={() => {
-            setShowAlertModal(false);
-            setAlertMessage("");
-            setSendToParents(false);
-            setSendToAdmin(true);
-            setAlertType("");
-          }}
-        >
-          <div
-            className="alert-modal"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <h3>Gửi cảnh báo</h3>
-            <textarea
-              className="alert-textarea"
-              placeholder="Nhập nội dung cảnh báo..."
-              value={alertMessage}
-              onChange={(e) => setAlertMessage(e.target.value)}
-            />
+    {showAlertModal && (
+      <div className="alert-modal-overlay" onClick={() => setShowAlertModal(false)}>
+        <div className="alert-modal" onClick={(e) => e.stopPropagation()}>
+          <h3>Gửi cảnh báo khẩn cấp</h3>
+          
+          <div className="alert-type-group">
 
-            <div className="alert-type">
-              <p>Loại cảnh báo:</p>
-              <label>
-                <input
-                  type="radio"
-                  name="alertType"
-                  value="su-co-xe"
-                  checked={alertType === "su-co-xe"}
-                  onChange={(e) => setAlertType(e.target.value)}
-                />{" "}
-                Sự cố xe
-              </label>
+              <textarea
+                placeholder="Nhập nội dung cảnh báo..."
+                value={alertMessage}
+                onChange={(e) => setAlertMessage(e.target.value)}
+                rows={4}
+                style={{ width: '100%'}}
+              />
+                <div style={{ display: 'grid', gap: '10px', marginBottom: '15px' }}>
+                    {[['delay', 'Đến trễ'], ['accident', 'Sự cố'], ['other', 'Khác']].map(([val, label]) => (
+                      <label key={val} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                        <input 
+                          type="radio" 
+                          name="atype" 
+                          value={val} 
+                          onChange={(e) => setAlertType(e.target.value)} 
+                          style={{ marginRight: '8px', width: '16px', height: '16px' }} 
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+          </div>
+          {/* ------------------------------------------------------------- */}
 
-              <label>
-                <input
-                  type="radio"
-                  name="alertType"
-                  value="su-co-giao-thong"
-                  checked={alertType === "su-co-giao-thong"}
-                  onChange={(e) => setAlertType(e.target.value)}
-                />{" "}
-                Sự cố giao thông
-              </label>
+          <div className="alert-options">
+          <label>
+            <input
+              type="checkbox"
+              checked={sendToParents}
+              onChange={(e) => {
+                  // CHỈ set state của phụ huynh, KHÔNG can thiệp admin
+                  setSendToParents(e.target.checked); 
+              }}
+            />{" "}
+            Gửi cho Phụ huynh
+          </label>
 
-              <label>
-                <input
-                  type="radio"
-                  name="alertType"
-                  value="su-co-y-te"
-                  checked={alertType === "su-co-y-te"}
-                  onChange={(e) => setAlertType(e.target.value)}
-                />{" "}
-                Sự cố y tế (học sinh)
-              </label>
+            <label >
+              <input
+                type="checkbox"
+                checked={sendToAdmin}
+                disabled={sendToParents} 
+                onChange={(e) => setSendToAdmin(e.target.checked)}
+              />{" "}
+              Gửi cho Admin
+            </label>
+          </div>
 
-              <label>
-                <input
-                  type="radio"
-                  name="alertType"
-                  value="khac"
-                  checked={alertType === "khac"}
-                  onChange={(e) => setAlertType(e.target.value)}
-                />{" "}
-                Khác
-              </label>
-            </div>
-
-                <div className="alert-options">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={sendToParents}
-                      onChange={(e) => {
-                          const isChecked = e.target.checked;
-                          setSendToParents(isChecked);
-                          
-                          // Nếu chọn gửi Phụ huynh -> Tự động bật gửi Admin
-                          if (isChecked) {
-                              setSendToAdmin(true);
-                          }
-                          // Nếu bỏ chọn gửi Phụ huynh -> Reset chọn tuyến
-                          else {
-                              setSelectedRouteId(""); 
-                          }
-                      }}
-                    />{" "}
-                    Gửi cho phụ huynh (kèm Admin)
-                  </label>
-
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={sendToAdmin}
-                      disabled={sendToParents}
-                      onChange={(e) => setSendToAdmin(e.target.checked)}
-                    />{" "}
-                    Gửi cho Admin
-                  </label>
-                </div>
-                {sendToParents && (
-            <div style={{ marginTop: 10, padding: 10, background: '#f5f5f5', borderRadius: 5 }}>
-              <label style={{ display: 'block', marginBottom: 5, fontWeight: 'bold', fontSize: '0.9rem' }}>
-                Chọn tuyến bị ảnh hưởng:
-              </label>
-              <select 
-                  value={selectedRouteId} 
-                  onChange={(e) => setSelectedRouteId(e.target.value)}
-                  className="alert-route-select" // Bạn có thể thêm class CSS
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-              >
-                  <option value="">-- Chọn tuyến đường --</option>
-                  {availableRoutes.map((route) => (
-                      <option key={route.id} value={route.id}>{route.name}</option>
-                  ))}
-              </select>
-              <p style={{fontSize: '0.8rem', color: '#666', marginTop: 5}}>
-                *Hệ thống sẽ gửi thông báo đến tất cả phụ huynh có con trong tuyến này.
-              </p>
+          {/* --- PHẦN THÊM MỚI: Dropdown chọn tuyến --- */}
+          {sendToParents && (
+            <div style={{ marginTop: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '5px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
+                    Chọn tuyến xe áp dụng:
+                </label>
+                <select
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    value={selectedRouteId}
+                    onChange={(e) => setSelectedRouteId(e.target.value)}
+                >
+                    <option value="">-- Vui lòng chọn tuyến --</option>
+                    {availableRoutes.map((route) => (
+                        <option key={route.id} value={route.id}>
+                            {route.name}
+                        </option>
+                    ))}
+                </select>
             </div>
           )}
+          {/* ------------------------------------------- */}
 
-            <div className="alert-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowAlertModal(false)}
-              >
-                Hủy
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={sendAlert}
-                disabled={!alertMessage.trim()}
-              >
-                Gửi
-              </button>
-            </div>
+          <div className="alert-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <button className="btn btn-secondary" onClick={() => setShowAlertModal(false)}>Hủy</button>
+            <button className="btn btn-primary" onClick={sendAlert}>Gửi Cảnh Báo</button>
           </div>
         </div>
-      )}
+      </div>
+)}
     </div>
   );
 }

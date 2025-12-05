@@ -1,25 +1,27 @@
 const express = require('express');
 const router = express.Router();
-console.log("✅ Route Notification đã được nạp!");
 const notificationController = require('../controllers/notification.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 
 router.use(authMiddleware.verifyToken);
 
-// GET danh sách tin nhắn (có query ?type=inbox/sent...)
+// --- Các Routes Tĩnh (Static) ---
+
+// GET danh sách tin nhắn (query: ?type=inbox&page=1)
 router.get('/', notificationController.getMyNotifications);
 
-// POST gửi tin
+// POST gửi tin nhắn thường (Admin/User)
 router.post('/', notificationController.create);
+
+// POST gửi cảnh báo (Dành riêng cho Driver)
+router.post('/alert', notificationController.sendDriverAlert);
+
+// --- Các Routes Động (Dynamic :id) ---
 
 // PUT đánh dấu sao
 router.put('/:id/star', notificationController.toggleStar);
 
 // DELETE xóa tin (vào thùng rác)
 router.delete('/:id', notificationController.delete);
-
-
-// POST gửi cảnh báo (Dành cho Driver)
-router.post('/alert', notificationController.sendAlert);
 
 module.exports = router;

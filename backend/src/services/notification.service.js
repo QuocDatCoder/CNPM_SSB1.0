@@ -1,24 +1,27 @@
-const Notification = require('../data/models/notification.model');
-const Schedule = require('../data/models/schedule.model');
-const ScheduleStudent = require('../data/models/scheduleStudent.model');
-const Student = require('../data/models/student.model');
-const User = require('../data/models/user.model');
+// src/services/notification.service.js
+
 const { Op } = require('sequelize');
-// Import Socket Handler
+const { Notification, User, Student, Schedule, Route } = require('../data/models'); // Import từ index.js để nhận đủ mối quan hệ
 const { sendRealTimeNotification } = require('../sockets/notification.handler');
+
 class NotificationService {
-  
-  // Lấy tin nhắn theo bộ lọc (Tab: inbox, sent, trash, important...)
+
+  /**
+   * Lấy danh sách tin nhắn (Dùng chung cho Admin, Driver, Parent)
+   * @param {number} userId - ID người dùng hiện tại
+   * @param {string} type - inbox | sent | important | trash | scheduled
+   * @param {number} limit 
+   * @param {number} offset 
+   */
   async getMessages(userId, type, limit = 20, offset = 0) {
     let whereClause = {};
 
     switch (type) {
-      case 'sent': // Đã gửi
+      case 'sent': // Tin đã gửi
         whereClause = { user_id_gui: userId, is_deleted: false };
         break;
-      case 'important': // Quan trọng (Sao)
+      case 'important': // Tin đánh dấu sao
         whereClause = { 
-          // Quan trọng có thể là tin đến HOẶC tin đi
           [Op.or]: [{ user_id_nhan: userId }, { user_id_gui: userId }],
           is_starred: true, 
           is_deleted: false 
@@ -30,10 +33,10 @@ class NotificationService {
           is_deleted: true 
         };
         break;
-      case 'scheduled': // Đã lên lịch
+      case 'scheduled': // Tin hẹn giờ (chưa gửi)
         whereClause = { 
           user_id_gui: userId, 
-          thoi_gian_gui_du_kien: { [Op.gt]: new Date() }, // Thời gian > hiện tại
+          thoi_gian_gui_du_kien: { [Op.gt]: new Date() }, 
           is_deleted: false 
         };
         break;
@@ -54,7 +57,7 @@ class NotificationService {
     return await Notification.findAndCountAll({
       where: whereClause,
       include: [
-        { model: User, as: 'nguoi_gui', attributes: ['id', 'ho_ten', 'vai_tro'] },
+        { model: User, as: 'nguoi_gui', attributes: ['id', 'ho_ten', 'vai_tro'] }, // Alias khớp với model
         { model: User, as: 'nguoi_nhan', attributes: ['id', 'ho_ten'] }
       ],
       order: [['created_at', 'DESC']],
@@ -63,49 +66,53 @@ class NotificationService {
     });
   }
 
-  // Gửi tin nhắn (Hỗ trợ gửi 1 người hoặc nhiều người)
-// notification.service.js
-
-  // Gửi tin nhắn (Hỗ trợ gửi 1 người hoặc nhiều người)
+  /**
+   * Gửi tin nhắn thông thường (Dùng cho Admin gửi Driver/Parent hoặc Parent gửi Admin)
+   * Frontend chịu trách nhiệm lọc ra danh sách recipientIds
+   */
   async sendMessage({ senderId, recipientIds, subject, content, scheduleTime, type }) { 
-    // 1. Tạo dữ liệu để lưu DB
+    // 1. Chuẩn bị dữ liệu
     const dataToCreate = recipientIds.map(receiverId => ({
       user_id_gui: senderId,
       user_id_nhan: receiverId,
       tieu_de: subject,
       noi_dung: content,
       loai: type || 'tinnhan', 
-      thoi_gian_gui: scheduleTime ? new Date(scheduleTime) : new Date(),
+      thoi_gian_gui_du_kien: scheduleTime ? new Date(scheduleTime) : null,
       created_at: new Date()
     }));
 
-    // 2. Lưu vào Database
+    // 2. Lưu vào DB
     const createdMessages = await Notification.bulkCreate(dataToCreate);
 
-    // 3. BẮN SOCKET (QUAN TRỌNG: Thêm đoạn này vào)
-    // Chỉ bắn socket nếu tin nhắn gửi NGAY (không phải tin hẹn giờ)
+    // 3. Bắn Socket (Chỉ khi gửi ngay)
     if (!scheduleTime || new Date(scheduleTime) <= new Date()) {
-        if (global.io) {
-            createdMessages.forEach(msg => {
-                const payload = {
-                    id: msg.id,
-                    sender: "Hệ thống/Tài xế", // Hoặc query tên người gửi nếu cần
-                    subject: msg.tieu_de,
-                    preview: msg.noi_dung,
-                    date: msg.created_at,
-                    type: msg.loai,
-                    read: false
-                };
-                // Gọi hàm helper để bắn tin về client
-                sendRealTimeNotification(global.io, msg.user_id_nhan, payload);
-            });
-        }
+      if (global.io) {
+        // Lấy thông tin người gửi để hiển thị realtime đẹp hơn
+        const senderInfo = await User.findByPk(senderId, { attributes: ['ho_ten', 'vai_tro'] });
+        const senderName = senderInfo ? senderInfo.ho_ten : "Hệ thống";
+
+        createdMessages.forEach(msg => {
+          const payload = {
+            id: msg.id,
+            sender: senderName,
+            subject: msg.tieu_de,
+            preview: msg.noi_dung,
+            date: msg.created_at,
+            type: msg.loai,
+            read: false
+          };
+          sendRealTimeNotification(global.io, msg.user_id_nhan, payload);
+        });
+      }
     }
 
     return createdMessages;
   }
 
-  // Toggle Star (Đánh dấu sao)
+  /**
+   * Đánh dấu sao tin nhắn
+   */
   async toggleStar(id, userId) {
     const noti = await Notification.findOne({ 
         where: { id, [Op.or]: [{ user_id_nhan: userId }, { user_id_gui: userId }] } 
@@ -115,10 +122,12 @@ class NotificationService {
       await noti.save();
       return noti;
     }
-    throw new Error('Message not found');
+    throw new Error('Không tìm thấy tin nhắn');
   }
 
-  // Soft Delete (Chuyển vào thùng rác)
+  /**
+   * Chuyển vào thùng rác (Soft delete)
+   */
   async moveToTrash(id, userId) {
     const noti = await Notification.findOne({ 
         where: { id, [Op.or]: [{ user_id_nhan: userId }, { user_id_gui: userId }] } 
@@ -128,66 +137,106 @@ class NotificationService {
       await noti.save();
       return noti;
     }
-    throw new Error('Message not found');
+    throw new Error('Không tìm thấy tin nhắn');
   }
 
-
   /**
-   * Gửi cảnh báo từ Tài xế -> Phụ huynh & Admin
-   * @param {Object} params
+   * Xử lý Cảnh báo từ Tài xế (Driver Alert)
+   * Logic: Gửi cho Admin + Phụ huynh có con thuộc tuyến xe tài xế chạy hôm nay
    */
   async sendDriverAlert({ driverId, alertType, message, toParents, toAdmin }) {
-    const recipientIds = [];
+    let recipientIds = new Set(); // Dùng Set để tránh trùng lặp ID
 
-    // 1. Nếu gửi cho Admin: Tìm tất cả user có vai trò 'admin'
+    // --- BƯỚC 1: Lấy danh sách Admin (Nếu chọn gửi Admin) ---
     if (toAdmin) {
-      const admins = await User.findAll({ where: { vai_tro: 'admin' }, attributes: ['id'] });
-      admins.forEach(admin => recipientIds.push(admin.id));
+      const admins = await User.findAll({ 
+        where: { vai_tro: 'admin' }, // Giả sử vai_tro là 'admin'
+        attributes: ['id'] 
+      });
+      admins.forEach(ad => recipientIds.add(ad.id));
     }
 
-    // Loại bỏ ID trùng lặp
-    const uniqueRecipients = [...new Set(recipientIds)];
+    // --- BƯỚC 2: Lấy danh sách Phụ huynh (Nếu chọn gửi Phụ huynh) ---
+    // Logic: Tìm lịch chạy hôm nay -> Lấy Routes -> Lấy Học sinh -> Lấy Phụ huynh
+    if (toParents) {
+      // 2.1. Lấy ngày hiện tại (YYYY-MM-DD)
+      const today = new Date().toLocaleDateString('en-CA'); // Định dạng khớp với DATEONLY của MySQL
 
-    if (uniqueRecipients.length === 0) return { count: 0 };
+      // 2.2. Tìm tất cả các chuyến (Schedule) của tài xế trong hôm nay
+      const schedules = await Schedule.findAll({
+        where: {
+          driver_id: driverId,
+          ngay_chay: today
+        },
+        attributes: ['route_id']
+      });
 
-    // 3. Tạo nội dung và Lưu DB
-    // Map alertType sang tiêu đề dễ hiểu
+      // Nếu có lịch chạy
+      if (schedules.length > 0) {
+        const routeIds = schedules.map(s => s.route_id);
+
+        // 2.3. Tìm tất cả học sinh thuộc các tuyến này
+        const students = await Student.findAll({
+          where: {
+            current_route_id: { [Op.in]: routeIds },
+            parent_id: { [Op.ne]: null } // Chỉ lấy HS đã có liên kết phụ huynh
+          },
+          attributes: ['parent_id']
+        });
+
+        // 2.4. Thêm parent_id vào danh sách nhận
+        students.forEach(stu => recipientIds.add(stu.parent_id));
+      }
+    }
+
+    const finalRecipientIds = Array.from(recipientIds); // Chuyển Set về Array
+
+    if (finalRecipientIds.length === 0) {
+      return { count: 0, message: "Không tìm thấy người nhận phù hợp." };
+    }
+
+    // --- BƯỚC 3: Tạo nội dung tiêu đề dựa trên loại cảnh báo ---
     const titleMap = {
-      'su-co-xe': '⚠️ CẢNH BÁO: Sự cố xe',
-      'su-co-giao-thong': '⚠️ CẢNH BÁO: Tắc đường/Giao thông',
-      'su-co-y-te': '🚑 CẢNH BÁO: Sự cố y tế',
-      'khac': '⚠️ Thông báo từ tài xế'
+      'su-co-xe': '⚠️ SỰ CỐ XE - CẦN CHÚ Ý',
+      'su-co-giao-thong': '⚠️ TẮC ĐƯỜNG/GIAO THÔNG',
+      'su-co-y-te': '🚑 SỰ CỐ Y TẾ KHẨN CẤP',
+      'khac': '⚠️ THÔNG BÁO TỪ TÀI XẾ'
     };
-    const subject = titleMap[alertType] || 'Thông báo khẩn cấp';
+    const subject = titleMap[alertType] || '⚠️ CẢNH BÁO KHẨN CẤP';
 
-    const dataToCreate = uniqueRecipients.map(receiverId => ({
+    // --- BƯỚC 4: Lưu DB ---
+    const dataToCreate = finalRecipientIds.map(receiverId => ({
       user_id_gui: driverId,
       user_id_nhan: receiverId,
       tieu_de: subject,
       noi_dung: message,
-      loai: 'canhbao_suco', // Hoặc enum tương ứng trong DB
+      loai: 'canhbao', // Đánh dấu là loại cảnh báo
       created_at: new Date()
     }));
 
     const createdNotifications = await Notification.bulkCreate(dataToCreate);
 
- 
+    // --- BƯỚC 5: Bắn Socket Realtime ---
     if (global.io) {
+      // Lấy tên tài xế để hiển thị
+      const driver = await User.findByPk(driverId, { attributes: ['ho_ten'] });
+      const driverName = driver ? driver.ho_ten : "Tài xế";
+
       createdNotifications.forEach(noti => {
         const payload = {
           id: noti.id,
-          sender: "Tài xế",
+          sender: driverName,
           subject: noti.tieu_de,
           preview: noti.noi_dung,
           date: noti.created_at,
-          type: 'alert', // Đánh dấu để frontend hiện màu đỏ
+          type: 'alert', // Frontend sẽ dựa vào type này để hiện màu đỏ/icon cảnh báo
           read: false
         };
         sendRealTimeNotification(global.io, noti.user_id_nhan, payload);
       });
     }
 
-    return { count: uniqueRecipients.length };
+    return { count: finalRecipientIds.length };
   }
 }
 
