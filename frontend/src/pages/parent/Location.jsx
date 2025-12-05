@@ -182,22 +182,22 @@ function Location() {
     distance: "-- km",
   });
 
-  // 📢 Notification state for real-time student status changes
-  const [notification, setNotification] = useState(null);
-  const notificationTimeoutRef = useRef(null);
+  // 📢 Notification state for real-time student status changes (Moved to ParentDashboard)
+  // const [notification, setNotification] = useState(null);
+  // const notificationTimeoutRef = useRef(null);
   const [studentStatusMap, setStudentStatusMap] = useState({}); // Lưu trạng thái học sinh
 
-  // 👶 Get all student IDs of current parent
+  // 👶 Get all student IDs of current parent (for filtering in local listener)
   const [myStudentIds, setMyStudentIds] = useState([]); // Danh sách tất cả học sinh con của phụ huynh này
 
-  // Fetch kids data to get student IDs
+  // Fetch kids data to get student IDs for filtering
   useEffect(() => {
     const fetchKidsTrips = async () => {
       try {
         const response = await ScheduleService.getMyKidsTrips();
         if (response && Array.isArray(response)) {
           const studentIds = response.map((kid) => kid.student_id);
-          console.log(`👶 My student IDs:`, studentIds);
+          console.log(`👶 Location.jsx - My student IDs:`, studentIds);
           setMyStudentIds(studentIds);
         }
       } catch (err) {
@@ -221,17 +221,19 @@ function Location() {
     }
   }, [routePath]);
 
+  // Keep myStudentIds in ref for use in listeners without causing re-registration
+  const myStudentIdsRef = useRef([]);
+
+  useEffect(() => {
+    myStudentIdsRef.current = myStudentIds;
+  }, [myStudentIds]);
+
   // Đăng ký listener WebSocket một lần khi component mount
   useEffect(() => {
     ParentTrackingService.initSocket();
     ParentTrackingService.joinParentTracking();
 
-    // 🚨 Xóa tất cả listener cũ trước khi đăng ký listener mới
-    ParentTrackingService.socket?.off("bus-location-update");
-    ParentTrackingService.socket?.off("route-completed");
-    ParentTrackingService.socket?.off("student-status-changed");
-
-    // Đăng ký listener cho cập nhật vị trí
+    // 📍 Listener cho cập nhật vị trí xe
     const handleBusLocationUpdate = (data) => {
       console.log("🚌 Received bus location update:", data);
 
@@ -288,7 +290,7 @@ function Location() {
       setIsTrackingActive(true);
     };
 
-    // Đăng ký listener cho hoàn thành chuyến
+    // ✅ Listener cho hoàn thành chuyến
     const handleRouteCompleted = (data) => {
       console.log("✅ Route completed:", data);
       setTripInfo((prev) => ({
@@ -299,7 +301,8 @@ function Location() {
       setIsTrackingActive(false);
     };
 
-    // 📢 Listener cho thay đổi trạng thái học sinh
+    // 📢 Listener cho thay đổi trạng thái học sinh (ONLY update status map, NOT notification)
+    // Notification is handled globally by ParentDashboard
     const handleStudentStatusChanged = (data) => {
       const {
         scheduleStudentId,
@@ -311,41 +314,29 @@ function Location() {
       } = data;
 
       console.log(
-        `📢 Student status changed: ${studentName} -> ${statusLabel}, studentId: ${studentId}, myStudentIds: ${myStudentIds}`
+        `📢 Location.jsx - Student status changed: ${studentName} -> ${statusLabel}, studentId: ${studentId}, myStudentIds: ${myStudentIdsRef.current}`
       );
 
-      // 🔒 Chỉ hiển thị notification nếu học sinh là con của phụ huynh này
-      if (!myStudentIds.includes(studentId)) {
+      // 🔒 Chỉ cập nhật nếu học sinh là con của phụ huynh này
+      if (!myStudentIdsRef.current.includes(studentId)) {
         console.log(
-          `⏭️ Ignoring notification - student ${studentId} không phải con của phụ huynh này`
+          `⏭️ Location.jsx - Ignoring update - student ${studentId} không phải con của phụ huynh này`
         );
         return;
       }
 
-      // 1️⃣ Cập nhật status map
+      // 1️⃣ Cập nhật ONLY status map (để Location component hiển thị status mới trên map)
       setStudentStatusMap((prev) => ({
         ...prev,
         [scheduleStudentId]: newStatus,
       }));
 
-      // 2️⃣ Hiển thị notification trong 5 giây
-      setNotification({
-        studentName: studentName,
-        statusLabel: statusLabel,
-        timestamp: timestamp,
-      });
-
-      // Clear timeout cũ nếu có
-      if (notificationTimeoutRef.current) {
-        clearTimeout(notificationTimeoutRef.current);
-      }
-
-      // Set timeout mới để tự động ẩn sau 5 giây
-      notificationTimeoutRef.current = setTimeout(() => {
-        setNotification(null);
-      }, 5000);
+      console.log(
+        `✅ Location.jsx - Student status map updated for ${scheduleStudentId}`
+      );
     };
 
+    console.log("📍 Location.jsx: Registering location and status listeners");
     ParentTrackingService.socket?.on(
       "bus-location-update",
       handleBusLocationUpdate
@@ -358,6 +349,9 @@ function Location() {
 
     // Cleanup: xóa listener khi component unmount
     return () => {
+      console.log(
+        "📍 Location.jsx: Unregistering location and status listeners"
+      );
       ParentTrackingService.socket?.off(
         "bus-location-update",
         handleBusLocationUpdate
@@ -370,14 +364,10 @@ function Location() {
         "student-status-changed",
         handleStudentStatusChanged
       );
-      ParentTrackingService.leaveParentTracking();
-
-      // Clear timeout khi unmount
-      if (notificationTimeoutRef.current) {
-        clearTimeout(notificationTimeoutRef.current);
-      }
+      // DO NOT call leaveParentTracking here - keep the parent-tracking room active
+      // for other pages to receive notifications
     };
-  }, [myStudentIds]);
+  }, []); // Empty dependency array - register once and never re-register
 
   useEffect(() => {
     const fetchParentSchedules = async () => {
@@ -721,60 +711,6 @@ function Location() {
           </div>
         </div>
       </div>
-
-      {/* 📢 Real-time Notification Badge */}
-      {notification && (
-        <div
-          style={{
-            position: "fixed",
-            top: "20px",
-            right: "20px",
-            backgroundColor: "#10b981",
-            color: "white",
-            padding: "16px 20px",
-            borderRadius: "8px",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-            zIndex: 9999,
-            minWidth: "300px",
-            animation: "slideIn 0.3s ease-out",
-          }}
-        >
-          <div style={{ fontWeight: "600", marginBottom: "4px" }}>
-            ✅ Cập nhật trạng thái
-          </div>
-          <div style={{ fontSize: "14px" }}>
-            <strong>{notification.studentName}</strong> đã{" "}
-            {notification.statusLabel.toLowerCase()}
-          </div>
-          <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.8 }}>
-            {new Date(notification.timestamp).toLocaleTimeString("vi-VN")}
-          </div>
-
-          <style>{`
-            @keyframes slideIn {
-              from {
-                transform: translateX(400px);
-                opacity: 0;
-              }
-              to {
-                transform: translateX(0);
-                opacity: 1;
-              }
-            }
-            
-            @keyframes slideOut {
-              from {
-                transform: translateX(0);
-                opacity: 1;
-              }
-              to {
-                transform: translateX(400px);
-                opacity: 0;
-              }
-            }
-          `}</style>
-        </div>
-      )}
     </div>
   );
 }

@@ -43,6 +43,17 @@ async function startTrip(req, res) {
       await schedule.driver.update({ trang_thai_taixe: "hoatdong" });
     }
 
+    // 📢 Emit trip status change event để parents nhận được real-time update
+    if (global.io) {
+      global.io.to("parent-tracking").emit("trip-status-changed", {
+        scheduleId: schedule.id,
+        status: "dangchay",
+        statusLabel: "Đang chạy",
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`📢 Emitted trip-status-changed for schedule ${schedule.id}`);
+    }
+
     // Khởi động simulator (sử dụng global.io)
     await startBusSimulator(scheduleId, global.io);
 
@@ -94,6 +105,17 @@ async function endTrip(req, res) {
     await schedule.Bus.update({ trang_thai: "Ngừng" });
     if (schedule.driver) {
       await schedule.driver.update({ trang_thai_taixe: "tamdung" });
+    }
+
+    // 📢 Emit trip status change event để parents nhận được real-time update
+    if (global.io) {
+      global.io.to("parent-tracking").emit("trip-status-changed", {
+        scheduleId: schedule.id,
+        status: "hoanthanh",
+        statusLabel: "Hoàn thành",
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`📢 Emitted trip-status-changed for schedule ${schedule.id}`);
     }
 
     res.json({
