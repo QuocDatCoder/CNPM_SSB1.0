@@ -650,6 +650,25 @@
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
+.btn-student-modal {
+  width: 100%;
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-student-modal:hover {
+  background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
 @media (max-width: 1024px) {
   .active-trip-content-grid {
     grid-template-columns: 1fr;

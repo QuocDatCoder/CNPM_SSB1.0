@@ -198,18 +198,18 @@ INSERT INTO `Schedules` (`route_id`, `driver_id`, `bus_id`, `ngay_chay`, `trang_
 -- Tuyến 1: Driver 2, Bus 1
 (1, 2, 1, CURDATE(), 'chuabatdau', '06:00:00'),  -- Lượt đi
 (2, 2, 1, CURDATE(), 'chuabatdau', '15:30:00'),  -- Lượt về (cùng tài xế, cùng xe)
--- -- Tuyến 2: Driver 3, Bus 2
--- (3, 3, 2, CURDATE(), 'chuabatdau', '06:15:00'),  -- Lượt đi
--- (4, 3, 2, CURDATE(), 'chuabatdau', '15:45:00'),  -- Lượt về
--- -- Tuyến 3: Driver 4, Bus 3
--- (5, 4, 3, CURDATE(), 'chuabatdau', '05:45:00'),  -- Lượt đi
--- (6, 4, 3, CURDATE(), 'chuabatdau', '15:30:00'),  -- Lượt về
--- -- Tuyến 4: Driver 5, Bus 4
--- (7, 5, 4, CURDATE(), 'chuabatdau', '06:00:00'),  -- Lượt đi
--- (8, 5, 4, CURDATE(), 'chuabatdau', '15:30:00'),  -- Lượt về
--- -- Tuyến 5: Driver 6, Bus 5 (Nếu không có user ID 6, để NULL driver)
--- (9, NULL, 5, CURDATE(), 'chuabatdau', '06:00:00'),  -- Lượt đi
--- (10, NULL, 5, CURDATE(), 'chuabatdau', '15:40:00'); -- Lượt về
+-- Tuyến 2: Driver 3, Bus 2
+(3, 3, 2, CURDATE(), 'chuabatdau', '06:15:00'),  -- Lượt đi
+(4, 3, 2, CURDATE(), 'chuabatdau', '15:45:00'),  -- Lượt về
+-- Tuyến 3: Driver 4, Bus 3
+(5, 4, 3, CURDATE(), 'chuabatdau', '05:45:00'),  -- Lượt đi
+(6, 4, 3, CURDATE(), 'chuabatdau', '15:30:00'),  -- Lượt về
+-- Tuyến 4: Driver 5, Bus 4
+(7, 5, 4, CURDATE(), 'chuabatdau', '06:00:00'),  -- Lượt đi
+(8, 5, 4, CURDATE(), 'chuabatdau', '15:30:00'),  -- Lượt về
+-- Tuyến 5: Driver 6, Bus 5 (Nếu không có user ID 6, để NULL driver)
+(9, NULL, 5, CURDATE(), 'chuabatdau', '06:00:00'),  -- Lượt đi
+(10, NULL, 5, CURDATE(), 'chuabatdau', '15:40:00'); -- Lượt về
 
 -- 8. PHÂN CÔNG HỌC SINH VÀO LỊCH TRÌNH (ScheduleStudents)
 -- Mỗi học sinh xuất hiện CÙNG LÚC trên 2 schedules (lượt đi + lượt về)

@@ -170,6 +170,58 @@ const scheduleController = {
       res.status(500).json({ success: false, message: error.message });
     }
   },
+
+  // Lấy danh sách học sinh theo trạm của 1 chuyến đi
+  // GET /api/schedules/:scheduleId/students-by-stop
+  getStudentsByStop: async (req, res) => {
+    try {
+      const { scheduleId } = req.params;
+      const students = await scheduleService.getStudentsByStop(scheduleId);
+      res.status(200).json({
+        success: true,
+        data: students,
+      });
+    } catch (error) {
+      console.error("Error getting students by stop:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  },
+
+  // Tính khoảng cách giữa vị trí tài xế và các trạm
+  // POST /api/schedules/:scheduleId/calculate-stop-distances
+  calculateStopDistances: async (req, res) => {
+    try {
+      const { scheduleId } = req.params;
+      const { driverLat, driverLng } = req.body;
+
+      if (!driverLat || !driverLng) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing driver location (driverLat, driverLng)",
+        });
+      }
+
+      const distances = await scheduleService.calculateStopDistances(
+        scheduleId,
+        driverLat,
+        driverLng
+      );
+
+      res.status(200).json({
+        success: true,
+        data: distances,
+      });
+    } catch (error) {
+      console.error("Error calculating stop distances:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  },
 };
 
 module.exports = scheduleController;

@@ -17,11 +17,13 @@ import Sidebar from "../../components/common/Sidebar/Sidebar";
 import Assignments from "./Assignments";
 import Students from "./Students";
 import Notifications from "./Notifications";
+import StudentStopModal from "./StudentStopModal";
 import "./Dashboard.css";
 import drivers from "../../data/drivers";
 import ScheduleService from "../../services/schedule.service";
 import TrackingService from "../../services/tracking.service";
 import StudentService from "../../services/student.service";
+import StopService from "../../services/stop.service";
 import useDriverScheduleSocket from "../../hooks/useDriverScheduleSocket";
 import NotificationService from "../../services/notification.service";
 import RouteService from "../../services/route.service";
@@ -166,6 +168,14 @@ function Home() {
   });
   const [routePath, setRoutePath] = useState([]); // 🚌 Lưu đường đi thực tế
   const [busPos, setBusPos] = useState(null); // 🚌 Vị trí hiện tại của xe
+  const [showStudentModal, setShowStudentModal] = useState(false); // Modal học sinh
+  const [stopsData, setStopsData] = useState([]); // Dữ liệu trạm + học sinh
+  const [loadingStops, setLoadingStops] = useState(false);
+  const [currentNearbyStop, setCurrentNearbyStop] = useState(null); // Trạm hiện tại gần nhất
+  const [hasShownModalForStop, setHasShownModalForStop] = useState(null); // Track đã hiện modal cho trạm nào
+  const [isModalOpen, setIsModalOpen] = useState(false); // ⏸️ Track trạng thái modal (tạm dừng xe khi open)
+  const [studentStatusResetTrigger, setStudentStatusResetTrigger] = useState(0); // ✅ Trigger reset trạng thái học sinh
+  const animationIndexRef = useRef(0); // 🔧 Lưu index animation để không reset khi modal mở/đóng
 
   const driver = {
     fullname: user.ho_ten || user.ten_tai_xe || user.name || "Tài xế",
@@ -556,6 +566,23 @@ function Home() {
 
   const handleStartTrip = async (route) => {
     try {
+      // Reset animation index for new trip
+      animationIndexRef.current = 0;
+
+      // ✅ Reset tất cả trạng thái học sinh về 'choxacnhan' (UI + Database)
+      setStudentStatusResetTrigger((prev) => prev + 1);
+
+      // 🔗 Gọi API backend để reset tất cả học sinh trong database
+      try {
+        await TrackingService.resetScheduleStudentStatuses(route.id);
+        console.log(
+          `✅ Reset all students for schedule ${route.id} in database`
+        );
+      } catch (error) {
+        console.warn("Warning: Could not reset students in database:", error);
+        // Continue anyway - UI reset already done
+      }
+
       // Call tracking API to start trip and simulator
       await TrackingService.startTrip(route.id);
 
@@ -619,12 +646,198 @@ function Home() {
     }
   };
 
+  // Fetch danh sách học sinh theo trạm + tính khoảng cách
+  const fetchStopsWithStudents = async (scheduleId) => {
+    try {
+      setLoadingStops(true);
+
+      // Check if user is authenticated
+      const token = sessionStorage.getItem("token");
+      if (!token) {
+        console.error("❌ Not authenticated! No token found in sessionStorage");
+        console.log("🔐 Please login first before starting a trip");
+        alert("Vui lòng đăng nhập trước khi bắt đầu chuyến đi");
+        setTripStarted(false);
+        return [];
+      }
+
+      // Nếu chưa có vị trí bus, dùng vị trí đầu tiên của route
+      let lat = busPos ? busPos[0] : routePath[0]?.[0] || 10.7769;
+      let lng = busPos ? busPos[1] : routePath[0]?.[1] || 106.6869;
+
+      console.log("📍 Fetching stops with students for schedule:", scheduleId);
+      console.log("📍 Driver location:", { lat, lng });
+
+      const stops = await StopService.getStopsWithStudents(
+        scheduleId,
+        lat,
+        lng
+      );
+
+      setStopsData(stops);
+      console.log("✅ Stops with students fetched:", stops);
+
+      return stops;
+    } catch (error) {
+      console.error("Error fetching stops with students:", error);
+
+      // Check if error is authentication related
+      if (error.message && error.message.includes("401")) {
+        alert("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+        setTripStarted(false);
+        return [];
+      }
+
+      alert("Lỗi tải danh sách học sinh: " + error.message);
+      return [];
+    } finally {
+      setLoadingStops(false);
+    }
+  };
+
+  // Cập nhật trạng thái học sinh
+  const handleUpdateStudentStatus = async (scheduleStudentId, newStatus) => {
+    try {
+      console.log(
+        `📝 Updating student ${scheduleStudentId} to status: ${newStatus}`
+      );
+
+      // 🔗 Gọi API để cập nhật trạng thái học sinh
+      const response = await TrackingService.updateScheduleStudentStatus(
+        scheduleStudentId,
+        newStatus
+      );
+
+      console.log(
+        `✅ Student ${scheduleStudentId} status updated to ${newStatus}:`,
+        response
+      );
+
+      // ✅ UI đã cập nhật ngay tại StudentStopModal thông qua setStudentStatuses
+      // Không cần gọi fetchStopsWithStudents vì component đã xử lý state update
+      console.log("✅ Status updated - UI đã thay đổi ngay tại Modal");
+    } catch (error) {
+      console.error("Error updating student status:", error);
+      alert("Lỗi cập nhật trạng thái học sinh");
+    }
+  };
+
+  // 🎯 Haversine: Tính khoảng cách giữa 2 điểm (lat, lng)
+  const calculateDistance = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000; // Earth radius in meters
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Trả về khoảng cách (mét)
+  };
+
+  // 🔍 Phát hiện trạm gần nhất từ vị trí xe hiện tại
+  const detectNearbyStop = async () => {
+    if (!activeTrip || !busPos) return;
+
+    const busLat = busPos[0];
+    const busLng = busPos[1];
+
+    // Tính khoảng cách tới tất cả trạm
+    const stopsWithDistance = activeTrip.stations.map((station, index) => {
+      const coord = activeTrip.coordinates[index];
+      const distance = calculateDistance(busLat, busLng, coord[0], coord[1]);
+      return {
+        index,
+        station,
+        distance,
+        isNearby: distance < 100, // Gần = < 100m
+      };
+    });
+
+    // Tìm trạm gần nhất
+    const nearestStop = stopsWithDistance.reduce((prev, curr) =>
+      curr.distance < prev.distance ? curr : prev
+    );
+
+    console.log("🎯 Trạm gần nhất:", {
+      name: nearestStop.station.name,
+      distance: nearestStop.distance.toFixed(2) + "m",
+      isNearby: nearestStop.isNearby,
+    });
+
+    setCurrentNearbyStop(nearestStop);
+
+    // 🚨 Nếu xe gần trạm (< 100m) VÀ chưa hiện modal cho trạm này
+    // → Tự động mở modal
+    if (nearestStop.isNearby && hasShownModalForStop !== nearestStop.index) {
+      console.log(
+        "⚠️ Xe đã tới trạm:",
+        nearestStop.station.name,
+        "- Mở modal tự động (⏸️ Tạm dừng xe)"
+      );
+
+      // ⏸️ Tạm dừng xe di chuyển
+      setIsModalOpen(true);
+
+      // Fetch dữ liệu học sinh cho trạm này
+      const stops = await fetchStopsWithStudents(activeTrip.id);
+      setStopsData(stops);
+
+      // Mở modal
+      setShowStudentModal(true);
+      setSelectedStation(nearestStop.index);
+
+      // Lưu lại: đã hiện modal cho trạm này rồi
+      setHasShownModalForStop(nearestStop.index);
+    }
+  };
+
+  // 📍 Effect: Phát hiện trạm mỗi khi xe di chuyển
+  useEffect(() => {
+    if (tripStarted && busPos) {
+      detectNearbyStop();
+
+      // 🔄 Nếu xe rời khỏi trạm trước đó (> 200m) → Reset flag để có thể hiện modal lại nếu quay lại
+      if (
+        hasShownModalForStop !== null &&
+        currentNearbyStop &&
+        currentNearbyStop.distance > 200
+      ) {
+        console.log("✅ Xe rời khỏi trạm - Reset flag");
+        setHasShownModalForStop(null);
+      }
+    }
+  }, [busPos, tripStarted, activeTrip]);
+
+  // Mở modal khi tài xế đến trạm (hoặc bấn nút thủ công)
+  const openStudentModal = async () => {
+    if (!activeTrip) return;
+
+    console.log("⏸️ Modal mở - Tạm dừng xe di chuyển");
+    setIsModalOpen(true);
+
+    const stops = await fetchStopsWithStudents(activeTrip.id);
+    setShowStudentModal(true);
+  };
+
+  // Đóng modal - tiếp tục di chuyển
+  const handleCloseStudentModal = () => {
+    console.log("▶️ Modal đóng - Xe tiếp tục di chuyển");
+    setShowStudentModal(false);
+    setIsModalOpen(false);
+  };
+
   const handleEndTrip = async () => {
     try {
       // Call tracking API to end trip
       if (activeTrip) {
         await TrackingService.endTrip(activeTrip.id);
       }
+
+      // Reset animation index
+      animationIndexRef.current = 0;
 
       // Update local state
       setTripStarted(false);
@@ -644,9 +857,10 @@ function Home() {
    * ⚡ Gửi vị trí xe bus từ dashboard tài xế tới backend
    * - Gửi qua WebSocket (real-time cho phụ huynh)
    * - Lưu vào Backend API (lưu vào database)
+   * - ⏸️ TẠM DỪNG khi modal học sinh hiện lên
    */
   useEffect(() => {
-    if (!tripStarted || !busLocation || !activeTrip) return;
+    if (!tripStarted || !busLocation || !activeTrip || isModalOpen) return;
 
     // Tính tiến độ dựa trên vị trí hiện tại
     let progressPercentage = tripProgress.percentage;
@@ -689,21 +903,23 @@ function Home() {
     tripProgress,
     user.id,
     user.driver_code,
+    isModalOpen,
   ]);
 
   /**
    * 🚌 Animation: Xe bus chạy dọc theo route (giống admin dashboard)
+   * ⏸️ TẠM DỪNG khi modal học sinh hiện lên
+   * 🔧 Sử dụng useRef để lưu index, tránh reset khi modal mở/đóng
    */
   useEffect(() => {
-    if (!tripStarted || routePath.length === 0) return;
-
-    let index = 0;
+    if (!tripStarted || routePath.length === 0 || isModalOpen) return;
 
     const interval = setInterval(() => {
-      index++;
-      if (index >= routePath.length) index = 0;
+      animationIndexRef.current++;
+      if (animationIndexRef.current >= routePath.length)
+        animationIndexRef.current = 0;
 
-      const currentPos = routePath[index];
+      const currentPos = routePath[animationIndexRef.current];
       setBusPos(currentPos);
 
       // Cập nhật busLocation để gửi tới backend
@@ -713,8 +929,9 @@ function Home() {
       });
 
       // Tính tiến độ dựa trên index
-      const percentage = (index / Math.max(routePath.length - 1, 1)) * 100;
-      const distance = index * 0.1; // Ước tính khoảng cách
+      const percentage =
+        (animationIndexRef.current / Math.max(routePath.length - 1, 1)) * 100;
+      const distance = animationIndexRef.current * 0.1; // Ước tính khoảng cách
 
       setTripProgress({
         percentage,
@@ -725,12 +942,12 @@ function Home() {
       console.log("🚌 Bus moving:", {
         position: currentPos,
         progress: percentage.toFixed(1) + "%",
-        index,
+        index: animationIndexRef.current,
       });
     }, 200); // Mỗi 200ms - tốc độ animation
 
     return () => clearInterval(interval);
-  }, [tripStarted, routePath]);
+  }, [tripStarted, routePath, isModalOpen]);
 
   // If trip is started, show active trip view
   if (tripStarted && activeTrip) {
@@ -901,6 +1118,28 @@ function Home() {
                   <br />
                   {activeTrip.stations[selectedStation]?.name || "..."}
                 </span>
+
+                {/* Trạm gần nhất */}
+                {currentNearbyStop && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      padding: "8px 12px",
+                      backgroundColor: currentNearbyStop.isNearby
+                        ? "#dbeafe"
+                        : "#f3f4f6",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      color: currentNearbyStop.isNearby ? "#0284c7" : "#666",
+                    }}
+                  >
+                    {currentNearbyStop.isNearby ? "🚨" : "📍"} Gần nhất:{" "}
+                    {currentNearbyStop.station.name} (
+                    {currentNearbyStop.distance.toFixed(0)}m)
+                  </div>
+                )}
+
                 {busLocation && (
                   <div
                     style={{
@@ -959,8 +1198,28 @@ function Home() {
             <button className="btn-end-trip" onClick={handleEndTrip}>
               Kết thúc chuyến đi
             </button>
+
+            <button
+              className="btn-student-modal"
+              onClick={openStudentModal}
+              style={{ marginTop: "12px" }}
+            >
+              📋 Quản lý học sinh tại trạm
+            </button>
           </div>
         </div>
+
+        {/* Student Stop Modal */}
+        <StudentStopModal
+          isOpen={showStudentModal}
+          stops={stopsData}
+          currentStopIndex={selectedStation}
+          onClose={handleCloseStudentModal}
+          onUpdateStudentStatus={handleUpdateStudentStatus}
+          loading={loadingStops}
+          scheduleType={activeTrip?.type}
+          resetTrigger={studentStatusResetTrigger}
+        />
       </div>
     );
   }

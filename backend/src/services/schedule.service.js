@@ -1084,4 +1084,141 @@ module.exports = {
   getStudentsForDriverCurrentTrip,
   getParentDashboardInfo,
   updateStudentStatus,
+  getStudentsByStop,
+  calculateStopDistances,
 };
+
+// Haversine formula để tính khoảng cách giữa 2 điểm (meter)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Bán kính Trái Đất (meter)
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // distance in meters
+}
+
+// Lấy danh sách học sinh theo trạm của 1 chuyến đi
+async function getStudentsByStop(scheduleId) {
+  try {
+    // 1. Lấy thông tin schedule + route + stops
+    const schedule = await Schedule.findOne({
+      where: { id: scheduleId },
+      include: [{ model: Route }],
+    });
+
+    if (!schedule) throw new Error("Schedule not found");
+
+    // 2. Lấy tất cả stops của route này
+    const routeStops = await RouteStop.findAll({
+      where: { route_id: schedule.route_id },
+      include: [{ model: Stop }],
+      order: [["thu_tu", "ASC"]],
+    });
+
+    if (!routeStops || routeStops.length === 0) {
+      return [];
+    }
+
+    // 3. Lấy tất cả schedule_students của schedule này
+    const scheduleStudents = await ScheduleStudent.findAll({
+      where: { schedule_id: scheduleId },
+      include: [{ model: Student }, { model: Schedule }],
+    });
+
+    // 4. Map: Mỗi stop có danh sách học sinh
+    const studentsByStop = routeStops.map((routeStop, index) => {
+      // Tìm các học sinh có điểm dừng này
+      const studentsAtThisStop = scheduleStudents.filter(
+        (ss) => ss.stop_id === routeStop.stop_id
+      );
+
+      return {
+        stopId: routeStop.stop_id,
+        stopName: routeStop.Stop.ten_diem,
+        stopAddress: routeStop.Stop.dia_chi,
+        latitude: parseFloat(routeStop.Stop.latitude),
+        longitude: parseFloat(routeStop.Stop.longitude),
+        stopOrder: index + 1,
+        students: studentsAtThisStop.map((ss) => ({
+          scheduleStudentId: ss.id,
+          studentId: ss.student_id,
+          studentName: ss.Student ? ss.Student.ho_ten : "Unknown",
+          studentClass: ss.Student ? ss.Student.lop : "",
+          status: ss.trang_thai_don, // 'choxacnhan', 'dihoc', 'vangmat', 'daxuong'
+          checkInTime: ss.thoi_gian_don_thuc_te,
+        })),
+      };
+    });
+
+    return studentsByStop;
+  } catch (error) {
+    console.error("Error in getStudentsByStop:", error);
+    throw error;
+  }
+}
+
+// Tính khoảng cách từ vị trí tài xế đến các trạm
+async function calculateStopDistances(scheduleId, driverLat, driverLng) {
+  try {
+    // 1. Lấy schedule + route
+    const schedule = await Schedule.findOne({
+      where: { id: scheduleId },
+      include: [{ model: Route }],
+    });
+
+    if (!schedule) throw new Error("Schedule not found");
+
+    // 2. Lấy tất cả stops
+    const routeStops = await RouteStop.findAll({
+      where: { route_id: schedule.route_id },
+      include: [{ model: Stop }],
+      order: [["thu_tu", "ASC"]],
+    });
+
+    if (!routeStops || routeStops.length === 0) {
+      return [];
+    }
+
+    // 3. Tính khoảng cách từ driver đến mỗi stop
+    const stopDistances = routeStops.map((routeStop, index) => {
+      const stopLat = parseFloat(routeStop.Stop.latitude);
+      const stopLng = parseFloat(routeStop.Stop.longitude);
+
+      const distance = calculateDistance(
+        driverLat,
+        driverLng,
+        stopLat,
+        stopLng
+      );
+
+      // Xác định nếu tài xế đã "tới" trạm (< 100m)
+      const isNearby = distance < 100;
+
+      return {
+        stopId: routeStop.stop_id,
+        stopName: routeStop.Stop.ten_diem,
+        stopAddress: routeStop.Stop.dia_chi,
+        latitude: stopLat,
+        longitude: stopLng,
+        stopOrder: index + 1,
+        distance: Math.round(distance), // meter
+        isNearby: isNearby,
+        distanceText:
+          distance < 1000
+            ? `${Math.round(distance)}m`
+            : `${(distance / 1000).toFixed(1)}km`,
+      };
+    });
+
+    return stopDistances;
+  } catch (error) {
+    console.error("Error in calculateStopDistances:", error);
+    throw error;
+  }
+}

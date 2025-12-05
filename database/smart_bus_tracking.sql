@@ -112,7 +112,7 @@ CREATE TABLE `RouteStops` (
 -- *** CẬP NHẬT: Thêm 2 cột cho lượt đi và lượt về ***
 --
 CREATE TABLE `Students` (
-<<<<<<< Updated upstream
+
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `ho_ten` VARCHAR(150) NOT NULL,
   `lop` VARCHAR(50) DEFAULT NULL,
@@ -127,19 +127,7 @@ CREATE TABLE `Students` (
   FOREIGN KEY (`default_route_stop_id_di`) REFERENCES `RouteStops`(`id`) ON DELETE SET NULL,
   FOREIGN KEY (`default_route_stop_id_ve`) REFERENCES `RouteStops`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-=======
-    `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `ho_ten` VARCHAR(150) NOT NULL,
-    `lop` VARCHAR(50) DEFAULT NULL,
-    `ngay_sinh` DATE DEFAULT NULL,
-    `gioi_tinh` ENUM('Nam', 'Nữ') DEFAULT 'Nam',
-    `gvcn` VARCHAR(150) DEFAULT NULL,
-    `parent_id` INT NOT NULL,
-    `default_route_stop_id` INT DEFAULT NULL,
-    FOREIGN KEY (`parent_id`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`default_route_stop_id`) REFERENCES `RouteStops` (`id`) ON DELETE SET NULL
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
->>>>>>> Stashed changes
+
 
 -- --------------------------------------------------------
 
