@@ -15,6 +15,7 @@ const getAllDrivers = async () => {
       "email",
       "bang_lai",
       "username",
+      "password_hash",
       "trang_thai_taixe",
     ],
   });

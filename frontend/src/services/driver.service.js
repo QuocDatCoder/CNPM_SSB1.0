@@ -31,6 +31,7 @@ const DriverService = {
         vehiclePlate: driver.bien_so_xe || "Chưa phân xe", // Cần join với Schedules/Buses
         monthlyTrips: driver.so_chuyen || 0, // Cần tính từ Schedules
         username: driver.username,
+        password: driver.password_hash,
         status: driver.trang_thai_taixe,
         id: driver.id, // User.id from database (for backend API calls)
         driver_code: driver.driver_code, // Keep driver_code for reference

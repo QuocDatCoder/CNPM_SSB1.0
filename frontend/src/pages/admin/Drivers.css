@@ -376,6 +376,7 @@
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.3s;
+  height: 24px;
 }
 
 .driver-form-row input:focus {
@@ -527,6 +528,7 @@
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.3s;
+  height: 24px;
 }
 
 .driver-info-field input:focus {

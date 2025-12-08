@@ -495,9 +495,7 @@ export default function Drivers() {
                         />
                       ) : (
                         <span style={{ flex: 1 }}>
-                          {showPassword
-                            ? selectedDriver.password || "123456"
-                            : "••••••••"}
+                          {showPassword ? selectedDriver.password : "••••••••"}
                         </span>
                       )}
                       <button
