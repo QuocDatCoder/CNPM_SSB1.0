@@ -230,9 +230,27 @@ const createStudentWithParent = async (data) => {
       if (routeStop) routeStopIdVe = routeStop.id;
     }
 
-    // --- BƯỚC 3: TẠO HỌC SINH ---
+    // --- BƯỚC 3: TẠO HỌC SINH (với ID tìm trống nhỏ nhất) ---
+    // Tìm ID trống nhỏ nhất để dùng lại (nếu học sinh bị xóa)
+    let newStudentId = 1;
+    const allStudents = await Student.findAll({
+      attributes: ["id"],
+      raw: true,
+      transaction,
+    });
+    const existingIds = allStudents.map((s) => s.id).sort((a, b) => a - b);
+
+    // Tìm ID trống đầu tiên
+    for (let i = 1; i <= Math.max(...existingIds, 0) + 1; i++) {
+      if (!existingIds.includes(i)) {
+        newStudentId = i;
+        break;
+      }
+    }
+
     const student = await Student.create(
       {
+        id: newStudentId,
         ho_ten: data.ho_ten_hs,
         lop: data.lop,
         ngay_sinh: data.ngay_sinh,

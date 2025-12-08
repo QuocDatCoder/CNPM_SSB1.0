@@ -26,8 +26,14 @@ export default function Student() {
     gender: "Nam",
     class: "",
     teacher: "",
-    route_id: "",
-    stop_id: "",
+    // Lượt Đi (Sáng)
+    route_id_di: "",
+    stop_id_di: "",
+    station_address_di: "",
+    // Lượt Về (Chiều)
+    route_id_ve: "",
+    stop_id_ve: "",
+    station_address_ve: "",
     parentName: "",
     contact: "",
     parentEmail: "",
@@ -50,26 +56,81 @@ export default function Student() {
     try {
       setLoading(true);
       const data = await StudentService.getAllStudents();
-      // Map dữ liệu từ backend sang format giao diện
-      const mappedStudents = data.map((student) => ({
-        id: student.id,
-        code: String(student.id).padStart(4, "0"),
-        fullname: student.ho_ten,
-        dob: student.ngay_sinh,
-        gender: student.gioi_tinh,
-        class: student.lop,
-        teacher: student.gvcn,
-        route: student.tuyen_duong || "Chưa phân tuyến",
-        route_id: student.current_route_id,
-        station: student.tram_don || "Chưa chọn trạm",
-        stop_id: student.current_stop_id,
-        parentName: student.ten_phu_huynh,
-        contact: student.sdt_phu_huynh,
-        parentEmail: student.email_phu_huynh,
-        address: student.dia_chi,
-        username_phu_huynh: student.username_phu_huynh,
-        password_phu_huynh: student.password_phu_huynh,
-      }));
+      console.log("📚 Raw students data from API:", data[0]); // Log first student
+      console.log("🔍 First student ten_phu_huynh:", data[0]?.ten_phu_huynh); // Check parent name
+      console.log("🔍 First student parent_id:", data[0]?.parent_id); // Check parent ID
+
+      // Map dữ liệu từ backend sang format giao diện (khớp với cấu trúc mới)
+      const mappedStudents = data.map((student) => {
+        // Tìm tên tuyến và tên trạm từ routes/stops
+        const routeDiObj = routes.find((r) => r.id == student.tuyen_id_di);
+        const routeVeObj = routes.find((r) => r.id == student.tuyen_id_ve);
+        const stopDiObj = stops.find((s) => s.id == student.tram_id_di);
+        const stopVeObj = stops.find((s) => s.id == student.tram_id_ve);
+
+        return {
+          id: student.id,
+          code: String(student.id).padStart(4, "0"),
+          fullname: student.ho_ten,
+          dob: student.ngay_sinh,
+          gender: student.gioi_tinh,
+          class: student.lop,
+          teacher: student.gvcn,
+
+          // Lượt đi (Sáng)
+          route_di:
+            routeDiObj?.routeName ||
+            routeDiObj?.ten_tuyen ||
+            student.tuyen_duong_di ||
+            "Chưa phân tuyến",
+          route_id_di: student.tuyen_id_di || "",
+          station_di:
+            stopDiObj?.stopName || student.tram_don_di || "Chưa chọn trạm",
+          station_address_di: student.dia_chi_tram_di || "",
+          stop_id_di: student.tram_id_di || "",
+
+          // Lượt về (Chiều)
+          route_ve:
+            routeVeObj?.routeName ||
+            routeVeObj?.ten_tuyen ||
+            student.tuyen_duong_ve ||
+            "Chưa phân tuyến",
+          route_id_ve: student.tuyen_id_ve || "",
+          station_ve:
+            stopVeObj?.stopName || student.tram_don_ve || "Chưa chọn trạm",
+          station_address_ve: student.dia_chi_tram_ve || "",
+          stop_id_ve: student.tram_id_ve || "",
+
+          // Display fields for table (show morning route)
+          route: `${
+            routeDiObj?.routeName ||
+            routeDiObj?.ten_tuyen ||
+            student.tuyen_duong_di ||
+            "Chưa phân tuyến"
+          } (Sáng) / ${
+            routeVeObj?.routeName ||
+            routeVeObj?.ten_tuyen ||
+            student.tuyen_duong_ve ||
+            "Chưa phân tuyến"
+          } (Chiều)`,
+          station: `${
+            stopDiObj?.stopName || student.tram_don_di || "-"
+          } (Sáng) / ${
+            stopVeObj?.stopName || student.tram_don_ve || "-"
+          } (Chiều)`,
+
+          // Thông tin phụ huynh
+          parent_id: student.parent_id,
+          parentName: student.ten_phu_huynh,
+          contact: student.sdt_phu_huynh,
+          parentEmail: student.email_phu_huynh,
+          address: student.dia_chi,
+          username_phu_huynh: student.username_phu_huynh,
+          password_phu_huynh: student.password_phu_huynh,
+        };
+      });
+      console.log("📚 Mapped students:", mappedStudents[0]); // Log first mapped student
+      console.log("🔍 First mapped parentName:", mappedStudents[0]?.parentName); // Check mapped parent name
       setStudents(mappedStudents);
     } catch (error) {
       console.error("Error loading students:", error);
@@ -90,6 +151,10 @@ export default function Student() {
       console.error("Error loading routes:", error);
     }
   };
+
+  // Lọc routes theo hướng (lượt đi/về)
+  const routesDi = routes.filter((r) => r.loai_tuyen === "luot_di");
+  const routesVe = routes.filter((r) => r.loai_tuyen === "luot_ve");
 
   const loadStops = async () => {
     try {
@@ -148,14 +213,17 @@ export default function Student() {
 
   const handleInfo = (id) => {
     const student = students.find((s) => s.id === id);
+    console.log("🔍 handleInfo - Found student:", student); // Debug log
+    console.log("🔍 handleInfo - route_id_di:", student?.route_id_di); // Check route_id_di
+    console.log("🔍 handleInfo - stop_id_di:", student?.stop_id_di); // Check stop_id_di
     if (student) {
       setSelectedStudent(student);
       setEditedStudent({ ...student });
       setIsEditMode(false);
       setShowInfoModal(true);
-      // Load stops cho route hiện tại
-      if (student.route_id) {
-        loadStopsByRoute(student.route_id);
+      // Load stops cho route hiện tại lượt đi
+      if (student.route_id_di) {
+        loadStopsByRoute(student.route_id_di);
       }
     }
   };
@@ -172,8 +240,12 @@ export default function Student() {
         gender: editedStudent.gender,
         class: editedStudent.class,
         teacher: editedStudent.teacher,
-        route_id: editedStudent.route_id,
-        stop_id: editedStudent.stop_id,
+        // Lượt Đi (Sáng)
+        routeId_di: editedStudent.route_id_di,
+        stopId_di: editedStudent.stop_id_di,
+        // Lượt Về (Chiều)
+        routeId_ve: editedStudent.route_id_ve,
+        stopId_ve: editedStudent.stop_id_ve,
         parentName: editedStudent.parentName,
         contact: editedStudent.contact,
         parentEmail: editedStudent.parentEmail,
@@ -202,8 +274,14 @@ export default function Student() {
       gender: "Nam",
       class: "",
       teacher: "",
-      route_id: "",
-      stop_id: "",
+      // Lượt Đi (Sáng)
+      route_id_di: "",
+      stop_id_di: "",
+      station_address_di: "",
+      // Lượt Về (Chiều)
+      route_id_ve: "",
+      stop_id_ve: "",
+      station_address_ve: "",
       parentName: "",
       contact: "",
       parentEmail: "",
@@ -220,37 +298,77 @@ export default function Student() {
       if (
         !newStudent.fullname ||
         !newStudent.parentName ||
-        !newStudent.contact
+        !newStudent.contact ||
+        !newStudent.route_id_di ||
+        !newStudent.stop_id_di ||
+        !newStudent.station_address_di ||
+        !newStudent.route_id_ve ||
+        !newStudent.stop_id_ve ||
+        !newStudent.station_address_ve
       ) {
-        alert("Vui lòng điền đầy đủ thông tin bắt buộc!");
+        alert(
+          "Vui lòng điền đầy đủ thông tin lượt đi và lượt về (bao gồm địa chỉ trạm)!"
+        );
         return;
       }
+      // Tính username mặc định: ph + 2 số cuối của mã HS (ID tiếp theo)
+      const nextStudentId =
+        (students.length > 0 ? Math.max(...students.map((s) => s.id)) : 0) + 1;
+      const studentIdStr = String(nextStudentId).padStart(4, "0");
+      const lastTwoDigits = studentIdStr.slice(-2);
+      const defaultUsername = `ph${lastTwoDigits}`;
+
+      setAccountInfo({
+        username: defaultUsername,
+        password: "",
+      });
       setAddStep(2);
     }
   };
 
   const handleCreateStudent = async () => {
+    // Validation
+    if (!accountInfo.username) {
+      alert("Vui lòng điền tài khoản phụ huynh!");
+      return;
+    }
     if (!accountInfo.password) {
       alert("Vui lòng điền mật khẩu cho tài khoản phụ huynh!");
+      return;
+    }
+    if (!newStudent.contact) {
+      alert("Vui lòng điền số điện thoại phụ huynh!");
+      return;
+    }
+    if (!newStudent.parentName) {
+      alert("Vui lòng điền tên phụ huynh!");
       return;
     }
 
     try {
       const payload = {
-        parentName: newStudent.parentName,
-        parentPhone: newStudent.contact,
-        parentEmail: newStudent.parentEmail,
-        address: newStudent.address,
+        // Thông tin phụ huynh
+        ho_ten_ph: newStudent.parentName,
+        sdt_ph: newStudent.contact,
+        email_ph: newStudent.parentEmail || "",
+        dia_chi: newStudent.address || "",
+        username: accountInfo.username,
         password: accountInfo.password,
-        studentName: newStudent.fullname,
-        class: newStudent.class,
-        dob: newStudent.dob,
-        gender: newStudent.gender,
-        teacher: newStudent.teacher,
-        routeId: newStudent.route_id,
-        stopId: newStudent.stop_id,
+        // Thông tin học sinh
+        ho_ten_hs: newStudent.fullname,
+        lop: newStudent.class || "",
+        ngay_sinh: newStudent.dob || "",
+        gioi_tinh: newStudent.gender,
+        gvcn: newStudent.teacher || "",
+        // Lượt Đi (Sáng)
+        route_id_di: newStudent.route_id_di,
+        stop_id_di: newStudent.stop_id_di,
+        // Lượt Về (Chiều)
+        route_id_ve: newStudent.route_id_ve,
+        stop_id_ve: newStudent.stop_id_ve,
       };
 
+      console.log("📤 Payload gửi API:", payload);
       await StudentService.createStudent(payload);
       alert(`Đã thêm học sinh ${newStudent.fullname} thành công!`);
       setShowAddModal(false);
@@ -535,34 +653,128 @@ export default function Student() {
                       />
                     </div>
 
+                    {/* 🔷 Lượt Đi (Sáng) */}
+                    <div
+                      className="student-form-row"
+                      style={{
+                        marginTop: "15px",
+                        paddingBottom: "15px",
+                        borderBottom: "2px solid #3b82f6",
+                      }}
+                    >
+                      <h3 style={{ color: "#3b82f6", marginBottom: "10px" }}>
+                        🔷 Lượt Đi (Sáng)
+                      </h3>
+                    </div>
+
                     <div className="student-form-row">
-                      <label>Tuyến đường:</label>
+                      <label>Tuyến đường (Đi):</label>
                       <select
                         className="student-select-input"
-                        value={newStudent.route_id}
-                        onChange={(e) => handleRouteChangeInAdd(e.target.value)}
+                        value={newStudent.route_id_di}
+                        onChange={(e) => {
+                          const routeId = e.target.value;
+                          setNewStudent({
+                            ...newStudent,
+                            route_id_di: routeId,
+                            stop_id_di: "",
+                          });
+                          if (routeId) {
+                            loadStopsByRoute(routeId);
+                          }
+                        }}
                       >
                         <option value="">-- Chọn tuyến --</option>
-                        {routes.map((route) => (
+                        {routesDi.map((route) => (
                           <option key={route.id} value={route.id}>
-                            {route.routeName}
+                            {route.routeName || route.ten_tuyen}
                           </option>
                         ))}
                       </select>
                     </div>
 
                     <div className="student-form-row">
-                      <label>Trạm lên/xuống:</label>
+                      <label>Trạm lên (Đi):</label>
                       <select
                         className="student-select-input"
-                        value={newStudent.stop_id}
-                        onChange={(e) =>
+                        value={newStudent.stop_id_di}
+                        onChange={(e) => {
+                          const selectedStop = filteredStops.find(
+                            (s) => s.id === parseInt(e.target.value)
+                          );
                           setNewStudent({
                             ...newStudent,
-                            stop_id: e.target.value,
-                          })
-                        }
-                        disabled={!newStudent.route_id}
+                            stop_id_di: e.target.value,
+                            station_address_di: selectedStop?.address || "",
+                          });
+                        }}
+                        disabled={!newStudent.route_id_di}
+                      >
+                        <option value="">-- Chọn trạm --</option>
+                        {filteredStops.map((stop) => (
+                          <option key={stop.id} value={stop.id}>
+                            {stop.stopName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 🔶 Lượt Về (Chiều) */}
+                    <div
+                      className="student-form-row"
+                      style={{
+                        marginTop: "15px",
+                        paddingBottom: "15px",
+                        borderBottom: "2px solid #f59e0b",
+                      }}
+                    >
+                      <h3 style={{ color: "#f59e0b", marginBottom: "10px" }}>
+                        🔶 Lượt Về (Chiều)
+                      </h3>
+                    </div>
+
+                    <div className="student-form-row">
+                      <label>Tuyến đường (Về):</label>
+                      <select
+                        className="student-select-input"
+                        value={newStudent.route_id_ve}
+                        onChange={(e) => {
+                          const routeId = e.target.value;
+                          setNewStudent({
+                            ...newStudent,
+                            route_id_ve: routeId,
+                            stop_id_ve: "",
+                          });
+                          if (routeId) {
+                            loadStopsByRoute(routeId);
+                          }
+                        }}
+                      >
+                        <option value="">-- Chọn tuyến --</option>
+                        {routesVe.map((route) => (
+                          <option key={route.id} value={route.id}>
+                            {route.routeName || route.ten_tuyen}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="student-form-row">
+                      <label>Trạm xuống (Về):</label>
+                      <select
+                        className="student-select-input"
+                        value={newStudent.stop_id_ve}
+                        onChange={(e) => {
+                          const selectedStop = filteredStops.find(
+                            (s) => s.id === parseInt(e.target.value)
+                          );
+                          setNewStudent({
+                            ...newStudent,
+                            stop_id_ve: e.target.value,
+                            station_address_ve: selectedStop?.address || "",
+                          });
+                        }}
+                        disabled={!newStudent.route_id_ve}
                       >
                         <option value="">-- Chọn trạm --</option>
                         {filteredStops.map((stop) => (
@@ -680,13 +892,12 @@ export default function Student() {
                     <input
                       type="text"
                       value={accountInfo.username}
-                      onChange={(e) =>
-                        setAccountInfo({
-                          ...accountInfo,
-                          username: e.target.value,
-                        })
-                      }
-                      placeholder="Tên đăng nhập"
+                      readOnly
+                      title="Tên tài khoản được tạo tự động (ph + 2 số cuối của mã học sinh)"
+                      style={{
+                        backgroundColor: "#f3f4f6",
+                        cursor: "not-allowed",
+                      }}
                     />
                   </div>
 
@@ -860,49 +1071,199 @@ export default function Student() {
                 </div>
 
                 <div className="student-info-field">
-                  <label>Tuyến đường:</label>
-                  {isEditMode ? (
-                    <select
-                      className="student-select-input"
-                      value={editedStudent.route_id}
-                      onChange={(e) => handleRouteChangeInEdit(e.target.value)}
-                    >
-                      <option value="">-- Chọn tuyến --</option>
-                      {routes.map((route) => (
-                        <option key={route.id} value={route.id}>
-                          {route.routeName}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span>{selectedStudent.route}</span>
-                  )}
+                  <label>🔷 Lượt Đi (Sáng):</label>
+                  <div
+                    style={{
+                      marginLeft: "15px",
+                      borderLeft: "2px solid #3b82f6",
+                      paddingLeft: "10px",
+                    }}
+                  >
+                    <div className="student-info-field">
+                      <label>Tuyến đường:</label>
+                      {isEditMode ? (
+                        <select
+                          value={editedStudent.route_id_di || ""}
+                          onChange={(e) => {
+                            const routeId = e.target.value;
+                            setEditedStudent({
+                              ...editedStudent,
+                              route_id_di: routeId,
+                              stop_id_di: "",
+                            });
+                            if (routeId) {
+                              loadStopsByRoute(routeId);
+                            }
+                          }}
+                        >
+                          {editedStudent.route_id_di ? (
+                            <option value={editedStudent.route_id_di}>
+                              {routesDi.find(
+                                (r) => r.id == editedStudent.route_id_di
+                              )?.routeName ||
+                                routesDi.find(
+                                  (r) => r.id == editedStudent.route_id_di
+                                )?.ten_tuyen ||
+                                "Tuyến hiện tại"}
+                            </option>
+                          ) : (
+                            <option value="">-- Chọn tuyến --</option>
+                          )}
+                          {routesDi.map((route) => (
+                            <option key={route.id} value={route.id}>
+                              {route.routeName || route.ten_tuyen}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>
+                          {selectedStudent.route_di || "Chưa phân tuyến"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="student-info-field">
+                      <label>Trạm:</label>
+                      {isEditMode ? (
+                        <select
+                          value={editedStudent.stop_id_di || ""}
+                          onChange={(e) => {
+                            const selectedStop = filteredStops.find(
+                              (s) => s.id === parseInt(e.target.value)
+                            );
+                            setEditedStudent({
+                              ...editedStudent,
+                              stop_id_di: e.target.value,
+                              station_address_di: selectedStop?.address || "",
+                            });
+                          }}
+                          disabled={!editedStudent.route_id_di}
+                        >
+                          {editedStudent.stop_id_di ? (
+                            <option value={editedStudent.stop_id_di}>
+                              {filteredStops.find(
+                                (s) => s.id == editedStudent.stop_id_di
+                              )?.stopName || "Trạm hiện tại"}
+                            </option>
+                          ) : (
+                            <option value="">-- Chọn trạm --</option>
+                          )}
+                          {filteredStops.map((stop) => (
+                            <option key={stop.id} value={stop.id}>
+                              {stop.stopName}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{selectedStudent.station_di || "Chưa chọn"}</span>
+                      )}
+                    </div>
+                    <div className="student-info-field">
+                      <label>Địa chỉ trạm:</label>
+                      <span>
+                        {editedStudent.station_address_di ||
+                          selectedStudent.station_address_di ||
+                          "-"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="student-info-field">
-                  <label>Trạm lên/xuống:</label>
-                  {isEditMode ? (
-                    <select
-                      className="student-select-input"
-                      value={editedStudent.stop_id}
-                      onChange={(e) =>
-                        setEditedStudent({
-                          ...editedStudent,
-                          stop_id: e.target.value,
-                        })
-                      }
-                      disabled={!editedStudent.route_id}
-                    >
-                      <option value="">-- Chọn trạm --</option>
-                      {filteredStops.map((stop) => (
-                        <option key={stop.id} value={stop.id}>
-                          {stop.stopName}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span>{selectedStudent.station}</span>
-                  )}
+                  <label>🔶 Lượt Về (Chiều):</label>
+                  <div
+                    style={{
+                      marginLeft: "15px",
+                      borderLeft: "2px solid #f59e0b",
+                      paddingLeft: "10px",
+                    }}
+                  >
+                    <div className="student-info-field">
+                      <label>Tuyến đường:</label>
+                      {isEditMode ? (
+                        <select
+                          value={editedStudent.route_id_ve || ""}
+                          onChange={(e) => {
+                            const routeId = e.target.value;
+                            setEditedStudent({
+                              ...editedStudent,
+                              route_id_ve: routeId,
+                              stop_id_ve: "",
+                            });
+                            if (routeId) {
+                              loadStopsByRoute(routeId);
+                            }
+                          }}
+                        >
+                          {editedStudent.route_id_ve ? (
+                            <option value={editedStudent.route_id_ve}>
+                              {routesVe.find(
+                                (r) => r.id == editedStudent.route_id_ve
+                              )?.routeName ||
+                                routesVe.find(
+                                  (r) => r.id == editedStudent.route_id_ve
+                                )?.ten_tuyen ||
+                                "Tuyến hiện tại"}
+                            </option>
+                          ) : (
+                            <option value="">-- Chọn tuyến --</option>
+                          )}
+                          {routesVe.map((route) => (
+                            <option key={route.id} value={route.id}>
+                              {route.routeName || route.ten_tuyen}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>
+                          {selectedStudent.route_ve || "Chưa phân tuyến"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="student-info-field">
+                      <label>Trạm:</label>
+                      {isEditMode ? (
+                        <select
+                          value={editedStudent.stop_id_ve || ""}
+                          onChange={(e) => {
+                            const selectedStop = filteredStops.find(
+                              (s) => s.id === parseInt(e.target.value)
+                            );
+                            setEditedStudent({
+                              ...editedStudent,
+                              stop_id_ve: e.target.value,
+                              station_address_ve: selectedStop?.address || "",
+                            });
+                          }}
+                          disabled={!editedStudent.route_id_ve}
+                        >
+                          {editedStudent.stop_id_ve ? (
+                            <option value={editedStudent.stop_id_ve}>
+                              {filteredStops.find(
+                                (s) => s.id == editedStudent.stop_id_ve
+                              )?.stopName || "Trạm hiện tại"}
+                            </option>
+                          ) : (
+                            <option value="">-- Chọn trạm --</option>
+                          )}
+                          {filteredStops.map((stop) => (
+                            <option key={stop.id} value={stop.id}>
+                              {stop.stopName}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{selectedStudent.station_ve || "Chưa chọn"}</span>
+                      )}
+                    </div>
+                    <div className="student-info-field">
+                      <label>Địa chỉ trạm:</label>
+                      <span>
+                        {editedStudent.station_address_ve ||
+                          selectedStudent.station_address_ve ||
+                          "-"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="student-info-field">

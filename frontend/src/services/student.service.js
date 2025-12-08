@@ -12,10 +12,19 @@ const StudentService = {
    */
   async getAllStudents() {
     try {
-      const response = await api.get("/students/");
+      // API client automatically extracts .data from response
+      const students = await api.get("/students/");
+      console.log(
+        "📚 getAllStudents response (should be array):",
+        Array.isArray(students),
+        students[0]
+      ); // Debug log
+
+      // Ensure we have an array
+      const studentData = Array.isArray(students) ? students : [];
 
       // Map dữ liệu từ Backend sang Frontend
-      return response.map((student) => ({
+      return studentData.map((student) => ({
         id: student.id,
         // Thông tin học sinh
         ho_ten: student.ho_ten,
@@ -24,20 +33,26 @@ const StudentService = {
         gioi_tinh: student.gioi_tinh,
         gvcn: student.gvcn,
 
-        // Thông tin tuyến/trạm
-        current_route_id: student.current_route_id,
-        current_stop_id: student.current_stop_id,
-        tuyen_duong: student.tuyen_duong,
-        tram_don: student.tram_don,
-        dia_chi_tram: student.dia_chi_tram,
-
         // Thông tin phụ huynh
+        parent_id: student.parent_id,
         ten_phu_huynh: student.ten_phu_huynh,
         sdt_phu_huynh: student.sdt_phu_huynh,
         email_phu_huynh: student.email_phu_huynh,
         dia_chi: student.dia_chi,
         username_phu_huynh: student.username_phu_huynh,
         password_phu_huynh: student.password_phu_huynh,
+
+        // Lượt Đi (Sáng)
+        tuyen_duong_di: student.tuyen_duong_di,
+        tram_don_di: student.tram_don_di,
+        dia_chi_tram_di: student.dia_chi_tram_di,
+        default_route_stop_id_di: student.default_route_stop_id_di,
+
+        // Lượt Về (Chiều)
+        tuyen_duong_ve: student.tuyen_duong_ve,
+        tram_don_ve: student.tram_don_ve,
+        dia_chi_tram_ve: student.dia_chi_tram_ve,
+        default_route_stop_id_ve: student.default_route_stop_id_ve,
       }));
     } catch (error) {
       console.error("Error fetching students:", error);
@@ -53,27 +68,43 @@ const StudentService = {
   async createStudent(studentData) {
     try {
       // Convert từ Frontend sang Backend
+      // Frontend gửi: ho_ten_ph, sdt_ph, email_ph, username, password, dia_chi
+      // Frontend gửi: ho_ten_hs, lop, ngay_sinh, gioi_tinh, gvcn
+      // Frontend gửi: route_id_di, stop_id_di, route_id_ve, stop_id_ve
       const payload = {
         // Thông tin phụ huynh
-        ho_ten_ph: studentData.parentName,
-        sdt_ph: studentData.parentPhone,
-        email_ph: studentData.parentEmail,
-        dia_chi: studentData.address,
-        username_phu_huynh: studentData.username || "",
-        password_phu_huynh: studentData.password,
+        ho_ten_ph: studentData.ho_ten_ph,
+        sdt_ph: studentData.sdt_ph,
+        email_ph: studentData.email_ph,
+        dia_chi: studentData.dia_chi,
+        username: studentData.username || "",
+        password: studentData.password,
 
         // Thông tin học sinh
-        ho_ten_hs: studentData.studentName,
-        lop: studentData.class,
-        ngay_sinh: studentData.dob, // Format: YYYY-MM-DD
-        gioi_tinh: studentData.gender,
-        gvcn: studentData.teacher,
+        ho_ten_hs: studentData.ho_ten_hs,
+        lop: studentData.lop,
+        ngay_sinh: studentData.ngay_sinh, // Format: YYYY-MM-DD
+        gioi_tinh: studentData.gioi_tinh,
+        gvcn: studentData.gvcn,
 
-        // Id tuyến và trạm
-        route_id: studentData.routeId ? parseInt(studentData.routeId) : null,
-        stop_id: studentData.stopId ? parseInt(studentData.stopId) : null,
+        // Lượt Đi (Sáng)
+        route_id_di: studentData.route_id_di
+          ? parseInt(studentData.route_id_di)
+          : null,
+        stop_id_di: studentData.stop_id_di
+          ? parseInt(studentData.stop_id_di)
+          : null,
+
+        // Lượt Về (Chiều)
+        route_id_ve: studentData.route_id_ve
+          ? parseInt(studentData.route_id_ve)
+          : null,
+        stop_id_ve: studentData.stop_id_ve
+          ? parseInt(studentData.stop_id_ve)
+          : null,
       };
 
+      console.log("📤 StudentService payload:", payload);
       const response = await api.post("/students/with-parent", payload);
       return response;
     } catch (error) {
