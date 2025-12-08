@@ -537,7 +537,11 @@ const startBusSimulator = async (scheduleId, io) => {
     console.log(
       `✅ [Schedule ${scheduleId}] Simulator initialized! Stops loaded: ${simulator.stops.length}`
     );
-    simulator.start();
+    // 🚨 DISABLED: Backend simulator should NOT run - driver frontend will send realtime location
+    // simulator.start();
+    console.log(
+      `⏹️ [Schedule ${scheduleId}] Simulator NOT started - using driver frontend location updates instead`
+    );
 
     // Lưu vào map
     activeSimulators.set(scheduleId, simulator);

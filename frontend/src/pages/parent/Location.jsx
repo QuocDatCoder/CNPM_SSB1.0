@@ -31,6 +31,9 @@ const busIcon = L.icon({
   iconUrl: "/icons/busmap.png",
   iconSize: [32, 32],
   iconAnchor: [16, 16],
+  onError: () => {
+    console.warn("❌ busmap.png failed to load, using fallback");
+  },
 });
 
 // Icon start/end/stop
@@ -157,6 +160,7 @@ function MapController({ mapRefCallback }) {
 function Location() {
   const mapRef = useRef(null);
   const [busLocation, setBusLocation] = useState(null);
+  const [markerKey, setMarkerKey] = useState(0); // Force re-render marker
   const lastLocationRef = useRef(null); // Để tránh duplicate updates
   const [tripProgress, setTripProgress] = useState({
     percentage: 0,
@@ -228,6 +232,13 @@ function Location() {
     myStudentIdsRef.current = myStudentIds;
   }, [myStudentIds]);
 
+  // 🚨 DEBUG: Log busLocation mỗi khi nó thay đổi
+  useEffect(() => {
+    if (busLocation) {
+      console.log("🎯 busLocation state updated to:", busLocation);
+    }
+  }, [busLocation]);
+
   // Đăng ký listener WebSocket một lần khi component mount
   useEffect(() => {
     ParentTrackingService.initSocket();
@@ -237,24 +248,18 @@ function Location() {
     const handleBusLocationUpdate = (data) => {
       console.log("🚌 Received bus location update:", data);
 
-      // 🚨 Chỉ xử lý location từ driver (có driverId), bỏ qua từ admin/backend
-      if (!data.driverId) {
-        console.log("⏭️ Skipping non-driver location update");
-        return;
-      }
-
       if (data.location) {
         const newLat = data.location.latitude;
         const newLng = data.location.longitude;
 
         console.log(
-          `📍 Location coords: ${newLat}, ${newLng}, scheduleId: ${data.scheduleId}, driverId: ${data.driverId}`
+          `📍 Location coords: ${newLat}, ${newLng}, scheduleId: ${data.scheduleId}`
         );
         console.log(
           `📍 Last location: ${lastLocationRef.current?.latitude}, ${lastLocationRef.current?.longitude}`
         );
 
-        // 🚨 Chỉ update nếu location thực sự thay đổi (tránh duplicate renders)
+        // 🚨 Luôn update position (không skip để marker move smooth)
         if (
           !lastLocationRef.current ||
           lastLocationRef.current.latitude !== newLat ||
@@ -262,10 +267,17 @@ function Location() {
         ) {
           console.log(`✅ Updating marker position to ${newLat}, ${newLng}`);
           lastLocationRef.current = { latitude: newLat, longitude: newLng };
+
+          // Set new location object
           setBusLocation({
             latitude: newLat,
             longitude: newLng,
           });
+
+          // Force marker re-render by changing key
+          setMarkerKey((prev) => prev + 1);
+
+          console.log(`🎯 State updated - marker should move now`);
         } else {
           console.log(`⏸️ Location hasn't changed, skipping update`);
         }
@@ -670,26 +682,29 @@ function Location() {
               })}
 
               {busLocation && (
-                <Marker
-                  key="bus-marker"
-                  position={[busLocation.latitude, busLocation.longitude]}
-                  icon={busIcon}
-                >
-                  <Popup>
-                    <div style={{ textAlign: "center" }}>
-                      <strong>🚌 Vị trí xe bus</strong>
-                      <br />
-                      <small>
-                        {busLocation.latitude.toFixed(5)},{" "}
-                        {busLocation.longitude.toFixed(5)}
-                      </small>
-                      <br />
-                      <small>
-                        Tiến độ: {tripProgress.percentage.toFixed(1)}%
-                      </small>
-                    </div>
-                  </Popup>
-                </Marker>
+                <>
+                  {console.log("🚌 Rendering bus marker at:", busLocation)}
+                  <Marker
+                    key={`bus-marker-${markerKey}`}
+                    position={[busLocation.latitude, busLocation.longitude]}
+                    icon={busIcon}
+                  >
+                    <Popup>
+                      <div style={{ textAlign: "center" }}>
+                        <strong>🚌 Vị trí xe bus</strong>
+                        <br />
+                        <small>
+                          {busLocation.latitude.toFixed(5)},{" "}
+                          {busLocation.longitude.toFixed(5)}
+                        </small>
+                        <br />
+                        <small>
+                          Tiến độ: {tripProgress.percentage.toFixed(1)}%
+                        </small>
+                      </div>
+                    </Popup>
+                  </Marker>
+                </>
               )}
             </MapContainer>
 
