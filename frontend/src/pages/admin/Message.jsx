@@ -121,12 +121,23 @@ export default function Message() {
           fullname: student.ho_ten,
           routeId: realRouteId,
           routeName: student.tuyen_duong || `Tuyến (Gán tạm) ${realRouteId}`,
-          parentId: student.id,
+          parentId: student.parent_id || student.id, // Lấy parent_id từ API, nếu không có thì dùng student.id
           parentName: student.ten_phu_huynh || `Phụ huynh em ${student.ho_ten}`,
           parentPhone: student.sdt_phu_huynh,
         };
       });
       setStudentsList(mappedStudents);
+
+      // DEBUG: Log dữ liệu phụ huynh để kiểm tra
+      console.log(
+        "👨‍👩‍👧 Danh sách phụ huynh (từ học sinh):",
+        mappedStudents.map((s) => ({
+          parentId: s.parentId,
+          parentName: s.parentName,
+          studentName: s.fullname,
+          routeId: s.routeId,
+        }))
+      );
 
       // --- BƯỚC 3: Xử lý Drivers (CÓ MOCK DATA - FIX LỖI TÀI XẾ) ---
       const mappedDrivers = driversData.map((driver, index) => {
@@ -347,6 +358,14 @@ export default function Message() {
       return alert("Vui lòng chọn ngày giờ!");
 
     let finalRecipients = [];
+    const currentList = getFilteredList();
+
+    console.log("📋 Debug gửi tin:", {
+      recipientType,
+      recipientFilter,
+      selectedRecipients,
+      currentList,
+    });
 
     // --- CHANGE: Xử lý logic lấy người nhận ---
 
@@ -360,6 +379,9 @@ export default function Message() {
 
       if (targetDriver) {
         finalRecipients = [targetDriver.id];
+        console.log(
+          `✅ Tìm thấy tài xế: ${targetDriver.fullname} (ID: ${targetDriver.id})`
+        );
       } else {
         return alert(
           `Không tìm thấy tài xế nào chạy tuyến số ${routeIdToFind}!`
@@ -379,6 +401,7 @@ export default function Message() {
           )
         ) {
           finalRecipients = currentList.map((r) => r.id);
+          console.log(`📤 Gửi cho toàn bộ danh sách: ${finalRecipients}`);
         } else {
           return;
         }
@@ -388,6 +411,14 @@ export default function Message() {
     if (finalRecipients.length === 0)
       return alert("Không tìm thấy người nhận phù hợp!");
 
+    console.log(`🎯 Người nhận cuối cùng (IDs):`, finalRecipients);
+
+    // DEBUG: Log chi tiết về người nhận
+    const recipientDetails = currentList.filter((r) =>
+      finalRecipients.includes(r.id)
+    );
+    console.log("📋 Chi tiết người nhận:", recipientDetails);
+
     const payload = {
       recipient_ids: finalRecipients,
       subject: messageTitle,
@@ -395,6 +426,8 @@ export default function Message() {
       schedule_time: isScheduled ? `${scheduleDate} ${scheduleTime}` : null,
       type: "tinnhan",
     };
+
+    console.log("📤 Payload gửi đi:", payload);
 
     try {
       await NotificationService.sendMessage(payload);
