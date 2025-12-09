@@ -1803,142 +1803,58 @@ function Home() {
     </div>
   );
 }
+// src/pages/driver/Dashboard.jsx
 
 export default function DriverDashboard() {
   const [page, setPage] = useState("Trang chủ");
+  
+  // --- State cho Modal Cảnh báo ---
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("khac");
+  
+  // State chọn người nhận & Tuyến
   const [sendToParents, setSendToParents] = useState(false);
   const [sendToAdmin, setSendToAdmin] = useState(true);
-  const [alertType, setAlertType] = useState("");
-
-  const [availableRoutes, setAvailableRoutes] = useState([]); // List danh sách tuyến
+  
+  // [MỚI] State lưu danh sách tuyến hôm nay và tuyến đang chọn
+  const [todayRoutes, setTodayRoutes] = useState([]);
   const [selectedRouteId, setSelectedRouteId] = useState("");
-  const [studentsList, setStudentsList] = useState([]);
 
-  // --- THAY THẾ TOÀN BỘ useEffect CŨ BẰNG CÁI NÀY ---
-  useEffect(() => {
-    const fetchRoutesAndStudents = async () => {
-      try {
-        console.log("🔄 Bắt đầu tải dữ liệu Dashboard (Logic mới)...");
-
-        // 1. Gọi API lấy dữ liệu song song
-        const [allRoutesData, myScheduleData, studentsData] = await Promise.all(
-          [
-            RouteService.getAllRoutesWithStops(),
-            ScheduleService.getMySchedule(),
-            StudentService.getAllStudents(),
-          ]
-        );
-
-        // 2. Map Student Data Correctly
-        const mappedStudents = studentsData.map((s) => {
-          // Get Route ID
-          const rId =
-            s.current_route_id ||
-            s.route_id ||
-            s.routeId ||
-            s.default_route_stop_id_di ||
-            0; // Use default route if available
-
-          // Get Parent ID - STRICT CHECK
-          // In student.service.js, it returns 'parent_id' at the root level
-          const pId = s.parent_id;
-
-          if (!pId) {
-            console.warn(
-              `⚠️ Warning: Student [${s.ho_ten || s.id}] has no Parent ID!`
-            );
-          }
-
-          return {
-            id: s.id,
-            fullname: s.ho_ten || s.fullname || s.ho_ten_hs,
-            routeId: String(rId),
-            parentId: pId, // Do NOT use "|| s.id" here
-          };
-        });
-
-        // Filter out students with no valid parent
-        const validStudents = mappedStudents.filter((s) => s.parentId);
-        setStudentsList(validStudents);
-
-        // ---------------------------------------------------------
-        // BƯỚC 2: TẠO DROPDOWN TUYẾN TỪ LỊCH TRÌNH (QUAN TRỌNG)
-        // ---------------------------------------------------------
-
-        // Làm phẳng dữ liệu lịch trình (xử lý cả trường hợp Array hoặc Object)
-        let allSchedules = [];
-        if (Array.isArray(myScheduleData)) {
-          allSchedules = myScheduleData;
-        } else if (myScheduleData && typeof myScheduleData === "object") {
-          allSchedules = Object.values(myScheduleData).flat();
-        }
-
-        // Dùng Map để lọc trùng lặp (Key: ID Tuyến -> Value: Tên Tuyến)
-        const uniqueRoutesMap = new Map();
-
-        allSchedules.forEach((schedule) => {
-          // A. Tìm ID Tuyến
-          const rId =
-            schedule.route_id ||
-            (schedule.route && schedule.route.id) ||
-            schedule.id;
-
-          // B. Tìm Tên Tuyến (Lấy ngay trong lịch trình để chắc chắn có hiển thị)
-          let rName = "";
-          if (schedule.route_name) rName = schedule.route_name;
-          else if (schedule.route && schedule.route.name)
-            rName = schedule.route.name;
-          else if (schedule.title)
-            rName = schedule.title; // Lấy tiêu đề lịch làm tên
-          else rName = `Tuyến số ${rId}`; // Nếu không có tên thì tự đặt
-
-          // Format thêm (Sáng/Chiều) cho dễ nhìn
-          const shift =
-            schedule.type === "luot_di"
-              ? "(Đi)"
-              : schedule.type === "luot_ve"
-              ? "(Về)"
-              : "";
-          const finalName = `${rName} ${shift}`.trim();
-
-          // C. Lưu vào Map (Chỉ lưu nếu có ID)
-          if (rId) {
-            uniqueRoutesMap.set(String(rId), finalName);
-          }
-        });
-
-        // Chuyển Map thành Mảng để hiển thị lên Dropdown
-        const routesForDropdown = Array.from(uniqueRoutesMap.entries()).map(
-          ([id, name]) => ({
-            id: id,
-            name: name,
-          })
-        );
-
-        console.log("✅ Danh sách tuyến cho Dropdown:", routesForDropdown);
-
-        // FALLBACK: Nếu vẫn rỗng (Tài xế chưa có lịch), lấy đại từ AllRoutes để test
-        if (routesForDropdown.length === 0) {
-          console.warn("⚠️ Không tìm thấy lịch, dùng danh sách gốc để test.");
-          // Map danh sách gốc thành format chuẩn
-          const fallbackRoutes = allRoutesData.map((r) => ({
-            id: String(r.id),
-            name: r.name,
-          }));
-          setAvailableRoutes(fallbackRoutes);
-        } else {
-          setAvailableRoutes(routesForDropdown);
-        }
-      } catch (error) {
-        console.error("❌ Lỗi tải dữ liệu:", error);
+  // [MỚI] Hàm lấy danh sách tuyến chạy hôm nay của tài xế
+  const fetchTodayRoutes = async () => {
+    try {
+      const response = await ScheduleService.getMySchedule();
+      // Lấy ngày hiện tại format YYYY-MM-DD (khớp với key của API trả về)
+      // Lưu ý: Cần đảm bảo format ngày khớp với key trong response object
+      const today = new Date().toLocaleDateString("en-CA"); 
+      const routes = response[today] || [];
+      setTodayRoutes(routes);
+      
+      // Mặc định chọn tuyến đầu tiên nếu có
+      if (routes.length > 0) {
+        setSelectedRouteId(routes[0].id);
       }
-    };
+    } catch (error) {
+      console.error("Lỗi tải danh sách tuyến:", error);
+    }
+  };
 
-    fetchRoutesAndStudents();
-  }, []);
+  // Hàm điều hướng Sidebar (Sửa để gọi fetchTodayRoutes khi mở modal)
+  function handleSidebarSelect(label) {
+    if (label === "Gửi cảnh báo") {
+      setShowAlertModal(true);
+      setAlertMessage("");
+      setAlertType("khac");
+      setSendToParents(false); // Reset lại
+      setSendToAdmin(true);
+      fetchTodayRoutes(); // [MỚI] Gọi hàm lấy tuyến ngay khi mở modal
+      return;
+    }
+    setPage(label);
+  }
 
+  // --- [QUAN TRỌNG] HÀM RENDER CONTENT (BỊ THIẾU) ---
   function renderContent() {
     switch (page) {
       case "Xem lịch trình phân công":
@@ -1952,91 +1868,51 @@ export default function DriverDashboard() {
         return <Home />;
     }
   }
-  function handleSidebarSelect(label) {
-    if (label === "Gửi cảnh báo") {
-      setShowAlertModal(true);
-      return;
-    }
 
-    setPage(label);
-  }
-
-  // Dashboard.jsx
-
-  // Dashboard.jsx
-
-  // Dashboard.jsx
-
+  // --- HÀM GỬI CẢNH BÁO ---
   async function sendAlert() {
     // 1. Validate
-    if (!alertMessage.trim()) return alert("Vui lòng nhập nội dung!");
-    if (!alertType) return alert("Vui lòng chọn loại cảnh báo!");
-    if (!sendToParents && !sendToAdmin) return alert("Chọn người nhận!");
-
-    // 2. TẠO DANH SÁCH ID NGƯỜI NHẬN
-    let finalRecipientIds = [];
-
-    // Thêm Admin (ID mặc định là 1)
-    if (sendToAdmin) finalRecipientIds.push(1);
-
-    // Thêm Phụ huynh theo Tuyến
-    if (sendToParents) {
-      if (!selectedRouteId) return alert("Vui lòng chọn tuyến xe áp dụng!");
-
-      console.log("🔍 Đang lọc phụ huynh cho tuyến ID:", selectedRouteId);
-
-      // Lọc học sinh thuộc tuyến đã chọn
-      // Lưu ý: So sánh String để tránh lỗi '1' !== 1
-      const targetStudents = studentsList.filter(
-        (s) => String(s.routeId) === String(selectedRouteId)
-      );
-
-      console.log(`✅ Tìm thấy ${targetStudents.length} học sinh trong tuyến.`);
-
-      if (targetStudents.length === 0) {
-        // Debug: In ra thử 1 học sinh để xem tại sao không khớp
-        if (studentsList.length > 0)
-          console.log("Sample Data:", studentsList[0]);
-        return alert("Không tìm thấy phụ huynh nào trong tuyến này!");
-      }
-
-      // Lấy ID phụ huynh (tránh trùng lặp)
-      targetStudents.forEach((s) => {
-        // Ưu tiên lấy parent_id, nếu không có thì lấy id (tùy cấu trúc DB của bạn)
-        const pid = parseInt(s.parent_id || s.parentId || s.id);
-        if (!isNaN(pid) && !finalRecipientIds.includes(pid)) {
-          finalRecipientIds.push(pid);
-        }
-      });
+    if (!alertMessage.trim()) return alert("Vui lòng nhập nội dung cảnh báo!");
+    if (!sendToParents && !sendToAdmin) return alert("Vui lòng chọn ít nhất một nơi gửi!");
+    
+    // [MỚI] Kiểm tra nếu chọn gửi Phụ huynh thì phải chọn Tuyến
+    if (sendToParents && !selectedRouteId) {
+        return alert("Vui lòng chọn Tuyến xe để gửi cho phụ huynh!");
     }
 
-    if (finalRecipientIds.length === 0) {
-      return alert("Danh sách người nhận rỗng!");
-    }
-
-    // 3. GỬI API
+    // 2. GỬI API
     try {
       const res = await NotificationService.sendAlert({
-        recipient_ids: finalRecipientIds,
         message: alertMessage,
         alertType: alertType,
+        toParents: sendToParents,
+        toAdmin: sendToAdmin,
+        routeId: sendToParents ? selectedRouteId : null
       });
 
-      // Check success based on your backend response structure
-      if (res && (res.success || res.recipientCount > 0 || res.message)) {
-        alert(`Gửi thành công cho ${finalRecipientIds.length} người!`);
+      console.log("Server trả về:", res); // Debug xem nó là gì
+
+      // SỬA LẠI ĐOẠN NÀY:
+      // Kiểm tra nới lỏng hơn. Nếu res tồn tại và không bị đánh dấu success: false thì coi là thành công.
+      // (Nhiều backend trả về status 201 cho lệnh tạo mới, nên check === 200 sẽ bị sai)
+      if (res && res.success !== false) { 
+        alert(res.message || "Gửi cảnh báo thành công!");
         setShowAlertModal(false);
         setAlertMessage("");
-        setSendToParents(false);
-        setSelectedRouteId("");
       } else {
-        alert("Gửi không thành công (Server không trả về kết quả chuẩn).");
+        // Chỉ vào đây nếu backend trả về { success: false, message: "..." } nhưng vẫn để HTTP 200
+        alert(res?.message || "Có lỗi xảy ra, vui lòng thử lại.");
       }
     } catch (error) {
-      console.error("❌ Lỗi gửi:", error);
-      alert("Gửi thất bại.");
+      console.error("❌ Lỗi gửi cảnh báo:", error);
+      const errMsg = error.response?.data?.message || "Gửi thất bại (Lỗi Server)";
+      alert(errMsg);
     }
   }
+
+  // ... (Các phần code phía trên giữ nguyên)
+
+// --- Thay thế phần return của DriverDashboard bằng đoạn này ---
   return (
     <div className="driver-app-container">
       <Sidebar
@@ -2050,139 +1926,122 @@ export default function DriverDashboard() {
         <div className="driver-content">{renderContent()}</div>
       </div>
 
+      {/* --- MODAL CẢNH BÁO (Đã tách CSS và sửa Route Name) --- */}
       {showAlertModal && (
-        <div
-          className="alert-modal-overlay"
-          onClick={() => setShowAlertModal(false)}
-        >
+        <div className="alert-modal-overlay" onClick={() => setShowAlertModal(false)}>
           <div className="alert-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Gửi cảnh báo khẩn cấp</h3>
+            
+            {/* Header */}
+            <div className="alert-header">
+              <h3>⚠️ Gửi cảnh báo khẩn cấp</h3>
+              <button className="close-btn" onClick={() => setShowAlertModal(false)}>×</button>
+            </div>
 
-            <div className="alert-type-group">
-              <textarea
-                placeholder="Nhập nội dung cảnh báo..."
-                value={alertMessage}
-                onChange={(e) => setAlertMessage(e.target.value)}
-                rows={4}
-                style={{ width: "100%" }}
-              />
-              <div
-                style={{ display: "grid", gap: "10px", marginBottom: "15px" }}
-              >
-                {[
-                  ["delay", "Đến trễ"],
-                  ["accident", "Sự cố"],
-                  ["other", "Khác"],
-                ].map(([val, label]) => (
-                  <label
-                    key={val}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="atype"
-                      value={val}
-                      onChange={(e) => setAlertType(e.target.value)}
-                      style={{
-                        marginRight: "8px",
-                        width: "16px",
-                        height: "16px",
-                      }}
-                    />
-                    {label}
+            <div className="alert-body">
+              {/* 1. Nhập nội dung */}
+              <div className="form-group">
+                <label>Nội dung chi tiết:</label>
+                <textarea
+                  placeholder="Ví dụ: Xe bị hỏng lốp, kẹt xe đường Nguyễn Văn Linh..."
+                  value={alertMessage}
+                  onChange={(e) => setAlertMessage(e.target.value)}
+                  rows={4}
+                  className="alert-textarea"
+                />
+              </div>
+
+              {/* 2. Chọn loại sự cố */}
+              <div className="form-group">
+                <label>Loại sự cố:</label>
+                <div className="radio-group-vertical">
+                  <label className="radio-item">
+                    <input type="radio" name="atype" value="su-co-xe" checked={alertType === "su-co-xe"} onChange={(e) => setAlertType(e.target.value)} /> 
+                    <span>🔧 Sự cố xe</span>
                   </label>
-                ))}
+                  <label className="radio-item">
+                    <input type="radio" name="atype" value="su-co-giao-thong" checked={alertType === "su-co-giao-thong"} onChange={(e) => setAlertType(e.target.value)} /> 
+                    <span>🚦 Tắc đường / Giao thông</span>
+                  </label>
+                  <label className="radio-item">
+                    <input type="radio" name="atype" value="su-co-y-te" checked={alertType === "su-co-y-te"} onChange={(e) => setAlertType(e.target.value)} /> 
+                    <span>🚑 Y tế / Sức khỏe</span>
+                  </label>
+                  <label className="radio-item">
+                    <input type="radio" name="atype" value="khac" checked={alertType === "khac"} onChange={(e) => setAlertType(e.target.value)} /> 
+                    <span>📝 Khác</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 3. Phần Chọn Tuyến (Chỉ hiện khi chọn Gửi Phụ huynh) */}
+              {sendToParents && (
+                <div className="form-group">
+                  <label>Chọn Tuyến áp dụng:</label>
+                  <select 
+                      className="alert-select"
+                      value={selectedRouteId}
+                      onChange={(e) => setSelectedRouteId(e.target.value)}
+                  >
+                      {todayRoutes.length === 0 && <option value="">-- Hôm nay không có lịch --</option>}
+                      
+                      {todayRoutes.map(route => {
+                 
+                          let displayName = route.name;
+
+                          // Nếu có thông tin số tuyến (route.route), hãy ghép vào
+                          if (route.route) {
+                              displayName = `Tuyến ${route.route}` ;
+                          } 
+                          
+                          else if (route.title) {
+                              displayName = route.title;
+                          }
+
+                          return (
+                              <option key={route.id} value={route.id}>
+                                  {displayName}
+                              </option>
+                          );
+                      })}
+                  </select>
+                </div>
+              )}
+
+              {/* 4. Chọn người nhận */}
+              <div className="form-group">
+                <label>Gửi thông báo đến:</label>
+                <div className="checkbox-row">
+                  <label className={`checkbox-btn ${sendToParents ? 'active' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={sendToParents}
+                      onChange={(e) => setSendToParents(e.target.checked)}
+                    />
+                    <span>👨‍👩‍👧‍👦 Phụ huynh</span>
+                  </label>
+
+                  <label className={`checkbox-btn ${sendToAdmin ? 'active' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={sendToAdmin}
+                      onChange={(e) => setSendToAdmin(e.target.checked)}
+                    />
+                    <span>👮 Admin</span>
+                  </label>
+                </div>
+                
+                {sendToParents && (
+                   <p className="hint-text">
+                       ℹ️ Tin nhắn sẽ được gửi đến tất cả phụ huynh thuộc tuyến được chọn ở trên.
+                   </p>
+                )}
               </div>
             </div>
-            {/* ------------------------------------------------------------- */}
 
-            <div className="alert-options">
-              {/* <label>
-            <input
-              type="checkbox"
-              checked={sendToParents}
-              onChange={(e) => {
-                  // CHỈ set state của phụ huynh, KHÔNG can thiệp admin
-                  setSendToParents(e.target.checked); 
-              }}
-            />{" "}
-            Gửi cho Phụ huynh
-          </label> */}
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={sendToAdmin}
-                  disabled={sendToParents}
-                  onChange={(e) => setSendToAdmin(e.target.checked)}
-                />{" "}
-                Gửi cho Admin
-              </label>
-            </div>
-
-            {/* --- PHẦN THÊM MỚI: Dropdown chọn tuyến --- */}
-            {sendToParents && (
-              <div
-                style={{
-                  marginTop: "15px",
-                  padding: "10px",
-                  background: "#f8f9fa",
-                  borderRadius: "5px",
-                }}
-              >
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "5px",
-                    fontWeight: "bold",
-                    fontSize: "14px",
-                  }}
-                >
-                  Chọn tuyến xe áp dụng:
-                </label>
-                <select
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    borderRadius: "4px",
-                    border: "1px solid #ddd",
-                  }}
-                  value={selectedRouteId}
-                  onChange={(e) => setSelectedRouteId(e.target.value)}
-                >
-                  <option value="">-- Vui lòng chọn tuyến --</option>
-                  {availableRoutes.map((route) => (
-                    <option key={route.id} value={route.id}>
-                      {route.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {/* ------------------------------------------- */}
-
-            <div
-              className="alert-actions"
-              style={{
-                marginTop: "20px",
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "10px",
-              }}
-            >
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowAlertModal(false)}
-              >
-                Hủy
-              </button>
-              <button className="btn btn-primary" onClick={sendAlert}>
-                Gửi Cảnh Báo
-              </button>
+            {/* Footer Actions */}
+            <div className="alert-actions">
+              <button className="btn-cancel" onClick={() => setShowAlertModal(false)}>Hủy bỏ</button>
+              <button className="btn-confirm-alert" onClick={sendAlert}>🚀 GỬI CẢNH BÁO</button>
             </div>
           </div>
         </div>

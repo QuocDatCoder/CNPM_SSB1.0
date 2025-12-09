@@ -714,3 +714,182 @@
     gap: 8px;
   }
 }
+.alert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.alert-header h3 {
+  margin: 0;
+  color: #dc2626; /* Màu đỏ cảnh báo */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #9ca3af;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.close-btn:hover {
+  color: #1f2937;
+}
+
+/* Alert Body Layout */
+.alert-body {
+  margin-bottom: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+/* Custom styles for Select Dropdown */
+.alert-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: #fff;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.2s;
+  height: 45px; /* Chiều cao cố định cho đẹp */
+  cursor: pointer;
+}
+
+.alert-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Radio Group styling */
+/* Dashboard.css - Sửa lại phần Radio Button */
+
+.radio-group-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Khoảng cách giữa các dòng */
+  background: #f9fafb;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.radio-item {
+  display: flex;           /* Quan trọng: Để icon và chữ nằm ngang */
+  align-items: center;     /* Quan trọng: Căn giữa theo chiều dọc */
+  justify-content: flex-start; 
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  width: 100%;             /* Chiếm hết chiều ngang container */
+}
+
+/* Ép kích thước nút Radio để không bị to đùng */
+.radio-item input[type="radio"] {
+  width: 18px !important;  /* Cố định chiều rộng */
+  height: 18px !important; /* Cố định chiều cao */
+  margin-right: 10px;      /* Cách chữ ra một chút */
+  margin-top: 0;
+  margin-bottom: 0;
+  cursor: pointer;
+  accent-color: #dc2626;   /* (Tuỳ chọn) Đổi màu nút khi chọn thành đỏ cho hợp cảnh báo */
+  flex-shrink: 0;          /* Không cho nút bị bóp méo */
+}
+
+/* Checkbox Row styling (Recipients) */
+.checkbox-row {
+  display: flex;
+  gap: 16px;
+}
+
+.checkbox-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  user-select: none;
+}
+
+.checkbox-btn:hover {
+  background: #f3f4f6;
+}
+
+.checkbox-btn.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.checkbox-btn input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.hint-text {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-style: italic;
+}
+
+/* Alert Actions Buttons */
+.btn-cancel {
+  padding: 10px 20px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-cancel:hover {
+  background: #f3f4f6;
+}
+
+.btn-confirm-alert {
+  padding: 10px 24px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.2);
+}
+
+.btn-confirm-alert:hover {
+  background: #b91c1c;
+}
