@@ -228,4 +228,62 @@ module.exports = (io, socket) => {
 
     console.log(`✅ [FRONTEND] Approaching-stop broadcast to all parents`);
   });
+
+  /**
+   * 📢 Socket event: Tài xế gửi thông báo dự kiến thời gian đến
+   * Thông báo sớm/trễ với màu sắc tương ứng cho phụ huynh
+   */
+  socket.on("trip-time-notification", (data) => {
+    const {
+      type,
+      title,
+      message,
+      color,
+      status,
+      statusEmoji,
+      routeName,
+      routeId,
+      scheduleId,
+      driverId,
+      driverName,
+      difference,
+      percentDiff,
+      timestamp,
+    } = data;
+
+    console.log(
+      `📢 [DRIVER] Trip time notification: ${statusEmoji} ${title} | ${message}`
+    );
+
+    // Relay thông báo tới tất cả phụ huynh trong phòng parent-tracking
+    io.to("parent-tracking").emit("trip-time-notification", {
+      type: type, // "arrival-time-early" | "arrival-time-late" | "arrival-time-normal"
+      title: title,
+      message: message,
+      color: color, // Màu sắc: #10b981 (xanh), #ef4444 (đỏ), #f59e0b (cam), #3b82f6 (xanh dương)
+      status: status,
+      statusEmoji: statusEmoji,
+      routeName: routeName,
+      routeId: routeId,
+      scheduleId: scheduleId,
+      driverId: driverId,
+      driverName: driverName,
+      difference: difference, // milliseconds
+      percentDiff: percentDiff, // percentage
+      timestamp: timestamp,
+    });
+
+    console.log(`✅ [BACKEND] Trip time notification broadcast to all parents`);
+
+    // Optional: Log để tracking
+    const timeStatus =
+      type === "arrival-time-early"
+        ? "SỚM"
+        : type === "arrival-time-late"
+        ? "TRỄ"
+        : "ĐÚNG GIỜ";
+    console.log(
+      `📊 [TRACKING] ${driverName} - ${routeName} - ${timeStatus} ${percentDiff}%`
+    );
+  });
 };

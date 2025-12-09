@@ -186,6 +186,10 @@ function ParentDashboard() {
     useState(null);
   const approachingStopTimeoutRef = useRef(null);
 
+  // 🚗 Arrival time notification state (green=early, red=late)
+  const [arrivalTimeNotification, setArrivalTimeNotification] = useState(null);
+  const arrivalTimeNotificationTimeoutRef = useRef(null);
+
   // 📡 Initialize socket connection and join parent tracking room
   useEffect(() => {
     ParentTrackingService.initSocket();
@@ -511,6 +515,97 @@ function ParentDashboard() {
       ParentTrackingService.socket?.off(
         "approaching-stop",
         handleApproachingStop
+      );
+    };
+  }, []); // Empty dependency array - register listener once
+
+  // 🚗 Listen for arrival time notifications (green=early, red=late)
+  useEffect(() => {
+    const handleArrivalTimeNotification = (data) => {
+      console.log(
+        "🚗 [HANDLER] Arrival time notification handler called with data:",
+        data
+      );
+
+      const {
+        type,
+        title,
+        message,
+        color,
+        status,
+        emoji,
+        statusEmoji,
+        driverId,
+        driverName,
+        difference,
+        timestamp,
+      } = data;
+
+      console.log(
+        `🚗 Arrival time notification received: ${title} - ${message}`,
+        data
+      );
+      console.log(
+        "🚗 [DEBUG] Color:",
+        color,
+        "Status:",
+        status,
+        "Emoji:",
+        emoji || statusEmoji
+      );
+
+      // Hiển thị arrival time notification với màu tương ứng
+      const finalEmoji = emoji || statusEmoji || "📍";
+      const notificationData = {
+        title: title || "Thông báo",
+        message: message || "Không có thông điệp",
+        color: color || "#3b82f6",
+        status: status || "Không rõ",
+        emoji: finalEmoji,
+        driverName: driverName || "Tài xế",
+        difference: difference || 0,
+        timestamp: timestamp || new Date().toISOString(),
+      };
+
+      console.log("🚗 [DEBUG] Setting notification state:", notificationData);
+      setArrivalTimeNotification(notificationData);
+
+      // Clear timeout cũ nếu có
+      if (arrivalTimeNotificationTimeoutRef.current) {
+        clearTimeout(arrivalTimeNotificationTimeoutRef.current);
+      }
+
+      // Set timeout mới để tự động ẩn sau 10 giây
+      arrivalTimeNotificationTimeoutRef.current = setTimeout(() => {
+        console.log("⏰ Auto-dismissing arrival time notification");
+        setArrivalTimeNotification(null);
+      }, 10000);
+    };
+
+    console.log("🚗 Registering trip-time-notification listener");
+    console.log("🚗 [DEBUG] Socket object:", ParentTrackingService.socket);
+    console.log(
+      "🚗 [DEBUG] Socket connected:",
+      ParentTrackingService.socket?.connected
+    );
+
+    if (!ParentTrackingService.socket) {
+      console.error("🚗 [ERROR] Socket is null!");
+      return;
+    }
+
+    ParentTrackingService.socket.on(
+      "trip-time-notification",
+      handleArrivalTimeNotification
+    );
+
+    console.log("🚗 [SUCCESS] Listener registered for trip-time-notification");
+
+    return () => {
+      console.log("🚗 Unregistering trip-time-notification listener");
+      ParentTrackingService.socket?.off(
+        "trip-time-notification",
+        handleArrivalTimeNotification
       );
     };
   }, []); // Empty dependency array - register listener once
@@ -964,6 +1059,61 @@ function ParentDashboard() {
           </div>
           <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.7 }}>
             {new Date(approachingStopNotification.timestamp).toLocaleTimeString(
+              "vi-VN"
+            )}
+          </div>
+
+          <style>{`
+            @keyframes slideIn {
+              from {
+                transform: translateX(400px);
+                opacity: 0;
+              }
+              to {
+                transform: translateX(0);
+                opacity: 1;
+              }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* 🚗 Arrival Time Notification Badge (Green=Early, Red=Late) */}
+      {arrivalTimeNotification && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            backgroundColor: arrivalTimeNotification.color,
+            color:
+              arrivalTimeNotification.color === "#ef4444" ||
+              arrivalTimeNotification.color === "#10b981"
+                ? "white"
+                : "#1f2937",
+            padding: "16px 20px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+            zIndex: 9999,
+            minWidth: "320px",
+            animation: "slideIn 0.3s ease-out",
+            border: `2px solid ${arrivalTimeNotification.color}`,
+            marginTop:
+              notification || approachingStopNotification ? "120px" : "0px",
+            transition: "margin-top 0.3s ease-out",
+          }}
+        >
+          <div style={{ fontWeight: "600", marginBottom: "4px" }}>
+            {arrivalTimeNotification.emoji} {arrivalTimeNotification.title}
+          </div>
+          <div style={{ fontSize: "14px", marginBottom: "8px" }}>
+            {arrivalTimeNotification.message}
+          </div>
+          <div style={{ fontSize: "12px", opacity: 0.85 }}>
+            <strong>Trạng thái:</strong> {arrivalTimeNotification.status}
+          </div>
+          <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.7 }}>
+            {new Date(arrivalTimeNotification.timestamp).toLocaleTimeString(
               "vi-VN"
             )}
           </div>

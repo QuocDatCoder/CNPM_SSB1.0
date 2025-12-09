@@ -130,6 +130,76 @@ const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
   return null;
 };
 
+// 🎨 Component vẽ đoạn đường với nhiều màu dựa trên tốc độ
+const ColoredSpeedPolylines = ({ routePath, speedSegments }) => {
+  const map = useMap();
+  const polylinesRef = useRef([]);
+
+  useEffect(() => {
+    if (
+      !map ||
+      !routePath ||
+      routePath.length < 2 ||
+      !speedSegments ||
+      speedSegments.length === 0
+    ) {
+      // Xóa tất cả polylines cũ
+      polylinesRef.current.forEach((line) => {
+        try {
+          map.removeLayer(line);
+        } catch (e) {}
+      });
+      polylinesRef.current = [];
+      return;
+    }
+
+    // Xóa tất cả polylines cũ
+    polylinesRef.current.forEach((line) => {
+      try {
+        map.removeLayer(line);
+      } catch (e) {}
+    });
+    polylinesRef.current = [];
+
+    // Vẽ polyline cho mỗi segment với màu khác nhau
+    speedSegments.forEach((segment) => {
+      const startIndex = Math.min(segment.start, routePath.length - 1);
+      const endIndex = Math.min(segment.end, routePath.length - 1);
+
+      // Lấy coordinates cho segment này
+      const segmentCoords = routePath.slice(startIndex, endIndex + 1);
+
+      if (segmentCoords.length >= 2) {
+        const polyline = L.polyline(segmentCoords, {
+          color: segment.color,
+          opacity: 0.85,
+          weight: 6,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(map);
+
+        polylinesRef.current.push(polyline);
+
+        console.log(
+          `🎨 Vẽ polyline segment ${segment.label}: ${startIndex}-${endIndex} | Màu: ${segment.color}`
+        );
+      }
+    });
+
+    return () => {
+      // Cleanup
+      polylinesRef.current.forEach((line) => {
+        try {
+          map.removeLayer(line);
+        } catch (e) {}
+      });
+      polylinesRef.current = [];
+    };
+  }, [routePath, speedSegments, map]);
+
+  return null;
+};
+
 const driverMenu = [
   { icon: "/icons/home.png", label: "Trang chủ" },
   { icon: "/icons/schedule.png", label: "Xem lịch trình phân công" },
@@ -176,6 +246,9 @@ function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false); // ⏸️ Track trạng thái modal (tạm dừng xe khi open)
   const [studentStatusResetTrigger, setStudentStatusResetTrigger] = useState(0); // ✅ Trigger reset trạng thái học sinh
   const animationIndexRef = useRef(0); // 🔧 Lưu index animation để không reset khi modal mở/đóng
+  const [speedSegments, setSpeedSegments] = useState([]); // 🚗 Tốc độ từng đoạn: {start, end, speed, color}
+  const [coloredSegments, setColoredSegments] = useState([]); // 🎨 Danh sách đoạn đường với màu sắc
+  const [timeComparison, setTimeComparison] = useState(null); // ⏱️ So sánh thời gian với baseline
 
   const driver = {
     fullname: user.ho_ten || user.ten_tai_xe || user.name || "Tài xế",
@@ -593,6 +666,17 @@ function Home() {
         setBusPos(path[0]);
       }
 
+      // 🚗 Tạo đoạn đường với tốc độ ngẫu nhiên
+      const segments = generateRandomSpeedSegments(path.length);
+      setSpeedSegments(segments);
+
+      // ⏱️ Tính toán thời gian so với baseline
+      const timeInfo = calculateTimeComparison(segments, path.length);
+      setTimeComparison(timeInfo);
+
+      // 📢 Gửi thông báo dự kiến thời gian đến cho phụ huynh
+      sendArrivalTimeNotification(route, timeInfo);
+
       // Update local state
       setActiveTrip(route);
       setTripStarted(true);
@@ -919,6 +1003,189 @@ function Home() {
   };
 
   /**
+   * 🚗 Tạo đoạn đường với tốc độ ngẫu nhiên
+   * @param {number} pathLength - Tổng độ dài đường
+   * @returns {Array} Danh sách đoạn: {start, end, speed, color, interval}
+   */
+  const generateRandomSpeedSegments = (pathLength) => {
+    const speeds = [
+      { ms: 600, label: "Chậm", color: "#ef4444" }, // Chậm = Đỏ
+      { ms: 400, label: "Vừa", color: "#3b82f6" }, // Vừa = Xanh
+      { ms: 200, label: "Nhanh", color: "#3b82f6" }, // Nhanh = Xanh
+    ];
+
+    const segments = [];
+    let currentPos = 0;
+
+    // Chia route thành 3-6 đoạn ngẫu nhiên
+    const numSegments = Math.floor(Math.random() * 4) + 3; // 3-6 đoạn
+    const segmentLength = Math.floor(pathLength / numSegments);
+
+    for (let i = 0; i < numSegments; i++) {
+      const start = i * segmentLength;
+      const end = i === numSegments - 1 ? pathLength : (i + 1) * segmentLength;
+
+      // Chọn tốc độ ngẫu nhiên
+      const randomSpeed = speeds[Math.floor(Math.random() * speeds.length)];
+
+      segments.push({
+        start,
+        end,
+        speed: randomSpeed.ms,
+        color: randomSpeed.color,
+        label: randomSpeed.label,
+      });
+
+      console.log(
+        `🚗 Segment ${i + 1}: index ${start}-${end} | Tốc độ: ${
+          randomSpeed.label
+        } (${randomSpeed.ms}ms) | Màu: ${randomSpeed.color}`
+      );
+    }
+
+    return segments;
+  };
+
+  /**
+   * ⏱️ Tính toán thời gian so với baseline (400ms/point)
+   * @param {Array} speedSegments - Danh sách segments với tốc độ
+   * @param {number} pathLength - Tổng độ dài route (số points)
+   * @returns {Object} {baseline, actual, difference, status, message}
+   */
+  const calculateTimeComparison = (speedSegments, pathLength) => {
+    const BASELINE_MS = 400; // Tốc độ baseline trung bình
+
+    // Tính thời gian baseline
+    const baselineTime = pathLength * BASELINE_MS;
+
+    // Tính thời gian thực tế từ segments
+    let actualTime = 0;
+    let countSlow = 0; // 600ms
+    let countFast = 0; // 200ms
+
+    speedSegments.forEach((segment) => {
+      const segmentLength = segment.end - segment.start;
+      actualTime += segmentLength * segment.speed;
+
+      if (segment.speed === 600) countSlow++;
+      if (segment.speed === 200) countFast++;
+    });
+
+    const timeDifference = actualTime - baselineTime;
+    const percentDiff = ((timeDifference / baselineTime) * 100).toFixed(1);
+
+    let status = "Đúng giờ"; // neutral
+    let statusEmoji = "⏱️";
+    let statusColor = "#3b82f6"; // blue
+
+    if (timeDifference < -5000) {
+      // Nhanh hơn nhiều (> 5 giây)
+      status = "Rất sớm";
+      statusEmoji = "🚀";
+      statusColor = "#10b981"; // green
+    } else if (timeDifference < 0) {
+      // Nhanh hơn
+      status = "Sớm hơn";
+      statusEmoji = "⚡";
+      statusColor = "#10b981"; // green
+    } else if (timeDifference > 5000) {
+      // Chậm hơn nhiều (> 5 giây)
+      status = "Rất chậm";
+      statusEmoji = "🐢";
+      statusColor = "#ef4444"; // red
+    } else if (timeDifference > 0) {
+      // Chậm hơn
+      status = "Chậm hơn";
+      statusEmoji = "⏳";
+      statusColor = "#f59e0b"; // orange
+    }
+
+    const baselineMin = (baselineTime / 1000 / 60).toFixed(1);
+    const actualMin = (actualTime / 1000 / 60).toFixed(1);
+    const diffMin = (Math.abs(timeDifference) / 1000 / 60).toFixed(1);
+
+    const message = `${baselineMin}min (baseline) → ${actualMin}min (thực tế) | Chênh lệch: ${
+      timeDifference < 0 ? "-" : "+"
+    }${diffMin}min (${percentDiff}%)`;
+
+    console.log(
+      `📊 Thời gian: ${statusEmoji} ${status} | ${message} | Chậm: ${countSlow} | Nhanh: ${countFast}`
+    );
+
+    return {
+      baseline: baselineTime,
+      actual: actualTime,
+      difference: timeDifference, // ms
+      percentDiff: parseFloat(percentDiff),
+      status,
+      statusEmoji,
+      statusColor,
+      message,
+      countSlow,
+      countFast,
+    };
+  };
+
+  /**
+   * 📢 Gửi thông báo dự kiến thời gian đến cho phụ huynh
+   * @param {Object} route - Thông tin chuyến đi
+   * @param {Object} timeInfo - Kết quả tính toán thời gian
+   */
+  const sendArrivalTimeNotification = (route, timeInfo) => {
+    if (!TrackingService.socket || !timeInfo) return;
+
+    // Xác định loại thông báo dựa trên trạng thái thời gian
+    let notificationType = "arrival-time-normal"; // default
+    let notificationTitle = "📍 Dự kiến thời gian đến";
+    let notificationColor = "#3b82f6"; // blue
+
+    if (timeInfo.difference < -5000) {
+      notificationType = "arrival-time-early";
+      notificationTitle = "🚀 Xe sẽ đến sớm!";
+      notificationColor = "#10b981"; // green
+    } else if (timeInfo.difference < 0) {
+      notificationType = "arrival-time-early";
+      notificationTitle = "⚡ Xe sẽ đến sớm hơn dự kiến";
+      notificationColor = "#10b981"; // green
+    } else if (timeInfo.difference > 5000) {
+      notificationType = "arrival-time-late";
+      notificationTitle = "🐢 Xe sẽ đến chậm!";
+      notificationColor = "#ef4444"; // red
+    } else if (timeInfo.difference > 0) {
+      notificationType = "arrival-time-late";
+      notificationTitle = "⏳ Xe sẽ đến chậm hơn dự kiến";
+      notificationColor = "#f59e0b"; // orange
+    }
+
+    // Tạo thông báo
+    const notification = {
+      type: notificationType,
+      title: notificationTitle,
+      message: timeInfo.message,
+      color: notificationColor,
+      status: timeInfo.status,
+      statusEmoji: timeInfo.statusEmoji,
+      routeName: route.name,
+      routeId: route.id,
+      scheduleId: route.id,
+      driverId: user.id || user.driver_code,
+      driverName: user.ho_ten || user.ten_tai_xe || user.name || "Tài xế",
+      difference: timeInfo.difference, // ms
+      percentDiff: timeInfo.percentDiff,
+      timestamp: new Date().toISOString(),
+    };
+
+    // 📡 Gửi qua socket tới phụ huynh
+    TrackingService.socket.emit("trip-time-notification", notification);
+
+    console.log("📢 Sent arrival time notification:", {
+      title: notificationTitle,
+      message: timeInfo.message,
+      color: notificationColor,
+    });
+  };
+
+  /**
    * ⚡ Gửi vị trí xe bus từ dashboard tài xế tới backend
    * - Gửi qua WebSocket (real-time cho phụ huynh)
    * - Lưu vào Backend API (lưu vào database)
@@ -972,47 +1239,78 @@ function Home() {
   ]);
 
   /**
-   * 🚌 Animation: Xe bus chạy dọc theo route (giống admin dashboard)
+   * 🚌 Animation: Xe bus chạy dọc theo route với tốc độ ngẫu nhiên
    * ⏸️ TẠM DỪNG khi modal học sinh hiện lên
    * 🔧 Sử dụng useRef để lưu index, tránh reset khi modal mở/đóng
+   * 🚗 Tốc độ: 200ms (Nhanh/Xanh), 400ms (Vừa/Xanh), 600ms (Chậm/Đỏ)
    */
   useEffect(() => {
-    if (!tripStarted || routePath.length === 0 || isModalOpen) return;
+    if (
+      !tripStarted ||
+      routePath.length === 0 ||
+      isModalOpen ||
+      speedSegments.length === 0
+    )
+      return;
 
-    const interval = setInterval(() => {
-      animationIndexRef.current++;
-      if (animationIndexRef.current >= routePath.length)
-        animationIndexRef.current = 0;
+    let interval;
+    let lastFrameTime = 0;
 
-      const currentPos = routePath[animationIndexRef.current];
-      setBusPos(currentPos);
+    const animate = () => {
+      const currentTime = Date.now();
+      const currentIndex = animationIndexRef.current;
 
-      // Cập nhật busLocation để gửi tới backend
-      setBusLocation({
-        latitude: currentPos[0],
-        longitude: currentPos[1],
-      });
+      // Tìm segment hiện tại để lấy tốc độ
+      const currentSegment = speedSegments.find(
+        (seg) => currentIndex >= seg.start && currentIndex < seg.end
+      );
+      const speedInterval = currentSegment ? currentSegment.speed : 200;
 
-      // Tính tiến độ dựa trên index
-      const percentage =
-        (animationIndexRef.current / Math.max(routePath.length - 1, 1)) * 100;
-      const distance = animationIndexRef.current * 0.1; // Ước tính khoảng cách
+      // Chỉ cập nhật nếu đủ thời gian theo tốc độ segment
+      if (currentTime - lastFrameTime >= speedInterval) {
+        lastFrameTime = currentTime;
 
-      setTripProgress({
-        percentage,
-        distanceCovered: distance,
-        currentStop: null,
-      });
+        animationIndexRef.current++;
+        if (animationIndexRef.current >= routePath.length)
+          animationIndexRef.current = 0;
 
-      console.log("🚌 Bus moving:", {
-        position: currentPos,
-        progress: percentage.toFixed(1) + "%",
-        index: animationIndexRef.current,
-      });
-    }, 200); // Mỗi 200ms - tốc độ animation
+        const currentPos = routePath[animationIndexRef.current];
+        setBusPos(currentPos);
 
-    return () => clearInterval(interval);
-  }, [tripStarted, routePath, isModalOpen]);
+        // Cập nhật busLocation để gửi tới backend
+        setBusLocation({
+          latitude: currentPos[0],
+          longitude: currentPos[1],
+        });
+
+        // Tính tiến độ dựa trên index
+        const percentage =
+          (animationIndexRef.current / Math.max(routePath.length - 1, 1)) * 100;
+        const distance = animationIndexRef.current * 0.1;
+
+        setTripProgress({
+          percentage,
+          distanceCovered: distance,
+          currentStop: null,
+        });
+
+        const segmentLabel = currentSegment?.label || "Unknown";
+        console.log("🚌 Bus moving:", {
+          position: currentPos,
+          progress: percentage.toFixed(1) + "%",
+          index: animationIndexRef.current,
+          speed: `${speedInterval}ms (${segmentLabel})`,
+          color: currentSegment?.color,
+        });
+      }
+
+      interval = requestAnimationFrame(animate);
+    };
+
+    interval = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(interval);
+  }, [tripStarted, routePath, isModalOpen, speedSegments]);
 
   // If trip is started, show active trip view
   if (tripStarted && activeTrip) {
@@ -1051,6 +1349,35 @@ function Home() {
               </p>
             </div>
           </div>
+
+          {/* Time Comparison Card */}
+          {timeComparison && (
+            <div
+              className="trip-info-card"
+              style={{
+                borderLeft: `4px solid ${timeComparison.statusColor}`,
+              }}
+            >
+              <div className="card-icon-trip">{timeComparison.statusEmoji}</div>
+              <div className="card-content">
+                <h4>{timeComparison.status}</h4>
+                <p
+                  style={{
+                    color: timeComparison.statusColor,
+                    fontSize: "13px",
+                  }}
+                >
+                  {timeComparison.message}
+                </p>
+                <p
+                  style={{ fontSize: "11px", color: "#666", marginTop: "4px" }}
+                >
+                  Chậm: {timeComparison.countSlow} | Nhanh:{" "}
+                  {timeComparison.countFast}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Main Content Grid */}
@@ -1071,11 +1398,18 @@ function Home() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
 
-                {/* Draw actual road routing connecting all stops */}
-                <RoutingPolyline
-                  waypoints={activeTrip.coordinates}
-                  color="#3b82f6"
-                />
+                {/* 🎨 Draw colored polylines based on speed segments */}
+                {speedSegments.length > 0 ? (
+                  <ColoredSpeedPolylines
+                    routePath={routePath}
+                    speedSegments={speedSegments}
+                  />
+                ) : (
+                  <RoutingPolyline
+                    waypoints={activeTrip.coordinates}
+                    color="#3b82f6"
+                  />
+                )}
 
                 {/* Draw markers for all stops with info */}
                 {activeTrip.coordinates.map((coord, index) => {
