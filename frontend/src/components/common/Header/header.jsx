@@ -24,13 +24,38 @@ export default function Header({ title, showSearch = true, noImage = false }) {
 
   // Tạo avatar từ tên user
   const getAvatarText = (username) => {
-    if (!username) {
-      return <div className="avatar-default">U</div>;
+    if (!username || username.length < 2) {
+      return (
+        <img
+          src="/image/avata.png"
+          alt="default"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            borderRadius: "50%",
+          }}
+        />
+      );
     }
+
+    // Lấy 2 ký tự đầu, chuyển lowercase để dễ so sánh
+    const prefix = username.substring(0, 2).toLowerCase();
+
+    let avatarSrc = "/image/avata.png"; // mặc định
+
+    if (prefix === "ad") {
+      avatarSrc = "/image/avata.png";
+    } else if (prefix === "ta") {
+      avatarSrc = "/image/avata.png";
+    } else if (prefix === "ph") {
+      avatarSrc = "/image/avatar2.png";
+    }
+    // thêm điều kiện tùy ý…
 
     return (
       <img
-        src="/image/avata.png"
+        src={avatarSrc}
         alt={username}
         style={{
           width: "100%",

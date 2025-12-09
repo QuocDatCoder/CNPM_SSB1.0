@@ -61,17 +61,21 @@ const stopIcon = L.icon({
   popupAnchor: [1, -34],
 });
 
-// Component để vẽ routing
+// Component để vẽ routing (với unique ID cho mỗi tuyến)
 const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
   const map = useMap();
   const routingControlRef = useRef(null);
   const fallbackPolylineRef = useRef(null);
+  const routeKeyRef = useRef(`${color}-${waypoints.length}`);
 
   useEffect(() => {
     if (!map || !waypoints || waypoints.length < 2) return;
 
+    // Cleanup trước
     if (routingControlRef.current && map.hasLayer(routingControlRef.current)) {
-      map.removeControl(routingControlRef.current);
+      try {
+        map.removeControl(routingControlRef.current);
+      } catch (e) {}
       routingControlRef.current = null;
     }
     if (
@@ -99,13 +103,14 @@ const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
         show: false,
         addWaypoints: false,
         draggableWaypoints: false,
-        fitSelectedRoutes: true,
+        fitSelectedRoutes: false,
         router: L.Routing.osrmv1({
           serviceUrl: "https://router.project-osrm.org/route/v1",
         }),
       });
 
       routingControlRef.current.addTo(map);
+      console.log(`✅ Routing added for color ${color}`);
     } catch (err) {
       console.warn("Routing error, using fallback polyline:", err);
       if (map) {
@@ -116,6 +121,7 @@ const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
           lineCap: "round",
           lineJoin: "round",
         }).addTo(map);
+        console.log(`✅ Fallback polyline added for color ${color}`);
       }
     }
 
@@ -164,6 +170,10 @@ function ParentDashboard() {
   const [routePath, setRoutePath] = useState([]);
   const [stations, setStations] = useState([]);
 
+  // 🔄 State mới: Lưu cả 2 tuyến (đi + về) với màu khác
+  const [allRoutes, setAllRoutes] = useState([]); // [{type: "morning", coordinates: [...], stations: [...]}, {type: "afternoon", ...}]
+  const [selectedShift, setSelectedShift] = useState(null); // Track tuyến đang xem
+
   // 🔄 Track trip status updates for real-time refresh
   const [tripStatusUpdate, setTripStatusUpdate] = useState(0);
 
@@ -190,7 +200,7 @@ function ParentDashboard() {
     { icon: "/icons/message.png", label: "Thông báo" },
   ];
 
-  // Fetch kids trip data from backend
+  // 🔄 Fetch kids trip data + ALL ROUTES (cả đi + về)
   useEffect(() => {
     const fetchKidsTrips = async () => {
       try {
@@ -199,7 +209,6 @@ function ParentDashboard() {
         setKids(response || []);
         setError(null);
 
-        // Fetch route stops từ trip đầu tiên
         if (response && response.length > 0) {
           const kid = response[0];
           if (
@@ -207,55 +216,91 @@ function ParentDashboard() {
             Array.isArray(kid.danh_sach_chuyen) &&
             kid.danh_sach_chuyen.length > 0
           ) {
-            const trip = kid.danh_sach_chuyen[0];
-            console.log("📍 Trip data:", trip);
+            // 📋 Fetch cả 2 tuyến (đi + về)
+            const routes = [];
 
-            // Fetch actual route stops
-            let stops = [];
-            if (trip.route_id) {
-              try {
-                console.log(`🔍 Fetching stops for route ${trip.route_id}...`);
-                stops = await ScheduleService.getRouteStops(trip.route_id);
-                console.log("✅ Route stops fetched:", stops);
-              } catch (err) {
-                console.warn("⚠️ Could not fetch route stops:", err);
+            for (const trip of kid.danh_sach_chuyen) {
+              const isLuotDi =
+                trip.loai_chuyen?.includes("Đón") ||
+                trip.loai_chuyen?.includes("đi");
+              const shiftType = isLuotDi ? "morning" : "afternoon";
+
+              console.log(`📍 Fetching route for ${shiftType}:`, trip);
+
+              // Fetch actual route stops
+              let stops = [];
+              if (trip.route_id) {
+                try {
+                  console.log(
+                    `🔍 Fetching stops for route ${trip.route_id}...`
+                  );
+                  stops = await ScheduleService.getRouteStops(trip.route_id);
+                  console.log(
+                    `✅ Route stops fetched for ${shiftType}:`,
+                    stops
+                  );
+                } catch (err) {
+                  console.warn(
+                    `⚠️ Could not fetch route stops for ${shiftType}:`,
+                    err
+                  );
+                }
               }
+
+              // If no stops, use dummy stops
+              if (!stops || stops.length === 0) {
+                console.log(
+                  `📌 Using dummy stops as fallback for ${shiftType}`
+                );
+                stops = [
+                  {
+                    id: 1,
+                    ten_diem: "Điểm khởi hành",
+                    dia_chi: trip.diem_dung || "Chờ thông tin",
+                    latitude: 10.7769,
+                    longitude: 106.6869,
+                  },
+                  {
+                    id: 2,
+                    ten_diem: "Trạm trung gian",
+                    dia_chi: "Đường Võ Văn Kiệt",
+                    latitude: 10.758,
+                    longitude: 106.6966,
+                  },
+                  {
+                    id: 3,
+                    ten_diem: "Trường học",
+                    dia_chi: "Vinschool",
+                    latitude: 10.7438,
+                    longitude: 106.7295,
+                  },
+                ];
+              }
+
+              const coordinates = stops.map((stop) => [
+                parseFloat(stop.latitude),
+                parseFloat(stop.longitude),
+              ]);
+
+              routes.push({
+                type: shiftType,
+                coordinates,
+                stations: stops,
+                tripInfo: trip,
+              });
             }
 
-            // If no stops, use dummy stops
-            if (!stops || stops.length === 0) {
-              console.log("📌 Using dummy stops as fallback");
-              stops = [
-                {
-                  id: 1,
-                  ten_diem: "Điểm khởi hành",
-                  dia_chi: trip.diem_dung || "Chờ thông tin",
-                  latitude: 10.7769,
-                  longitude: 106.6869,
-                },
-                {
-                  id: 2,
-                  ten_diem: "Trạm trung gian",
-                  dia_chi: "Đường Võ Văn Kiệt",
-                  latitude: 10.758,
-                  longitude: 106.6966,
-                },
-                {
-                  id: 3,
-                  ten_diem: "Trường học",
-                  dia_chi: "Vinschool",
-                  latitude: 10.7438,
-                  longitude: 106.7295,
-                },
-              ];
-            }
+            setAllRoutes(routes);
+            console.log("✅ All routes loaded:", routes);
 
-            const coordinates = stops.map((stop) => [
-              parseFloat(stop.latitude),
-              parseFloat(stop.longitude),
-            ]);
-            setRoutePath(coordinates);
-            setStations(stops);
+            // Set default route (morning nếu có, nếu không là first)
+            const morningRoute = routes.find((r) => r.type === "morning");
+            const defaultRoute = morningRoute || routes[0];
+            if (defaultRoute) {
+              setRoutePath(defaultRoute.coordinates);
+              setStations(defaultRoute.stations);
+              setSelectedShift(defaultRoute.type);
+            }
           }
         }
       } catch (err) {
@@ -269,6 +314,20 @@ function ParentDashboard() {
 
     fetchKidsTrips();
   }, []);
+
+  // 🔄 Update markers when selectedShift changes
+  useEffect(() => {
+    if (allRoutes.length === 0 || !selectedShift) return;
+
+    const selectedRoute = allRoutes.find((r) => r.type === selectedShift);
+    if (selectedRoute) {
+      setStations(selectedRoute.stations);
+      console.log(
+        `🔄 Updated markers for shift: ${selectedShift}`,
+        selectedRoute.stations
+      );
+    }
+  }, [selectedShift, allRoutes]);
 
   // 🔄 Listen for trip status updates from socket
   useEffect(() => {
@@ -705,7 +764,11 @@ function ParentDashboard() {
 
                           <button
                             className="parent-dashboard-action-btn"
-                            onClick={() => setActivePage("Vị trí")}
+                            onClick={() => {
+                              // 🔄 Set selectedShift trước khi navigate
+                              setSelectedShift(trip.shift);
+                              setActivePage("Vị trí");
+                            }}
                             disabled={trip.status === "Hoàn thành"}
                           >
                             <svg
@@ -749,13 +812,18 @@ function ParentDashboard() {
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       />
 
-                      {routePath.length > 1 && (
+                      {/* 🔄 Vẽ CẢ 2 TUYẾN với màu khác */}
+                      {allRoutes.map((route) => (
                         <RoutingPolyline
-                          waypoints={routePath}
-                          color="#3b82f6"
+                          key={route.type}
+                          waypoints={route.coordinates}
+                          color={
+                            route.type === "morning" ? "#3b82f6" : "#f59e0b"
+                          }
                         />
-                      )}
+                      ))}
 
+                      {/* Vẽ marker cho tuyến hiện được chọn */}
                       {stations.map((station, index) => {
                         let icon = stopIcon;
                         let label = `Trạm ${index + 1}`;
@@ -798,7 +866,7 @@ function ParentDashboard() {
         );
 
       case "Vị trí":
-        return <Location />;
+        return <Location initialShift={selectedShift} />;
 
       case "Thông báo":
         return <Notifications />;

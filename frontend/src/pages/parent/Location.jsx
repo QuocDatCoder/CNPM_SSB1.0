@@ -76,19 +76,27 @@ const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
   useEffect(() => {
     if (!map || !waypoints || waypoints.length < 2) return;
 
-    if (routingControlRef.current && map.hasLayer(routingControlRef.current)) {
-      map.removeControl(routingControlRef.current);
+    // 🗑️ Clean up old routing control/polyline completely
+    if (routingControlRef.current) {
+      try {
+        map.removeControl(routingControlRef.current);
+      } catch (e) {
+        console.warn("Error removing routing control:", e);
+      }
       routingControlRef.current = null;
     }
-    if (
-      fallbackPolylineRef.current &&
-      map.hasLayer(fallbackPolylineRef.current)
-    ) {
-      map.removeLayer(fallbackPolylineRef.current);
+
+    if (fallbackPolylineRef.current) {
+      try {
+        map.removeLayer(fallbackPolylineRef.current);
+      } catch (e) {
+        console.warn("Error removing fallback polyline:", e);
+      }
       fallbackPolylineRef.current = null;
     }
 
     try {
+      // 📍 Use L.Routing.control to get actual street routing
       routingControlRef.current = L.Routing.control({
         waypoints: waypoints.map((coord) => L.latLng(coord[0], coord[1])),
         lineOptions: {
@@ -105,13 +113,36 @@ const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
         show: false,
         addWaypoints: false,
         draggableWaypoints: false,
-        fitSelectedRoutes: true,
+        fitSelectedRoutes: false,
         router: L.Routing.osrmv1({
           serviceUrl: "https://router.project-osrm.org/route/v1",
         }),
       });
 
+      // Add error handler to prevent console errors from pending requests
+      routingControlRef.current.on("routingerror", (err) => {
+        console.warn("🚨 Routing error (safe):", err);
+      });
+
+      // Patch the routing control to handle destroyed maps safely
+      const originalAddTo = routingControlRef.current.addTo.bind(
+        routingControlRef.current
+      );
+      routingControlRef.current.addTo = function (map) {
+        try {
+          if (!map || !map._container) {
+            console.warn("⚠️ Map container not available, skipping addTo");
+            return this;
+          }
+          return originalAddTo(map);
+        } catch (e) {
+          console.warn("Error in patched addTo:", e);
+          return this;
+        }
+      };
+
       routingControlRef.current.addTo(map);
+      console.log(`✅ Routing control added for color ${color}`);
     } catch (err) {
       console.warn("Routing error, using fallback polyline:", err);
       if (map) {
@@ -122,23 +153,26 @@ const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
           lineCap: "round",
           lineJoin: "round",
         }).addTo(map);
+        console.log(`✅ Fallback polyline added for color ${color}`);
       }
     }
 
     return () => {
-      if (
-        routingControlRef.current &&
-        map.hasLayer(routingControlRef.current)
-      ) {
+      if (routingControlRef.current) {
         try {
+          // Prevent errors from pending OSRM requests
+          if (routingControlRef.current._router) {
+            routingControlRef.current._router._abortRequest?.();
+          }
           map.removeControl(routingControlRef.current);
+          routingControlRef.current = null;
         } catch (e) {}
       }
-      if (
-        fallbackPolylineRef.current &&
-        map.hasLayer(fallbackPolylineRef.current)
-      ) {
-        map.removeLayer(fallbackPolylineRef.current);
+      if (fallbackPolylineRef.current) {
+        try {
+          map.removeLayer(fallbackPolylineRef.current);
+          fallbackPolylineRef.current = null;
+        } catch (e) {}
       }
     };
   }, [waypoints, map, color]);
@@ -157,7 +191,7 @@ function MapController({ mapRefCallback }) {
   return null;
 }
 
-function Location() {
+function Location({ initialShift = null }) {
   const mapRef = useRef(null);
   const [busLocation, setBusLocation] = useState(null);
   const [markerKey, setMarkerKey] = useState(0); // Force re-render marker
@@ -185,6 +219,10 @@ function Location() {
     tripType: "Chờ thông tin",
     distance: "-- km",
   });
+
+  // 🔄 State để chọn lượt đi hoặc về
+  const [selectedShift, setSelectedShift] = useState(initialShift || "morning"); // "morning" hoặc "afternoon"
+  const [allTrips, setAllTrips] = useState([]); // Lưu tất cả chuyến của con
 
   // 📢 Notification state for real-time student status changes (Moved to ParentDashboard)
   // const [notification, setNotification] = useState(null);
@@ -238,6 +276,48 @@ function Location() {
       console.log("🎯 busLocation state updated to:", busLocation);
     }
   }, [busLocation]);
+
+  // 🔇 Suppress leaflet-routing-machine errors from pending requests
+  useEffect(() => {
+    const originalError = window.console.error;
+    const errorFilter = function (...args) {
+      const errorMsg = args[0]?.toString() || "";
+      // Suppress known leaflet-routing-machine errors
+      if (
+        errorMsg.includes("Cannot read properties of null") &&
+        errorMsg.includes("removeLayer")
+      ) {
+        console.log(
+          "⚠️ Suppressed leaflet-routing-machine error (safe to ignore)"
+        );
+        return;
+      }
+      originalError.apply(console, args);
+    };
+
+    // Also catch uncaught errors globally
+    const handleUncaughtError = (event) => {
+      const errorMsg = event.message || "";
+      if (
+        errorMsg.includes("Cannot read properties of null") &&
+        errorMsg.includes("removeLayer")
+      ) {
+        console.log(
+          "⚠️ Caught and suppressed leaflet-routing-machine error (safe)"
+        );
+        event.preventDefault();
+        return true;
+      }
+    };
+
+    window.console.error = errorFilter;
+    window.addEventListener("error", handleUncaughtError);
+
+    return () => {
+      window.console.error = originalError;
+      window.removeEventListener("error", handleUncaughtError);
+    };
+  }, []);
 
   // Đăng ký listener WebSocket một lần khi component mount
   useEffect(() => {
@@ -381,115 +461,32 @@ function Location() {
     };
   }, []); // Empty dependency array - register once and never re-register
 
+  // 🔄 Fetch tất cả chuyến
   useEffect(() => {
     const fetchParentSchedules = async () => {
       try {
         console.log("🔄 Fetching parent schedules...");
-        // Use correct endpoint for parent to get kids trips
         const response = await ScheduleService.getMyKidsTrips();
         console.log("📅 Parent schedules full response:", response);
-        console.log("Response type:", typeof response);
 
         if (response && Array.isArray(response) && response.length > 0) {
-          // Get first kid's first trip
           const kid = response[0];
           console.log("👶 Selected kid:", kid);
 
-          // Update student info from backend
           setStudentInfo({
             name: kid.ten_con || "Chờ thông tin",
             class: kid.lop || "Chờ thông tin",
           });
 
+          // Lưu tất cả chuyến
           if (
             kid.danh_sach_chuyen &&
             Array.isArray(kid.danh_sach_chuyen) &&
             kid.danh_sach_chuyen.length > 0
           ) {
-            const trip = kid.danh_sach_chuyen[0];
-            console.log("📍 Selected trip:", trip);
-            console.log("📍 Route ID:", trip.route_id);
-
-            // Fetch actual route stops from backend
-            let stops = [];
-            if (trip.route_id) {
-              try {
-                console.log(`🔍 Fetching stops for route ${trip.route_id}...`);
-                stops = await ScheduleService.getRouteStops(trip.route_id);
-                console.log("✅ Route stops fetched:", stops);
-              } catch (err) {
-                console.warn(
-                  "⚠️ Could not fetch route stops, using dummy stops:",
-                  err
-                );
-              }
-            }
-
-            // If no stops from API, use dummy stops
-            if (!stops || stops.length === 0) {
-              console.log("📌 Using dummy stops as fallback");
-              stops = [
-                {
-                  id: 1,
-                  ten_diem: "Điểm khởi hành",
-                  dia_chi: trip.diem_dung || "Chờ thông tin",
-                  latitude: 10.7769,
-                  longitude: 106.6869,
-                },
-                {
-                  id: 2,
-                  ten_diem: "Trạm trung gian",
-                  dia_chi: "Đường Võ Văn Kiệt",
-                  latitude: 10.758,
-                  longitude: 106.6966,
-                },
-                {
-                  id: 3,
-                  ten_diem: "Trường học",
-                  dia_chi: "Vinschool",
-                  latitude: 10.7438,
-                  longitude: 106.7295,
-                },
-              ];
-            }
-
-            const coordinates = stops.map((stop) => [
-              parseFloat(stop.latitude),
-              parseFloat(stop.longitude),
-            ]);
-            console.log("✅ Coordinates extracted:", coordinates);
-            setRoutePath(coordinates);
-            setStations(stops);
-
-            // Extract driver, bus, trip info from trip object
-            console.log("🚌 Trip driver:", trip.tai_xe);
-            console.log("🚌 Trip bus:", trip.bien_so_xe);
-            console.log("🚌 Trip type:", trip.loai_chuyen);
-            console.log("🚌 Trip distance:", trip.khoang_cach);
-            console.log("🚌 Trip student status:", trip.trang_thai_con);
-
-            setTripInfo((prev) => ({
-              ...prev,
-              driver: trip.tai_xe || "Chờ thông tin",
-              driverPhone: trip.sdt_tai_xe || "Chờ thông tin",
-              busNumber: trip.bien_so_xe || "Chờ thông tin",
-              busType: trip.hang_xe || "Chờ thông tin",
-              tripType: trip.loai_chuyen || "Chờ thông tin",
-              distance: trip.khoang_cach || "-- km",
-              status:
-                trip.trang_thai_chuyen === "chuabatdau"
-                  ? "Chưa khởi hành"
-                  : trip.trang_thai_chuyen === "dangchay"
-                  ? "Đang chạy"
-                  : trip.trang_thai_chuyen === "hoanthanh"
-                  ? "Hoàn thành"
-                  : "Chờ thông tin",
-            }));
-          } else {
-            console.warn("❌ No trips found for kid");
+            setAllTrips(kid.danh_sach_chuyen);
+            console.log("📋 All trips saved:", kid.danh_sach_chuyen);
           }
-        } else {
-          console.warn("❌ No response or empty response");
         }
       } catch (error) {
         console.error("❌ Error fetching parent schedules:", error);
@@ -498,6 +495,156 @@ function Location() {
 
     fetchParentSchedules();
   }, []);
+
+  // 🗑️ Force clear ALL routing controls before new route loads
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const map = mapRef.current;
+
+    // First, abort any pending routing requests to prevent errors
+    document.querySelectorAll(".leaflet-routing-container").forEach((el) => {
+      try {
+        // Try to abort any pending XMLHttpRequest in the routing control
+        if (el.__proto__?.removeLayer === null) {
+          console.warn("⚠️ Routing control already destroyed, skipping");
+        }
+      } catch (e) {}
+    });
+
+    // Remove all leaflet-routing-container from DOM
+    document.querySelectorAll(".leaflet-routing-container").forEach((el) => {
+      try {
+        el.remove();
+      } catch (e) {}
+    });
+
+    // Remove all routing-related controls from map._controls
+    if (map._controls) {
+      map._controls.slice().forEach((control) => {
+        try {
+          if (control._routing_control || control.options?.routing) {
+            // Abort pending requests before removing
+            if (control._router && control._router._abortRequest) {
+              control._router._abortRequest();
+            }
+            map.removeControl(control);
+          }
+        } catch (e) {}
+      });
+    }
+
+    // Remove any routing-related DOM elements
+    document.querySelectorAll("[class*='routing']").forEach((el) => {
+      if (
+        el.classList.contains("leaflet-routing-container") ||
+        el.classList.contains("leaflet-routing-instruction")
+      ) {
+        try {
+          el.remove();
+        } catch (e) {}
+      }
+    });
+
+    console.log(`🗑️ Fully cleared routing for shift: ${selectedShift}`);
+  }, [selectedShift, mapRef]);
+
+  // 🔄 Update route khi selectedShift thay đổi
+  useEffect(() => {
+    const loadRouteForShift = async () => {
+      if (allTrips.length === 0) return;
+
+      // 🗑️ Clear old route immediately
+      setRoutePath([]);
+      setStations([]);
+
+      // Tìm chuyến theo shift (morning="Lượt đi", afternoon="Lượt về")
+      const trip = allTrips.find((t) => {
+        const isLuotDi =
+          t.loai_chuyen?.includes("Đón") || t.loai_chuyen?.includes("đi");
+        return selectedShift === "morning" ? isLuotDi : !isLuotDi;
+      });
+
+      if (!trip) {
+        console.warn(`❌ No trip found for shift: ${selectedShift}`);
+        return;
+      }
+
+      console.log(`📍 Loading route for ${selectedShift}:`, trip);
+
+      // Fetch route stops
+      let stops = [];
+      if (trip.route_id) {
+        try {
+          console.log(`🔍 Fetching stops for route ${trip.route_id}...`);
+          stops = await ScheduleService.getRouteStops(trip.route_id);
+          console.log("✅ Route stops fetched:", stops);
+        } catch (err) {
+          console.warn(
+            "⚠️ Could not fetch route stops, using dummy stops:",
+            err
+          );
+        }
+      }
+
+      // Fallback dummy stops
+      if (!stops || stops.length === 0) {
+        console.log("📌 Using dummy stops as fallback");
+        stops = [
+          {
+            id: 1,
+            ten_diem: "Điểm khởi hành",
+            dia_chi: trip.diem_dung || "Chờ thông tin",
+            latitude: 10.7769,
+            longitude: 106.6869,
+          },
+          {
+            id: 2,
+            ten_diem: "Trạm trung gian",
+            dia_chi: "Đường Võ Văn Kiệt",
+            latitude: 10.758,
+            longitude: 106.6966,
+          },
+          {
+            id: 3,
+            ten_diem: "Trường học",
+            dia_chi: "Vinschool",
+            latitude: 10.7438,
+            longitude: 106.7295,
+          },
+        ];
+      }
+
+      const coordinates = stops.map((stop) => [
+        parseFloat(stop.latitude),
+        parseFloat(stop.longitude),
+      ]);
+      console.log("✅ Coordinates extracted:", coordinates);
+      setRoutePath(coordinates);
+      setStations(stops);
+
+      // Update trip info
+      setTripInfo((prev) => ({
+        ...prev,
+        driver: trip.tai_xe || "Chờ thông tin",
+        driverPhone: trip.sdt_tai_xe || "Chờ thông tin",
+        busNumber: trip.bien_so_xe || "Chờ thông tin",
+        busType: trip.hang_xe || "Chờ thông tin",
+        tripType: trip.loai_chuyen || "Chờ thông tin",
+        distance: trip.khoang_cach || "-- km",
+        status:
+          trip.trang_thai_chuyen === "chuabatdau"
+            ? "Chưa khởi hành"
+            : trip.trang_thai_chuyen === "dangchay"
+            ? "Đang chạy"
+            : trip.trang_thai_chuyen === "hoanthanh"
+            ? "Hoàn thành"
+            : "Chờ thông tin",
+      }));
+    };
+
+    loadRouteForShift();
+  }, [selectedShift, allTrips]);
 
   return (
     <div className="parent-location-page">
@@ -526,6 +673,59 @@ function Location() {
               <span>Theo dõi Lộ trình</span>
             </div>
           </div>
+
+          {/* 🔄 Shift Selector */}
+          {allTrips.length > 1 && (
+            <div style={{ marginBottom: "15px" }}>
+              <h4
+                style={{
+                  marginBottom: "8px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                Chọn lượt:
+              </h4>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  onClick={() => setSelectedShift("morning")}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor:
+                      selectedShift === "morning" ? "#3b82f6" : "#e5e7eb",
+                    color: selectedShift === "morning" ? "white" : "#374151",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                    fontSize: "13px",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  🌅 Lượt Đi
+                </button>
+                <button
+                  onClick={() => setSelectedShift("afternoon")}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor:
+                      selectedShift === "afternoon" ? "#f59e0b" : "#e5e7eb",
+                    color: selectedShift === "afternoon" ? "white" : "#374151",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                    fontSize: "13px",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  🌆 Lượt Về
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="parent-location-trip-info">
             <h4>Thông tin chuyến đi</h4>
@@ -647,19 +847,23 @@ function Location() {
               />
 
               {routePath.length > 1 && (
-                <RoutingPolyline waypoints={routePath} color="#3b82f6" />
+                <RoutingPolyline
+                  key={selectedShift}
+                  waypoints={routePath}
+                  color="#3b82f6"
+                />
               )}
 
               {stations.map((station, index) => {
                 let icon = stopIcon;
-                let label = `Trạm ${index + 1}`;
+                let label = station.ten_diem || `Trạm ${index + 1}`;
 
                 if (index === 0) {
                   icon = startIcon;
-                  label = "Điểm khởi hành";
+                  label = station.ten_diem || "Điểm khởi hành";
                 } else if (index === stations.length - 1) {
                   icon = endIcon;
-                  label = "Trường học";
+                  label = station.ten_diem || "Trường học";
                 }
 
                 return (
@@ -672,9 +876,11 @@ function Location() {
                       <div>
                         <strong>{label}</strong>
                         <br />
-                        {station.name}
+                        {station.dia_chi || station.address}
                         <br />
-                        <small>{station.address}</small>
+                        <small>
+                          {station.ghi_chu && `Ghi chú: ${station.ghi_chu}`}
+                        </small>
                       </div>
                     </Popup>
                   </Marker>

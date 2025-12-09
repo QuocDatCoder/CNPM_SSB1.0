@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Header from "../../components/common/Header/header";
 import "./RouteManagement.css";
 import RouteService from "../../services/route.service";
@@ -8,6 +8,7 @@ import {
   Polyline,
   Marker,
   Popup,
+  useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -23,23 +24,70 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
+// SVG marker pin xanh cho điểm đầu
+// Tạo icon điểm đầu màu xanh
 const startIcon = L.icon({
   iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
   iconSize: [32, 32],
   iconAnchor: [16, 32],
 });
 
+// Tạo icon điểm cuối màu đỏ
 const endIcon = L.icon({
   iconUrl: "https://cdn-icons-png.flaticon.com/512/149/149060.png",
   iconSize: [32, 32],
   iconAnchor: [16, 32],
 });
 
+// Icon cho trạm dừng - icon location.png
 const stopIcon = L.icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/3448/3448636.png",
+  iconUrl: "./icons/location.png",
   iconSize: [28, 28],
   iconAnchor: [14, 28],
 });
+
+// Component để vẽ polyline nối các trạm dừng (không vẽ routing control)
+const RoutingPolyline = ({ waypoints, color = "#4ade80" }) => {
+  const map = useMap();
+  const polylineRef = useRef(null);
+
+  useEffect(() => {
+    if (!map || !waypoints || waypoints.length < 2) return;
+
+    // 🗑️ Clean up old polyline
+    if (polylineRef.current) {
+      try {
+        map.removeLayer(polylineRef.current);
+      } catch (e) {}
+      polylineRef.current = null;
+    }
+
+    try {
+      // Vẽ polyline đơn giản nối các trạm dừng
+      polylineRef.current = L.polyline(waypoints, {
+        color: color,
+        opacity: 0.8,
+        weight: 5,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(map);
+
+      console.log(`✅ Polyline added with ${waypoints.length} waypoints`);
+    } catch (err) {
+      console.warn("Error drawing polyline:", err);
+    }
+
+    return () => {
+      if (polylineRef.current) {
+        try {
+          map.removeLayer(polylineRef.current);
+        } catch (e) {}
+      }
+    };
+  }, [waypoints, map, color]);
+
+  return null;
+};
 
 export default function RouteManagement() {
   const [routes, setRoutes] = useState([]);
@@ -138,21 +186,60 @@ export default function RouteManagement() {
 
     setSelectedRoute(displayRoute);
     setShowDetailModal(true);
-    // Fetch route from OSRM
-    const path = await fetchRoute(displayRoute.start, displayRoute.end);
+    // Fetch route through all stops (not just start -> end)
+    const path = await fetchRouteWithStops(displayRoute);
     setRoutePath(path);
   };
 
-  async function fetchRoute(start, end) {
-    const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+  async function fetchRouteWithStops(route) {
+    // Use all stops if available, otherwise use start -> end
+    let waypoints = [];
+
+    if (route.stops && route.stops.length > 0) {
+      console.log("📍 Route stops:", route.stops);
+      // Build waypoints array from all stops - coordinates in position array [lat, lng]
+      waypoints = route.stops
+        .map((stop) => {
+          // Stops have position array [lat, lng]
+          if (stop.position && stop.position.length === 2) {
+            const lat = stop.position[0];
+            const lng = stop.position[1];
+            console.log(`Stop: ${stop.name}, lat: ${lat}, lng: ${lng}`);
+            return [lng, lat]; // OSRM format: [lng, lat]
+          }
+          return null;
+        })
+        .filter((w) => w !== null);
+    } else {
+      // Fallback to start -> end
+      waypoints = [
+        [route.start[1], route.start[0]],
+        [route.end[1], route.end[0]],
+      ];
+    }
+
+    if (waypoints.length < 2) {
+      console.warn("Not enough valid waypoints for routing");
+      return [];
+    }
+
+    // Build OSRM URL with all waypoints
+    const waypointsStr = waypoints.map((w) => `${w[0]},${w[1]}`).join(";");
+    const url = `https://router.project-osrm.org/route/v1/driving/${waypointsStr}?overview=full&geometries=geojson`;
+    console.log("🔗 OSRM URL:", url);
+
     try {
       const res = await fetch(url);
       const json = await res.json();
-      if (!json.routes) return [];
+      if (!json.routes) {
+        console.warn("No routes returned from OSRM");
+        return [];
+      }
       const coords = json.routes[0].geometry.coordinates.map((c) => [
         c[1],
         c[0],
       ]);
+      console.log("✅ Route fetched with", waypoints.length, "waypoints");
       return coords;
     } catch (error) {
       console.error("Error fetching route:", error);
@@ -409,12 +496,11 @@ export default function RouteManagement() {
                       >
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-                        {/* Vẽ tuyến */}
-                        {routePath.length > 0 && (
-                          <Polyline
-                            positions={routePath}
+                        {/* Vẽ tuyến đường thực tế qua tất cả điểm */}
+                        {routePath.length > 1 && (
+                          <RoutingPolyline
+                            waypoints={routePath}
                             color="#4ade80"
-                            weight={5}
                           />
                         )}
 
@@ -428,21 +514,33 @@ export default function RouteManagement() {
                           <Popup>Điểm kết thúc: {selectedRoute.endName}</Popup>
                         </Marker>
 
-                        {/* Marker các trạm dừng */}
+                        {/* Marker các trạm dừng (loại bỏ điểm đầu và cuối) */}
                         {selectedRoute.stops &&
-                          selectedRoute.stops.map((stop) => (
-                            <Marker
-                              key={stop.id}
-                              position={stop.position}
-                              icon={stopIcon}
-                            >
-                              <Popup>
-                                <strong>{stop.name}</strong>
-                                <br />
-                                Giờ đến: {stop.time}
-                              </Popup>
-                            </Marker>
-                          ))}
+                          selectedRoute.stops
+                            .filter(
+                              (stop) =>
+                                !(
+                                  (stop.position[0] ===
+                                    selectedRoute.start[0] &&
+                                    stop.position[1] ===
+                                      selectedRoute.start[1]) ||
+                                  (stop.position[0] === selectedRoute.end[0] &&
+                                    stop.position[1] === selectedRoute.end[1])
+                                )
+                            )
+                            .map((stop) => (
+                              <Marker
+                                key={stop.id}
+                                position={stop.position}
+                                icon={stopIcon}
+                              >
+                                <Popup>
+                                  <strong>{stop.name}</strong>
+                                  <br />
+                                  Giờ đến: {stop.time}
+                                </Popup>
+                              </Marker>
+                            ))}
                       </MapContainer>
                     )}
                   </div>
