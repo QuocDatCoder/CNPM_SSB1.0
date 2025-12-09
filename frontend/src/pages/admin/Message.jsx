@@ -67,18 +67,44 @@ export default function Message() {
     }
   };
 
-  const loadMessages = async () => {
+// File: Message.jsx
+
+const loadMessages = async () => {
     setLoading(true);
     try {
-      const res = await NotificationService.getMessages(activeCategory);
-      setMessages(Array.isArray(res) ? res : (res.data || []));
+      // --- SỬA Ở ĐÂY ---
+      // Nếu đang ở tab 'starred', hãy đổi tên thành 'important' để chiều lòng Backend
+      const typeToSend = activeCategory === 'starred' ? 'important' : activeCategory;
+
+      console.log(`📡 Đang gọi API với type: ${typeToSend}`); 
+      
+      const res = await NotificationService.getMessages(typeToSend);
+
+      // --- XỬ LÝ DATA TRẢ VỀ ---
+      let rawData = [];
+      if (res && Array.isArray(res.data)) {
+          rawData = res.data; 
+      } else if (Array.isArray(res)) {
+          rawData = res;
+      }
+
+      // Giờ thì Backend đã trả về đúng các tin quan trọng rồi
+      // Bạn chỉ cần chuẩn hóa biến is_starred để hiện ngôi sao màu vàng thôi
+      const formattedData = rawData.map(msg => ({
+          ...msg,
+          is_starred: (msg.is_starred === 1 || msg.is_starred === true)
+      }));
+
+      // KHÔNG CẦN LỌC THỦ CÔNG NỮA (Vì Backend lọc chuẩn rồi)
+      setMessages(formattedData);
+
     } catch (error) {
-      console.error("Lỗi tải tin nhắn:", error);
+      console.error("Lỗi:", error);
       setMessages([]);
     } finally {
       setLoading(false);
     }
-  };
+};
 
   const loadRecipientsData = async () => {
     try {
