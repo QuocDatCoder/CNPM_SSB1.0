@@ -71,4 +71,11 @@ router.post(
   scheduleController.calculateStopDistances
 );
 
+// 12. Lấy active schedule cho một route (cho admin dashboard)
+// Endpoint: GET /api/schedules/route/:routeId/active
+router.get(
+  "/route/:routeId/active",
+  scheduleController.getActiveScheduleForRoute
+);
+
 module.exports = router;

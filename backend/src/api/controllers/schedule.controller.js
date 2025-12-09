@@ -222,6 +222,42 @@ const scheduleController = {
       });
     }
   },
+
+  // Get active schedule for a route (cho admin dashboard)
+  getActiveScheduleForRoute: async (req, res) => {
+    try {
+      const { routeId } = req.params;
+      const { Schedule } = require("../../data/models");
+
+      // Tìm schedule đang chạy cho route này
+      const activeSchedule = await Schedule.findOne({
+        where: {
+          route_id: routeId,
+          trang_thai: "dangchay", // Status phải là 'dangchay'
+        },
+      });
+
+      if (!activeSchedule) {
+        return res.status(404).json({
+          message: "No active schedule found for this route",
+        });
+      }
+
+      res.status(200).json({
+        id: activeSchedule.id,
+        route_id: activeSchedule.route_id,
+        schedule_id: activeSchedule.id,
+        driver_id: activeSchedule.driver_id,
+        bus_id: activeSchedule.bus_id,
+        status: activeSchedule.trang_thai,
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: "Error fetching active schedule",
+        error: error.message,
+      });
+    }
+  },
 };
 
 module.exports = scheduleController;

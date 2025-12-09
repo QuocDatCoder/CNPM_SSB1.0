@@ -286,6 +286,8 @@ class BusSimulator {
 
     const locationData = {
       scheduleId: this.scheduleId,
+      routeId: this.schedule?.route_id,
+      driverId: this.driverId,
       busId: this.bus.id,
       bien_so_xe: this.bus.bien_so_xe,
       location: {

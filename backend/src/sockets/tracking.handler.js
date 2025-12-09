@@ -1,4 +1,5 @@
 const { stopBusSimulator } = require("../services/bus-simulator.service");
+const { Schedule } = require("../data/models");
 
 module.exports = (io, socket) => {
   /**
@@ -71,8 +72,14 @@ module.exports = (io, socket) => {
    * Tài xế gửi vị trí xe bus thực tế lên backend
    * Data: { latitude, longitude, scheduleId, driverId, timestamp }
    */
-  socket.on("driver-location-update", (data) => {
+  socket.on("driver-location-update", async (data) => {
     console.log("📍 Driver location update received:", data);
+    console.log(
+      "🔍 DEBUG - routeId in data:",
+      data.routeId,
+      "scheduleId:",
+      data.scheduleId
+    );
 
     // Validate data
     if (!data.latitude || !data.longitude || !data.scheduleId) {
@@ -93,6 +100,29 @@ module.exports = (io, socket) => {
       }
     }
 
+    // 🔄 If routeId is missing, query it from Schedule table
+    let routeId = data.routeId;
+    if (!routeId && data.scheduleId) {
+      try {
+        const schedule = await Schedule.findByPk(data.scheduleId);
+        if (schedule && schedule.route_id) {
+          routeId = schedule.route_id;
+          console.log(
+            `✅ Found routeId ${routeId} for schedule ${data.scheduleId}`
+          );
+        } else {
+          console.warn(
+            `⚠️ Schedule ${data.scheduleId} not found or has no route_id`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `❌ Error fetching route_id for schedule ${data.scheduleId}:`,
+          error.message
+        );
+      }
+    }
+
     // Phát lại cho tất cả phụ huynh & admin trong parent-tracking room
     io.to("parent-tracking").emit("bus-location-update", {
       location: {
@@ -100,6 +130,7 @@ module.exports = (io, socket) => {
         longitude: data.longitude,
       },
       scheduleId: data.scheduleId,
+      routeId: routeId,
       driverId: data.driverId,
       timestamp: data.timestamp,
       progressPercentage: data.progressPercentage || 0,
@@ -108,9 +139,7 @@ module.exports = (io, socket) => {
     });
 
     console.log(
-      `📤 Broadcasted location to parent-tracking room:`,
-      data.latitude,
-      data.longitude
+      `📤 Broadcasted location to parent-tracking room: lat=${data.latitude}, lng=${data.longitude}, routeId=${routeId}`
     );
   });
 

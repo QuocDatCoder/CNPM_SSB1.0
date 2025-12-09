@@ -381,6 +381,7 @@ function Home() {
 
             return {
               id: schedule.id,
+              routeId: schedule.route_id || schedule.routeId || "",
               shift: scheduleType === "morning" ? "Sáng" : "Chiều",
               name:
                 schedule.title ||
@@ -1206,6 +1207,7 @@ function Home() {
           latitude: busLocation.latitude,
           longitude: busLocation.longitude,
           scheduleId: activeTrip.id,
+          routeId: activeTrip.routeId,
           driverId: user.id || user.driver_code,
           progressPercentage,
           distanceCovered,

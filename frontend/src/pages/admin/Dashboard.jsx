@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -11,6 +11,7 @@ import "leaflet/dist/leaflet.css";
 import "./Dashboard.css";
 import RouteService from "../../services/route.service";
 import Header from "../../components/common/Header/header";
+import ParentTrackingService from "../../services/parent-tracking.service";
 
 // Fix leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -58,6 +59,9 @@ export default function Dashboard() {
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [routePath, setRoutePath] = useState([]);
   const [busPos, setBusPos] = useState(null);
+  const [realTimeBusPos, setRealTimeBusPos] = useState(null);
+  const [activeScheduleId, setActiveScheduleId] = useState(null);
+  const busListenerRef = useRef(null);
   const itemsPerPage = 4;
 
   useEffect(() => {
@@ -90,17 +94,46 @@ export default function Dashboard() {
 
   const visibleRoutes = routes.slice(currentIndex, currentIndex + itemsPerPage);
 
-  // Fetch route from OSRM with retry and timeout
-  async function fetchRoute(start, end, retryCount = 0, maxRetries = 3) {
-    const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
-    const TIMEOUT_MS = 30000; // 30 seconds timeout
+  // Fetch route from OSRM qua tất cả các trạm
+  async function fetchRoute(route, retryCount = 0, maxRetries = 3) {
+    // Xây dựng waypoints: start + stops + end
+    let waypoints = [];
+
+    // Điểm bắt đầu
+    if (route.start && Array.isArray(route.start)) {
+      waypoints.push(route.start);
+    }
+
+    // Tất cả các trạm dừng
+    if (route.stops && Array.isArray(route.stops)) {
+      const stopCoords = route.stops
+        .filter((stop) => stop.position && Array.isArray(stop.position))
+        .map((stop) => stop.position);
+      waypoints.push(...stopCoords);
+    }
+
+    // Điểm kết thúc
+    if (route.end && Array.isArray(route.end)) {
+      waypoints.push(route.end);
+    }
+
+    if (waypoints.length < 2) {
+      console.error("❌ Không đủ waypoints:", waypoints.length);
+      return [];
+    }
+
+    const waypointsStr = waypoints.map((w) => `${w[1]},${w[0]}`).join(";");
+    const url = `https://router.project-osrm.org/route/v1/driving/${waypointsStr}?overview=full&geometries=geojson`;
+    const TIMEOUT_MS = 30000;
 
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
       console.log(
-        `🔄 Fetching route (attempt ${retryCount + 1}/${maxRetries + 1})...`
+        `🔄 Fetching route qua ${waypoints.length} điểm (attempt ${
+          retryCount + 1
+        }/${maxRetries + 1})...`
       );
 
       const res = await fetch(url, { signal: controller.signal });
@@ -122,7 +155,9 @@ export default function Dashboard() {
         c[0],
       ]);
 
-      console.log(`✅ Route fetched: ${coords.length} points`);
+      console.log(
+        `✅ Route fetched: ${coords.length} points qua ${waypoints.length} waypoints`
+      );
       return coords;
     } catch (error) {
       console.error(
@@ -132,10 +167,10 @@ export default function Dashboard() {
 
       // Retry with exponential backoff
       if (retryCount < maxRetries) {
-        const backoffMs = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        const backoffMs = Math.pow(2, retryCount) * 1000;
         console.log(`⏳ Retrying in ${backoffMs}ms...`);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
-        return fetchRoute(start, end, retryCount + 1, maxRetries);
+        return fetchRoute(route, retryCount + 1, maxRetries);
       }
 
       console.error("❌ All OSRM attempts failed");
@@ -146,28 +181,134 @@ export default function Dashboard() {
   // Handle route selection
   const handleSelectRoute = async (route) => {
     setSelectedRoute(route);
-    const path = await fetchRoute(route.start, route.end);
+    setRealTimeBusPos(null);
+    setActiveScheduleId(null);
+
+    console.log(`🔍 Chọn route: ${route.name} (ID: ${route.id})`);
+
+    // Fetch active schedule cho route này
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/schedules/route/${route.id}/active`
+      );
+      if (response.ok) {
+        const activeSchedule = await response.json();
+        if (activeSchedule && activeSchedule.id) {
+          setActiveScheduleId(activeSchedule.id);
+          console.log(
+            `✅ Found active schedule: ${activeSchedule.id} for route ${route.id}`
+          );
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch active schedule: ${error.message}`);
+    }
+
+    const path = await fetchRoute(route);
     setRoutePath(path);
     if (path.length > 0) {
       setBusPos(path[0]);
     }
   };
 
-  // Animation chạy xe
+  // Listen for real-time bus locations từ socket - giống như Bus.jsx
   useEffect(() => {
-    if (routePath.length === 0) return;
+    if (!selectedRoute || !selectedRoute.id) return;
 
-    let index = 0;
+    console.log(
+      `📡 Thiết lập listener vị trí xe real-time cho route ${selectedRoute.id}`
+    );
 
-    const interval = setInterval(() => {
-      index++;
-      if (index >= routePath.length) index = 0;
+    // Init socket
+    const socket = ParentTrackingService.initSocket();
+    console.log(`✅ Socket initialized:`, socket ? "OK" : "FAIL");
 
-      setBusPos(routePath[index]);
-    }, 200);
+    ParentTrackingService.joinParentTracking();
+    console.log(
+      `✅ Joined parent-tracking room, socket connected:`,
+      ParentTrackingService.socket?.connected
+    );
 
-    return () => clearInterval(interval);
-  }, [routePath]);
+    // Remove old listener
+    ParentTrackingService.socket?.off("bus-location-update");
+
+    const handleBusLocationUpdate = (data) => {
+      console.log("📍 [DASHBOARD] Nhận bus-location-update từ socket:", data);
+
+      // Debug: log raw data structure
+      console.log("📋 Data structure:", {
+        hasDriverId: !!data.driverId,
+        hasRouteId: !!data.routeId,
+        hasLocation: !!data.location,
+        selectedRouteId: selectedRoute.id,
+        dataRouteId: data.routeId,
+      });
+
+      // Chỉ lấy data từ driver (có driverId)
+      if (!data.driverId) {
+        console.log("⏭️ Bỏ qua - không có driverId");
+        return;
+      }
+
+      // CRITICAL: Check if routeId matches selected route
+      // Convert both to number for comparison (backend returns number, frontend may have leading zeros like "001")
+      const dataRouteId = Number(data.routeId);
+      const selectedRouteId = Number(selectedRoute.id);
+
+      if (dataRouteId !== selectedRouteId) {
+        console.log(
+          `⏭️ Skip - routeId không match: data.routeId=${dataRouteId}, selectedRoute.id=${selectedRouteId}`
+        );
+        return;
+      }
+
+      // Update vị trí từ location object
+      if (data.location) {
+        const newLat = data.location.latitude;
+        const newLng = data.location.longitude;
+
+        console.log(
+          `✅ [Route ${selectedRoute.id}] Updating position: lat=${newLat}, lng=${newLng}`
+        );
+
+        setRealTimeBusPos({
+          latitude: newLat,
+          longitude: newLng,
+          timestamp: data.timestamp || new Date().toISOString(),
+          scheduleId: data.scheduleId,
+        });
+        console.log(
+          `✅ State updated - Marker sẽ hiển thị: ${newLat.toFixed(
+            5
+          )}, ${newLng.toFixed(5)}`
+        );
+      } else {
+        console.warn("⚠️ data.location không tồn tại");
+      }
+    };
+
+    if (ParentTrackingService.socket?.connected) {
+      ParentTrackingService.socket.on(
+        "bus-location-update",
+        handleBusLocationUpdate
+      );
+      console.log(`✅ Listener attached to bus-location-update`);
+    } else {
+      console.warn("⚠️ Socket not connected yet, will try to listen anyway...");
+      ParentTrackingService.socket?.on(
+        "bus-location-update",
+        handleBusLocationUpdate
+      );
+    }
+
+    return () => {
+      ParentTrackingService.socket?.off(
+        "bus-location-update",
+        handleBusLocationUpdate
+      );
+      console.log(`🛑 Stop listening bus-location-update`);
+    };
+  }, [selectedRoute, activeScheduleId]);
 
   return (
     <div className="dashboard">
@@ -237,11 +378,10 @@ export default function Dashboard() {
             center={selectedRoute.start}
             zoom={14}
             style={{ height: "100%", width: "100%" }}
-            key={selectedRoute.id}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-            {/* Vẽ tuyến */}
+            {/* Vẽ tuyến đi qua tất cả trạm */}
             {routePath.length > 0 && (
               <Polyline positions={routePath} color="blue" weight={5} />
             )}
@@ -268,10 +408,27 @@ export default function Dashboard() {
                 </Marker>
               ))}
 
-            {/* Marker xe chạy */}
-            {busPos && (
-              <Marker position={busPos} icon={busIcon}>
-                <Popup>{selectedRoute.name}</Popup>
+            {/* Icon xe - CHỈ hiển thị khi có vị trí real-time từ driver */}
+            {realTimeBusPos && (
+              <Marker
+                position={[realTimeBusPos.latitude, realTimeBusPos.longitude]}
+                icon={busIcon}
+              >
+                <Popup>
+                  <div>
+                    <strong>🚌 {selectedRoute.name}</strong>
+                    <br />
+                    <small>
+                      Vị trí: {realTimeBusPos.latitude.toFixed(5)},{" "}
+                      {realTimeBusPos.longitude.toFixed(5)}
+                    </small>
+                    <br />
+                    <small>
+                      Cập nhật:{" "}
+                      {new Date(realTimeBusPos.timestamp).toLocaleTimeString()}
+                    </small>
+                  </div>
+                </Popup>
               </Marker>
             )}
           </MapContainer>
