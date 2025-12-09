@@ -4,7 +4,6 @@ const notificationService = require('../../services/notification.service');
 exports.getMyNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
-    // Đảm bảo page và limit là số nguyên
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const type = req.query.type || 'inbox';
@@ -12,7 +11,6 @@ exports.getMyNotifications = async (req, res) => {
 
     const { count, rows } = await notificationService.getMessages(userId, type, limit, offset);
 
-    // Map dữ liệu sang format Frontend cần
     const formattedNotifications = rows.map(item => ({
       id: item.id,
       sender: item.nguoi_gui ? item.nguoi_gui.ho_ten : "Hệ thống",
@@ -38,11 +36,10 @@ exports.getMyNotifications = async (req, res) => {
   }
 };
 
-// 2. Gửi tin nhắn (Admin/Parent gửi)
+// 2. Gửi tin nhắn thường
 exports.create = async (req, res) => {
   try {
     const senderId = req.user.id;
-    // Lấy đúng các trường từ Frontend gửi lên
     const { recipient_ids, subject, content, schedule_time, type } = req.body;
 
     if (!recipient_ids || !recipient_ids.length || !content) {
@@ -65,7 +62,41 @@ exports.create = async (req, res) => {
   }
 };
 
-// 3. Đánh dấu sao
+// 3. API MỚI: Lấy danh sách người nhận (Hàm này đang bị thiếu gây ra lỗi)
+// src/controllers/notification.controller.js
+
+exports.getRecipients = async (req, res) => {
+  try {
+    const { group, routeId } = req.query; 
+    const userId = req.user.id;
+    let data = [];
+
+    // Log kiểm tra xem Server có nhận được routeId không
+    console.log(`📡 [API getRecipients] Group: ${group} | RouteId: ${routeId}`);
+
+    switch (group) {
+      case 'drivers':
+        data = await notificationService.getAllDriversByAllRoute(routeId);
+        break;
+      case 'all-parents':
+        // Chỉ gọi hàm này nếu routeId có giá trị hợp lệ
+        data = await notificationService.getAllParentsByAllRoute(routeId);
+        break;
+      case 'my-route-parents':
+        data = await notificationService.getParentsByDriverRoute(userId);
+        break;
+      default:
+        return res.status(400).json({ message: "Nhóm người nhận không hợp lệ" });
+    }
+
+    return res.status(200).json({ data });
+  } catch (error) {
+    console.error("Lỗi lấy danh sách người nhận:", error);
+    return res.status(500).json({ message: "Lỗi server." });
+  }
+};
+
+// 4. Đánh dấu sao
 exports.toggleStar = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -77,7 +108,7 @@ exports.toggleStar = async (req, res) => {
   }
 };
 
-// 4. Xóa tin nhắn (Vào thùng rác)
+// 5. Xóa tin nhắn
 exports.delete = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -89,37 +120,34 @@ exports.delete = async (req, res) => {
   }
 };
 
-// 5. Gửi cảnh báo (Dành cho Driver)
+// 6. Gửi cảnh báo (Driver)
 exports.sendDriverAlert = async (req, res) => {
   try {
-    const senderId = req.user.id; // ID tài xế đang đăng nhập
-    const { recipient_ids, message, alertType } = req.body;
+    const driverId = req.user.id; 
+    const { message, alertType, toParents, toAdmin } = req.body;
 
-    // 1. Validate dữ liệu đầu vào
-    if (!recipient_ids || !Array.isArray(recipient_ids) || recipient_ids.length === 0) {
-      return res.status(400).json({ message: "Danh sách người nhận (recipient_ids) không hợp lệ." });
-    }
     if (!message) {
       return res.status(400).json({ message: "Nội dung cảnh báo không được để trống." });
     }
+    if (!toParents && !toAdmin) {
+      return res.status(400).json({ message: "Phải chọn ít nhất một nơi gửi." });
+    }
 
-    // 2. Gọi Service để lưu vào DB (Service đã có hàm sendMessage dùng bulkCreate)
-    // Chúng ta tái sử dụng hàm sendMessage vì nó đã hỗ trợ gửi cho nhiều người
-    const result = await notificationService.sendMessage({
-      senderId: senderId,
-      recipientIds: recipient_ids, // Mảng ID: [1, 50, 51, 52...]
-      subject: "⚠️ CẢNH BÁO TỪ TÀI XẾ", // Hoặc map theo alertType
-      content: message,
-      type: alertType || 'canhbao',
-      scheduleTime: null // Gửi ngay lập tức
+    const result = await notificationService.sendDriverAlert({
+      driverId,
+      alertType,
+      message,
+      toParents: toParents === true,
+      toAdmin: toAdmin === true
     });
 
-    // 3. Trả về kết quả
     return res.status(200).json({ 
-  success: true,  // <--- Code mới có chữ success
-  message: `Đã gửi thành công cho ${result.length} người.`,
-  data: result    // <--- Code mới có chữ data
-  });
+      success: true,
+      message: result.count > 0 
+        ? `Đã gửi cảnh báo thành công cho ${result.count} người.` 
+        : "Không tìm thấy người nhận phù hợp.",
+      data: { count: result.count }
+    });
 
   } catch (error) {
     console.error("Lỗi gửi cảnh báo (Driver):", error);
