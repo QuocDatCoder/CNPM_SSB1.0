@@ -9,8 +9,6 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "leaflet-routing-machine";
-import "../../../node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css";
 import Header from "../../components/common/Header/header";
 import "./Bus.css";
 import BusService from "../../services/bus.service";
@@ -66,78 +64,42 @@ const stopIcon = L.icon({
   popupAnchor: [1, -34],
 });
 
-// Component để vẽ routing
+// Component để vẽ polyline nối các trạm dừng
 const RoutingPolyline = ({ waypoints, color = "#3b82f6" }) => {
   const map = useMap();
-  const routingControlRef = useRef(null);
-  const fallbackPolylineRef = useRef(null);
+  const polylineRef = useRef(null);
 
   useEffect(() => {
     if (!map || !waypoints || waypoints.length < 2) return;
 
-    if (routingControlRef.current && map.hasLayer(routingControlRef.current)) {
-      map.removeControl(routingControlRef.current);
-      routingControlRef.current = null;
-    }
-    if (
-      fallbackPolylineRef.current &&
-      map.hasLayer(fallbackPolylineRef.current)
-    ) {
-      map.removeLayer(fallbackPolylineRef.current);
-      fallbackPolylineRef.current = null;
+    // Clean up old polyline
+    if (polylineRef.current) {
+      try {
+        map.removeLayer(polylineRef.current);
+      } catch (e) {}
+      polylineRef.current = null;
     }
 
     try {
-      routingControlRef.current = L.Routing.control({
-        waypoints: waypoints.map((coord) => L.latLng(coord[0], coord[1])),
-        lineOptions: {
-          styles: [
-            {
-              color: color,
-              opacity: 0.8,
-              weight: 5,
-              lineCap: "round",
-              lineJoin: "round",
-            },
-          ],
-        },
-        show: false,
-        addWaypoints: false,
-        draggableWaypoints: false,
-        fitSelectedRoutes: true,
-        router: L.Routing.osrmv1({
-          serviceUrl: "https://router.project-osrm.org/route/v1",
-        }),
-      });
+      // Vẽ polyline nối các trạm dừng
+      polylineRef.current = L.polyline(waypoints, {
+        color: color,
+        opacity: 0.8,
+        weight: 5,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(map);
 
-      routingControlRef.current.addTo(map);
+      console.log(`✅ Polyline added with ${waypoints.length} waypoints`);
     } catch (err) {
-      console.warn("Routing error, using fallback polyline:", err);
-      if (map) {
-        fallbackPolylineRef.current = L.polyline(waypoints, {
-          color: color,
-          opacity: 0.8,
-          weight: 5,
-          lineCap: "round",
-          lineJoin: "round",
-        }).addTo(map);
-      }
+      console.warn("Error drawing polyline:", err);
     }
 
     return () => {
-      if (
-        routingControlRef.current &&
-        map.hasLayer(routingControlRef.current)
-      ) {
+      if (polylineRef.current) {
         try {
-          map.removeControl(routingControlRef.current);
+          map.removeLayer(polylineRef.current);
         } catch (e) {}
-      }
-      if (
-        fallbackPolylineRef.current &&
-        map.hasLayer(fallbackPolylineRef.current)
-      ) {
-        map.removeLayer(fallbackPolylineRef.current);
       }
     };
   }, [waypoints, map, color]);
@@ -245,36 +207,41 @@ export default function Bus() {
       return;
     }
 
-    // Setup route path with OSRM routing
+    // Setup route path with OSRM routing through all stops
     try {
-      const path = await fetchRoute(busRoute.start, busRoute.end);
+      const path = await fetchRouteWithStops(busRoute);
       setRoutePath(path);
 
-      // Use dummy stops as placeholders
-      const dummyStops = [
-        {
-          id: 1,
-          ten_diem: "Điểm khởi hành",
-          dia_chi: "Chờ thông tin",
-          latitude: busRoute.start[0],
-          longitude: busRoute.start[1],
-        },
-        {
-          id: 2,
-          ten_diem: "Trạm trung gian",
-          dia_chi: "Đường Võ Văn Kiệt",
-          latitude: (busRoute.start[0] + busRoute.end[0]) / 2,
-          longitude: (busRoute.start[1] + busRoute.end[1]) / 2,
-        },
-        {
-          id: 3,
-          ten_diem: "Trường học",
-          dia_chi: "Vinschool",
-          latitude: busRoute.end[0],
-          longitude: busRoute.end[1],
-        },
-      ];
-      setStations(dummyStops);
+      // Sử dụng thực tế các trạm dừng từ route
+      if (busRoute.stops && busRoute.stops.length > 0) {
+        setStations(busRoute.stops);
+      } else {
+        // Fallback: dùng dummy stops
+        const dummyStops = [
+          {
+            id: 1,
+            name: "Điểm khởi hành",
+            dia_chi: "Chờ thông tin",
+            position: busRoute.start,
+          },
+          {
+            id: 2,
+            name: "Trạm trung gian",
+            dia_chi: "Đường Võ Văn Kiệt",
+            position: [
+              (busRoute.start[0] + busRoute.end[0]) / 2,
+              (busRoute.start[1] + busRoute.end[1]) / 2,
+            ],
+          },
+          {
+            id: 3,
+            name: "Trường học",
+            dia_chi: "Vinschool",
+            position: busRoute.end,
+          },
+        ];
+        setStations(dummyStops);
+      }
     } catch (err) {
       console.error("Error setting up route:", err);
     }
@@ -282,9 +249,37 @@ export default function Bus() {
     setShowLocationModal(true);
   };
 
-  // Fetch route from OSRM
-  async function fetchRoute(start, end) {
-    const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+  // Fetch route from OSRM using all stops
+  async function fetchRouteWithStops(route) {
+    let waypoints = [];
+
+    if (route.stops && route.stops.length > 0) {
+      // Build waypoints from all stops
+      waypoints = route.stops
+        .map((stop) => {
+          if (stop.position && stop.position.length === 2) {
+            const lat = stop.position[0];
+            const lng = stop.position[1];
+            return [lng, lat]; // OSRM format: [lng, lat]
+          }
+          return null;
+        })
+        .filter((w) => w !== null);
+    } else {
+      // Fallback to start -> end
+      waypoints = [
+        [route.start[1], route.start[0]],
+        [route.end[1], route.end[0]],
+      ];
+    }
+
+    if (waypoints.length < 2) {
+      console.warn("Not enough valid waypoints for routing");
+      return [];
+    }
+
+    const waypointsStr = waypoints.map((w) => `${w[0]},${w[1]}`).join(";");
+    const url = `https://router.project-osrm.org/route/v1/driving/${waypointsStr}?overview=full&geometries=geojson`;
 
     try {
       const res = await fetch(url);
@@ -358,9 +353,15 @@ export default function Bus() {
 
   // Auto-fit map when routePath changes
   useEffect(() => {
-    if (routePath.length > 0 && mapRef.current) {
-      const bounds = L.latLngBounds(routePath);
-      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    if (routePath.length > 0 && mapRef.current && mapRef.current._container) {
+      try {
+        const bounds = L.latLngBounds(routePath);
+        if (bounds.isValid()) {
+          mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+        }
+      } catch (err) {
+        console.warn("Error fitting bounds:", err);
+      }
     }
   }, [routePath]);
 
@@ -972,39 +973,35 @@ export default function Bus() {
                     )}
 
                     {/* Marker điểm bắt đầu */}
-                    {stations.length > 0 && (
-                      <Marker
-                        position={[stations[0].latitude, stations[0].longitude]}
-                        icon={startIcon}
-                      >
+                    {stations.length > 0 && stations[0].position && (
+                      <Marker position={stations[0].position} icon={startIcon}>
                         <Popup>
                           <div>
                             <strong>Điểm khởi hành</strong>
                             <br />
-                            {stations[0].ten_diem}
+                            {stations[0].name || stations[0].ten_diem}
                           </div>
                         </Popup>
                       </Marker>
                     )}
 
                     {/* Marker điểm kết thúc */}
-                    {stations.length > 0 && (
-                      <Marker
-                        position={[
-                          stations[stations.length - 1].latitude,
-                          stations[stations.length - 1].longitude,
-                        ]}
-                        icon={endIcon}
-                      >
-                        <Popup>
-                          <div>
-                            <strong>Trường học</strong>
-                            <br />
-                            {stations[stations.length - 1].ten_diem}
-                          </div>
-                        </Popup>
-                      </Marker>
-                    )}
+                    {stations.length > 0 &&
+                      stations[stations.length - 1].position && (
+                        <Marker
+                          position={stations[stations.length - 1].position}
+                          icon={endIcon}
+                        >
+                          <Popup>
+                            <div>
+                              <strong>Trường học</strong>
+                              <br />
+                              {stations[stations.length - 1].name ||
+                                stations[stations.length - 1].ten_diem}
+                            </div>
+                          </Popup>
+                        </Marker>
+                      )}
 
                     {/* Real-time bus location marker */}
                     {busPos && (
