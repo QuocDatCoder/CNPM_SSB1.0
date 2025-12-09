@@ -1551,15 +1551,21 @@ export default function DriverDashboard() {
         alertType: alertType,
         toParents: sendToParents,
         toAdmin: sendToAdmin,
-        routeId: sendToParents ? selectedRouteId : null // [MỚI] Gửi kèm routeId
+        routeId: sendToParents ? selectedRouteId : null
       });
 
-      if (res && (res.success || res.status === 200)) { 
+      console.log("Server trả về:", res); // Debug xem nó là gì
+
+      // SỬA LẠI ĐOẠN NÀY:
+      // Kiểm tra nới lỏng hơn. Nếu res tồn tại và không bị đánh dấu success: false thì coi là thành công.
+      // (Nhiều backend trả về status 201 cho lệnh tạo mới, nên check === 200 sẽ bị sai)
+      if (res && res.success !== false) { 
         alert(res.message || "Gửi cảnh báo thành công!");
         setShowAlertModal(false);
         setAlertMessage("");
       } else {
-        alert(res.message || "Có lỗi xảy ra, vui lòng thử lại.");
+        // Chỉ vào đây nếu backend trả về { success: false, message: "..." } nhưng vẫn để HTTP 200
+        alert(res?.message || "Có lỗi xảy ra, vui lòng thử lại.");
       }
     } catch (error) {
       console.error("❌ Lỗi gửi cảnh báo:", error);
